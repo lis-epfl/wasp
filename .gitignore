@@ -1,0 +1,17 @@
+src/__pycache__/
+src/calibration_data/*
+!src/calibration_data/
+src/calibration_images/*
+!src/calibration_images/
+src/csvs/*
+!src/csvs/
+src/draw/*
+!src/draw/
+src/groove.py/
+src/lib/
+src/notdetected/*
+!src/notdetected/
+
+src/test.png
+src/draw.jpg
+src/cam.jpg
