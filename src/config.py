@@ -6,43 +6,48 @@ import json
 def default():
     '''Create a new config file with the default values'''
     data = {
-        "fps": 30,
-        "aruco":{
-        "dictionary": "DICT_6X6_250",
+    "fps": 50,
+    "aruco":{
+        "dictioénary": "DICT_6X6_250",
         "ID": 23,
-        "size": 200,
-        "real_size": 0.1,
-        "draw": 1
+        "size": 500,
+        "real_size": 0.169,
+        "draw": 0,
+        "calibration_square":0.032
     },
-        'leds': {
-            'led_front': {
-                'pin': 'D4',
-                'num_leds': 1
-            },
-            'led_back': {
-                'pin': 'D5',
-                'num_leds': 1
-            },
-            'led_bottom': {
-                'pin': 'D6',
-                'num_leds': 1
-            }
+    "leds": {
+        "led_front": {
+            "pin": "D24" ,
+            "num_leds": 1
         },
-        'motor': {
-            'channels': 8,
-            'channel': 0,
-            'K_POS': 0.5,
-            'K_SPEED': 0.5
+        "led_back": {
+            "pin": "D6",
+            "num_leds": 1
         },
-        "ultrasonics": {
-        "threshold":100,
+        "led_bottom": {
+            "pin": "D10",
+            "num_leds": 1
+        }
+    },
+    "motor": {
+        "channels": 8,
+        "channel": 0,
+        "K_POS": 0.5,
+        "K_SPEED": 0.5,
+        "departure":0.35
+    },
+    "ultrasonics": {
+        "bw-threshold":60,
+        "fw-threshold":100,
         "front": {
-            "pin": "D7"
+            "pin": 22
         },
         "back": {
-            "pin": "D8"
+            "pin": 26
+
         }
     }
+
     }
     # Write the data to the config file
     with open('config.json', 'w') as file:
