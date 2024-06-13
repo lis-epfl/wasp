@@ -34,7 +34,7 @@ To install the Safe Outdoor Flight system, follow these steps:
 
 
 # Use
-
+## Tracking
 1. Run calibration script
 
 ```
@@ -48,7 +48,7 @@ python main.py
 ```
 
 
-# Move forward or backward without tracking
+## Move forward or backward without tracking
 
 1. Run main script for forward
 
