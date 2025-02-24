@@ -18,4 +18,5 @@ src/cam.jpg
 src/grove.py
 src/grovepy
 .venv/
+venv/
 mocap/

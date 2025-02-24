@@ -6,9 +6,18 @@ This ensures safety but constrains movement to a small flight envelope the size 
 To address this gap, we propose a novel cable-guided mobile safety system (CGMSS) that detects and moves in tandem with the UAV, allowing tethered outdoor flight. It tracks the UAV using a camera, detects the end of the line using distance sensors and communicates via LEDs with the user.
 ![CGMSS](/docs/concept.png)
 
-# Installation
 
-To install the Safe Outdoor Flight system, follow these steps:
+# SSH onnection
+
+1. Connect the Raspberry Pi to a wifi network (preferably a smartphone's hotspot if planning on using the device outside)
+
+2. Connect the laptop to the same wifi network then connect to the Raspberry Pi (password: lislis)
+    ```
+   ssh lis@raspberrypi.local
+    ```
+3. Optional: In VSCode on the laptop, use the extansion SSH Remote to access the Raspberry Pi's code
+
+# Installation
 
 1. Clone the repository:
     ```
@@ -16,16 +25,14 @@ To install the Safe Outdoor Flight system, follow these steps:
     ```
 
 2. Navigate to the project directory:
-    ```
-    cd safe-outdoor-flight/src
-    ```
+
 3. Create a virtual environment and activate it
     ```
     python -m venv myenv
     source myenv/bin/activate 
     ```
 
-4. Install the required dependencies:
+4. Install the required dependencies in the virtual environment:
     ```
     pip install -r requirements.txt
     ```
