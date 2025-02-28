@@ -1,9 +1,22 @@
 # External Libraries
+
+# General
 numpy==1.24.3
-pandas==2.1.1
-opencv-python==4.8.0.76
-picamera2==0.3.24
+# pandas==2.1.1
+# opencv-python==4.8.0.76
+
+# Camera
+# picamera2==0.3.24
 # libcamera==0.0.5
-smbus2==0.4.2
-gpiozero==1.6.2
+
+# Motor
 simple-pid==1.0.1
+odrive==0.6.9.post0
+
+# GPIO
+RPi.GPIO==0.7.1
+pigpio==1.78
+gpiozero==1.6.2
+
+
+# smbus2==0.4.2
