@@ -5,9 +5,10 @@ import curses
 import time
 import os
 
-import main
+from main import STATE, PULLEY_RADIUS, MOTOR_SPEED
 
 def compute_linear_speed(angular_speed):
+    global PULLEY_RADIUS
     """
     Compute linear speed from angular speed
     :param angular_speed: Angular speed in turns/s
@@ -18,6 +19,7 @@ def compute_linear_speed(angular_speed):
 
 
 def compute_linear_position(angular_position):
+    global PULLEY_RADIUS
     """
     Compute linear position from angular position
     :param angular_position: Angular position in turns
@@ -57,6 +59,7 @@ def motor_init():
 
 
 def motor_control(stdscr):
+    global MOTOR_SPEED 
 
     odrv = motor_init()
 

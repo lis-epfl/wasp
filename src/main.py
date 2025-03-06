@@ -1,41 +1,8 @@
-import motor_control
-import ultrasonic
-
-
-
-#--------------------------------------------------------CONSTANTS--------------------------------------------------------
-# General
-STATE = {
-    "STOP": 0,
-    "FORWARD": 1,
-    "BACKWARD": 2,
-    "TRACKING": 3
-}
-
-# Motor
-MOTOR_SPEED = 20            # in turns/sec
-PULLEY_RADIUS = 0.05        # in meters (tacking into acount cable radius)
-
-# Ultrasonic sensors
-TIMEOUT1 = 1000             # in microseconds
-TIMEOUT2 = 10000            # in microseconds
-MAX_DIST = 6                # in meters
-PIN_FRONT = 5               # GPIO pin
-PIN_BACK = 16               # GPIO pin
-BW_THRESHOLD = 60           # in centimeters
-FW_THRESHOLD = 100          # in centimeters
-
-# Camera
-
-
-# LEDs
-
-
-# RF communication
-
-
-
-#-------------------------------------------------------------------------------------------------------------------------
+import time
+import config
+import leds_ctrl
+import ultrasonic_ctrl
+#import motor_control
 
 def update_state(state, button, obst):
     """
@@ -46,60 +13,70 @@ def update_state(state, button, obst):
     :return: Updated state of the cart
     """
 
-    if state == STATE["STOP"]:        
+    if state == config.STATE["STOP"]:        
         if button == 1:
-            state = STATE["STOP"]
+            state = config.STATE["STOP"]
         elif button == 2:
-            state = STATE["FORWARD"]
+            state = config.STATE["FORWARD"]
         elif button == 3:
-            state = STATE["TRACKING"]
+            state = config.STATE["TRACKING"]
         elif button == 4:
-            state = STATE["BACKWARD"]
+            state = config.STATE["BACKWARD"]
     
-    elif state == STATE["FORWARD"]:
+    elif state == config.STATE["FORWARD"]:
         if obst or button in [1, 3, 4]:
-            state = STATE["STOP"]
+            state = config.STATE["STOP"]
         else:
-            state = STATE["FORWARD"]
+            state = config.STATE["FORWARD"]
     
-    elif state == STATE["BACKWARD"]:
+    elif state == config.STATE["BACKWARD"]:
         if obst or button in [1, 2, 3]:
-            state = STATE["STOP"]
+            state = config.STATE["STOP"]
         else:
-            state = STATE["BACKWARD"]
+            state = config.STATE["BACKWARD"]
     
-    elif state == STATE["TRACKING"]:
+    elif state == config.STATE["TRACKING"]:
         if obst or button in [1, 2, 4]:
-            state = STATE["STOP"]
+            state = config.STATE["STOP"]
         else:
-            state = STATE["TRACKING"]
+            state = config.STATE["TRACKING"]
     
     return state
 
 
 def main():
-
     # Inititialization
-    motor_init()
-    ultrasonic_init()
-    camera_init()
-    leds_init()
+    leds = leds_ctrl.leds_init()
+    ultrasonic_ctrl.ultrasonic_init()
 
-    state = STATE["STOP"] 
+    state = config.STATE["STOP"] 
 
-    # Main loop
     while True:
-        button = get_button() # 1: Middle, 2: Up, 3: Right, 4: Down
-        obst = is_there_obstacle() # True if obstacle detected, False otherwise
 
+        #button = get_button() # 1: Middle, 2: Up, 3: Right, 4: Down
+        #obst = is_there_obstacle() # True if obstacle detected, False otherwise
+
+        button = 1
+        obst = False
         state = update_state(state, button, obst)
+        
+        state = config.STATE["FORWARD"] 
 
-        target_velocity = get_target_velocity() # Get UAV linear velocity from camera
+        leds_ctrl.leds_set_color(leds, state)
 
-        set_cart_velocity(state, target_velocity)
+  
 
-        time.sleep(0.1)
+        # Replace this with proper function that returns either true or false
+        front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+        back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
 
+        print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
+
+        #target_velocity = get_target_velocity() # Get UAV linear velocity from camera
+
+        #set_cart_velocity(state, target_velocity)
+
+        time.sleep(config.DT)
 
 if __name__ == '__main__':
     main()
