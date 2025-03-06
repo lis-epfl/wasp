@@ -5,31 +5,7 @@ import curses
 import time
 import os
 
-#--------------------------------------------------------CONSTANTS--------------------------------------------------------
-MOTOR_SPEED = 20            # in turns/sec
-PULLEY_RADIUS = 0.05        # in m (tacking into acount cable radius)
-#-------------------------------------------------------------------------------------------------------------------------
-
-
-def connect_to_odrive():
-    """
-    Connect to ODrive and return the ODrive object
-    :return: ODrive object if found, None otherwise
-    """
-    try:
-        print("Searching for ODrive...")
-        odrv = odrive.find_any(timeout=20)  # Timeout in seconds
-        if odrv is None:
-            print("No ODrive found!")
-        else:
-            print("ODrive found!")
-            print("ODrive's configuration:")
-            print(odrv)  # will print the motor's configuration
-        return odrv
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
-
+import main
 
 def compute_linear_speed(angular_speed):
     """
@@ -51,21 +27,43 @@ def compute_linear_position(angular_position):
     return linear_position
 
 
+def motor_init():
+    """
+    Connect to ODrive and return the ODrive object
+    :return: ODrive object if found, None otherwise
+    """
+    try:
+        print("Searching for ODrive...")
+        odrv = odrive.find_any(timeout=20)  # Timeout in seconds
+
+        if odrv is None:
+            print("No ODrive found!")
+
+        else:
+            print("ODrive found!")
+            print("ODrive's configuration:")
+            print(odrv)  # will print the motor's configuration
+
+            odrv.axis0.requested_state = 8  # Closed-loop control
+            odrv.axis0.controller.config.control_mode = 2  # Velocity Control
+            odrv.axis0.controller.config.input_mode = 2  # Set to DIRECT_VELOCITY
+            odrv.axis0.pos_estimate = 0  # Reset angular position value
+
+        return odrv
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
 def motor_control(stdscr):
+
+    odrv = motor_init()
+
     stdscr.clear()
     stdscr.addstr("Use arrow keys to control the motor. Press SPACE to stop. Press 'q' to exit.\n")
     stdscr.refresh()
     stdscr.nodelay(True)  # Make getch() non-blocking
-
-    # Connect to ODrive
-    odrv = connect_to_odrive()
-
-    # Ensure motor is in closed-loop control mode
-    odrv.axis0.requested_state = 8  # Closed-loop control
-    odrv.axis0.controller.config.control_mode = 2  # Velocity Control
-    odrv.axis0.controller.config.input_mode = 2  # Set to DIRECT_VELOCITY
-
-    odrv.axis0.pos_estimate = 0  # Reset angular position value
 
     while True:
         os.system('clear')  # For Linux/macOS, use 'cls' for Windows
