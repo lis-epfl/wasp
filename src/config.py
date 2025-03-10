@@ -8,7 +8,7 @@ STATE = {
 DT = 0.1                    # execution period in seconds
 
 # Motor
-MOTOR_SPEED = 20            # in turns/sec
+MOTOR_SPEED = 10            # in turns/sec
 PULLEY_RADIUS = 0.05        # in meters (tacking into acount cable radius)
 
 # Ultrasonic sensors

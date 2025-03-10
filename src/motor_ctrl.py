@@ -5,27 +5,26 @@ import curses
 import time
 import os
 
-from main import STATE, PULLEY_RADIUS, MOTOR_SPEED
+import config
+
 
 def compute_linear_speed(angular_speed):
-    global PULLEY_RADIUS
     """
     Compute linear speed from angular speed
     :param angular_speed: Angular speed in turns/s
     :return: Linear speed in m/s
     """
-    linear_speed = PULLEY_RADIUS * (2 * np.pi *angular_speed)
+    linear_speed = config.PULLEY_RADIUS * (2 * np.pi * angular_speed)
     return linear_speed
 
 
 def compute_linear_position(angular_position):
-    global PULLEY_RADIUS
     """
     Compute linear position from angular position
     :param angular_position: Angular position in turns
     :return: Linear position in m
     """
-    linear_position = PULLEY_RADIUS * (2 * np.pi * angular_position)
+    linear_position = config.PULLEY_RADIUS * (2 * np.pi * angular_position)
     return linear_position
 
 
@@ -59,7 +58,6 @@ def motor_init():
 
 
 def motor_control(stdscr):
-    global MOTOR_SPEED 
 
     odrv = motor_init()
 
@@ -73,7 +71,7 @@ def motor_control(stdscr):
 
         # Print motor data with formatted velocity
         print(f"Velocity: {odrv.axis0.vel_estimate:.2f} turns/s")  # 2 decimal places
-        print(f"Angular osition: {odrv.axis0.pos_estimate:.2f} turns")
+        print(f"Angular position: {odrv.axis0.pos_estimate:.2f} turns")
         print(f"Linear position: {compute_linear_position(odrv.axis0.pos_estimate):.2f} m")
 
         #print(f"Current state: {odrv.axis0.current_state}")
@@ -85,9 +83,9 @@ def motor_control(stdscr):
         # Read key (non-blocking)
         key = stdscr.getch()
         if key == curses.KEY_RIGHT:
-            odrv.axis0.controller.input_vel = MOTOR_SPEED
+            odrv.axis0.controller.input_vel = config.MOTOR_SPEED
         elif key == curses.KEY_LEFT:
-            odrv.axis0.controller.input_vel = -MOTOR_SPEED
+            odrv.axis0.controller.input_vel = -config.MOTOR_SPEED
         elif key == ord(' '):
             odrv.axis0.controller.input_vel = 0
         elif key == ord('q'):
