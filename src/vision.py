@@ -7,7 +7,7 @@ from picamera2 import Picamera2
 from libcamera import controls
 import time
 
-import config
+import config_old
 
 
 
@@ -39,7 +39,7 @@ class Detector:
             picam.capture_file('calibration_images/unannotated/'+str(i)+'.jpg')
             print('Move')
             time.sleep(2)
-        data = config.load('config.json')
+        data = config_old.load('config_old.json')
         square_size = data['aruco']['calibration_square']
         CHECKERBOARD = (5,8)
         subpix_criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1)
@@ -247,7 +247,7 @@ def vision():
     parser.add_argument('-g', '--generate', action='store_true', help='Generate a ArUco tag')
     parser.add_argument('-d','--detect',action='store_true',help='Detected a ArUco tag')
     args = parser.parse_args()
-    data = config.load('config.json')
+    data = config_old.load('config_old.json')
     dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_6X6_250)
     detector = Detector(dictionary,data['aruco']['ID'],data['aruco']['size'],data['aruco']['real_size'])
     if args.calibrate:

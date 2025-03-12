@@ -2,12 +2,13 @@
 
 # General
 numpy==1.24.3
+opencv-python==4.11.0.86
 # pandas==2.1.1
-# opencv-python==4.8.0.76
 
 # Camera
-# picamera2==0.3.24
-# libcamera==0.0.5
+wheel==0.45.1
+picamera2==0.3.25
+rpi-kms==0.1a1
 
 # Motor
 simple-pid==1.0.1
@@ -27,6 +28,7 @@ rpi_ws281x==5.0.0
 
 # RF
 spidev==3.6
+wiringpi==2.60.1
 
 
 # smbus2==0.4.2
