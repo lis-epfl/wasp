@@ -1,22 +1,33 @@
 import spidev
-import RPi.GPIO as GPIO
 import time
+import RPi.GPIO as GPIO
 
-# Initialize SPI
+# --- SPI Setup ---
 spi = spidev.SpiDev()
-spi.open(0, 1)  # Use CE1 instead of CE0 (CE0 is used by the shield)
-spi.max_speed_hz = 500000  # Set SPI speed (adjust as necessary)
+spi.open(0, 1)  # Bus 0, CE1 (SPI0.1)
+spi.max_speed_hz = 500000
+spi.mode = 0
 
-# Initialize GPIO
-GPIO.setmode(GPIO.BCM)
-GDO2_PIN = 25  # Example GPIO pin connected to GDO2
-GPIO.setup(GDO2_PIN, GPIO.IN)
-
+# --- SPI Helpers ---
 def write_register(addr, value):
-    spi.xfer2([addr | 0x80, value])
+    # Write: bit7 = 0
+    resp = spi.xfer2([addr & 0x7F, value])
+    return resp[0]  # Status byte
 
 def read_register(addr):
-    return spi.xfer2([addr & 0x7F, 0x00])[1]
+    # Read: bit7 = 1
+    resp = spi.xfer2([addr | 0x80, 0x00])
+    return resp[1], resp[0]  # Data, Status byte
+
+# --- CC1101 Reset ---
+print("Resetting CC1101...")
+spi.xfer2([0x30])  # SRES reset strobe
+time.sleep(0.1)    # Mandatory delay after reset!
+
+# --- Verify PARTNUM & VERSION ---
+partnum, status = read_register(0x30)  # PARTNUM
+version, _ = read_register(0x31)       # VERSION
+print(f"PARTNUM: 0x{partnum:02X}, VERSION: 0x{version:02X}, STATUS: 0x{status:02X}")
 
 # CC1101 Configuration for RAW MODE
 CC1101_CONFIG = {
@@ -47,19 +58,23 @@ CC1101_CONFIG = {
     0x2E: 0x09,  # TEST0         Various Test Settings
 }
 
-# Write configuration to CC1101
-print("Configuring CC1101 for Raw Mode...")
+print("Configuring CC1101...")
 for reg, value in CC1101_CONFIG.items():
-    write_register(reg, value)
-
-    read_value = read_register(reg)
-    print(f"x0x{reg:02X}: 0x{read_value:02X}")
+    status_w = write_register(reg, value)
+    time.sleep(0.01)
+    read_val, status_r = read_register(reg)
+    print(f"Reg 0x{reg:02X} → Wrote 0x{value:02X}, Read 0x{read_val:02X}, Write Status: 0x{status_w:02X}, Read Status: 0x{status_r:02X}")
+print("Done!")
 
 # Send SIDLE command to ensure CC1101 is in idle state and set in receive mode
 spi.xfer2([0x36])  # SIDLE
 spi.xfer2([0x34])  # RX Mode
 
-print("Listening for raw data on GDO2 (Pin 25)...")
+
+# Initialize GPIO
+GPIO.setmode(GPIO.BCM)
+GDO2_PIN = 25  # GPIO25 (Pin 22)
+GPIO.setup(GDO2_PIN, GPIO.IN)
 
 # Main loop to listen for incoming data
 try:
@@ -74,3 +89,5 @@ except KeyboardInterrupt:
 finally:
     spi.close()
     GPIO.cleanup()
+
+
