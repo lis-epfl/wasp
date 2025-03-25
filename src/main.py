@@ -106,6 +106,10 @@ def main(shared_val):
     leds = leds_ctrl.leds_init()
     ultrasonic_ctrl.ultrasonic_init()
 
+    # Time variables
+    time_start = 0
+    time_end = 0
+
     # Initial state
     state = config.STATE["STOP"]
     last_state = state
@@ -115,6 +119,8 @@ def main(shared_val):
     back_readings = deque(maxlen=config.NB_READINGS)
 
     while True:
+        time_start = time.time()
+
         # Get remote control command
         with shared_val.get_lock():
             remote_command = config.COMMAND_LOOKUP.get(shared_val.value, "NONE") # default value is "NONE"
@@ -122,6 +128,7 @@ def main(shared_val):
         # Get distance sensor readings
         front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
         back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+        # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
 
         # Filter valid distance sensor values
         if front_value is not None and front_value <= config.MAX_DIST:
@@ -142,15 +149,16 @@ def main(shared_val):
         # Display current state with LEDs
         leds_ctrl.leds_set_color(leds, state)
 
-
-
-        # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
-
         # #target_velocity = get_target_velocity() # Get UAV linear velocity from camera
-
         # #set_cart_velocity(state, target_velocity)
 
-        # time.sleep(config.DT)
+        time_end = time.time()
+
+        # Sleep to respect the desired loop time
+        if time_end - time_start < config.DT:
+            time.sleep(config.DT - (time_end - time_start))
+        else:
+            print(f"Execution time exceeded {config.DT} seconds.")
 
 
 if __name__ == "__main__":
