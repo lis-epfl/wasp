@@ -118,28 +118,22 @@ def entire_system(shared_val):
             remote_command = config.COMMAND_LOOKUP.get(shared_val.value, "NONE") # default value is "NONE"
 
         # Get distance sensors readings
-
-           
-
-        time.sleep(0.01) 
-
-
-         print(f"Received Command: {remote_command}")
-
+        # front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+        # back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
         #obst = is_there_obstacle() # True if obstacle detected, False otherwise
+        obstacle_forward = False 
+        obstacle_backward = False
 
+        print(f"Received command: {remote_command}   |    Obstacle forward: {obstacle_forward}    |    Obstacle backward: {obstacle_backward}")
 
         # Update state
-        state = state_machine.update(state, remote_command, obst)
+        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
+        last_state = state
         
         # Display current state
         leds_ctrl.leds_set_color(leds, state)
 
-  
 
-        # # Replace this with proper function that returns either true or false
-        # front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-        # back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
 
         # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
 
@@ -156,7 +150,7 @@ if __name__ == "__main__":
     p1 = Process(target=remote_control, args=(shared_val,))
     p2 = Process(target=entire_system, args=(shared_val,))
 
-    p1.start()
-    p2.start()
+    p1.start() # Start RF receiver process
+    p2.start() # Start entire system process
 
-    p1.join()  # Runs indefinitely, stop manually if needed
+    p1.join()

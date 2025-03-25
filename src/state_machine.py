@@ -1,58 +1,62 @@
 import config
 
 
-def update(state, remote_command, obst):
+def update(last_state, remote_command, obstacle_forward, obstacle_backward):
     """
-    Update the state of the cart based on the button pressed and the obstacle detected
-    :param state: Current state of the cart, type STATE
-    :param remote_command: Button command, type REMOTE_COMMAND
-    :param obst: Obstacle detected
-    :return: Updated state of the cart
+    Update the state of the cart based on the button pressed and the obstacle detected.
+    :param last_state: Last state of the cart
+    :param remote_command: Command received from the remote control
+    :param obstacle_forward: True if obstacle detected in front, False otherwise
+    :param obstacle_backward: True if obstacle detected in back, False otherwise
+    :return: New state of the cart
     """
-
-
-
-    if state == config.STATE["STOP"]:
-
-        if button == config.REMOTE_COMMAND["NONE"]:
-            state = config.STATE["STOP"]
-
-
-        elif button == config.REMOTE_COMMAND["GO_TRACKING"]:
+    if last_state == config.STATE["STOP"]:
+        if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_backward or obstacle_forward):
             state = config.STATE["TRACKING"]
-
-    
-        elif button == config.REMOTE_COMMAND["GO_BACKWARD"]:
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] and not obstacle_backward:
             state = config.STATE["BACKWARD"]
-
-
-        elif button == config.REMOTE_COMMAND["NOTHING"]:
-            
-
-
-        elif button == config.REMOTE_COMMAND["GO_FORWARD"]:
-
-
-        elif button == config.REMOTE_COMMAND["GO_STOP"]:
-
-
-    
-    elif state == config.STATE["FORWARD"]:
-        if obst or button in [1, 3, 4]:
-            state = config.STATE["STOP"]
-        else:
+        elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not obstacle_forward:
             state = config.STATE["FORWARD"]
-    
-    elif state == config.STATE["BACKWARD"]:
-        if obst or button in [1, 2, 3]:
+        elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
             state = config.STATE["STOP"]
-        else:
-            state = config.STATE["BACKWARD"]
-    
-    elif state == config.STATE["TRACKING"]:
-        if obst or button in [1, 2, 4]:
+
+    elif last_state == config.STATE["FORWARD"]:
+        if obstacle_forward:
             state = config.STATE["STOP"]
-        else:
+        elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"]:
             state = config.STATE["TRACKING"]
-    
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
+            state = config.STATE["FORWARD"]
+        elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
+            state = config.STATE["STOP"]
+
+    elif last_state == config.STATE["BACKWARD"]:
+        if obstacle_backward:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"]:
+            state = config.STATE["TRACKING"]
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
+            state = config.STATE["BACKWARD"]
+        elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
+            state = config.STATE["STOP"]
+
+    elif last_state == config.STATE["TRACKING"]:
+        if obstacle_forward or obstacle_backward:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"]:
+            state = config.STATE["TRACKING"]
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
+            state = config.STATE["STOP"]
+        elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
+            state = config.STATE["STOP"]
+
+    if (remote_command == config.REMOTE_COMMAND["NOTHING"]) or (remote_command == config.REMOTE_COMMAND["NONE"]):
+        state = last_state
+
     return state

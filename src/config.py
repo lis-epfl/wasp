@@ -5,56 +5,56 @@ STATE = {
     "BACKWARD": 2,
     "TRACKING": 3
 }
-DT = 0.1                    # execution period in seconds
+DT = 0.1                       # execution period in seconds
 
 
 # Motor
-MOTOR_SPEED = 10            # in turns/sec
-PULLEY_RADIUS = 0.05        # in meters (tacking into acount cable radius)
+MOTOR_SPEED = 10               # in turns/sec
+PULLEY_RADIUS = 0.05           # in meters (tacking into acount cable radius)
 
 
 # Ultrasonic sensors
-TIMEOUT1 = 1000             # in microseconds
-TIMEOUT2 = 10000            # in microseconds
-MAX_DIST = 6                # in meters
-PIN_FRONT = 5               # GPIO pin
-PIN_BACK = 16               # GPIO pin
+TIMEOUT1 = 1000                # in microseconds
+TIMEOUT2 = 10000               # in microseconds
+MAX_DIST = 6                   # in meters
+PIN_FRONT = 5                  # GPIO pin
+PIN_BACK = 16                  # GPIO pin
 
 
 # LEDs
-NUM_LEDS = 3                # Number of LEDs
-RED = (255, 0, 0)           # RGB colors for red
-BLUE = (0, 0, 255)          # RGB colors for blue    
-GREEN = (0, 255, 0)         # RGB colors for green
+NUM_LEDS = 3                   # Number of LEDs
+RED = (255, 0, 0)              # RGB colors for red
+BLUE = (0, 0, 255)             # RGB colors for blue    
+GREEN = (0, 255, 0)            # RGB colors for green
 
 
 # RF communication
 CC1101_CONFIG = {
-    0x00: 0x0D,  # IOCFG2        GDO2 Output Pin Configuration
-    0x02: 0x0D,  # IOCFG0        GDO0 Output Pin Configuration
-    0x03: 0x47,  # FIFOTHR       RX FIFO and TX FIFO Thresholds
-    0x08: 0x32,  # PKTCTRL0      Packet Automation Control
-    0x0B: 0x06,  # FSCTRL1       Frequency Synthesizer Control
-    0x0D: 0x10,  # FREQ2         Frequency Control Word, High Byte
-    0x0E: 0xB0,  # FREQ1         Frequency Control Word, Middle Byte
-    0x0F: 0x71,  # FREQ0         Frequency Control Word, Low Byte
-    0x10: 0x76,  # MDMCFG4       Modem Config: BW ≈ 58 kHz, DRATE_E = 6
-    0x11: 0x83,  # MDMCFG3       DRATE_M = 131 (for 2.4 kbps)
-    0x12: 0x30,  # MDMCFG2       Modem Configuration
-    0x13: 0x20,  # MDMCFG1       Modem Configuration
-    0x14: 0xF7,  # MDMCFG0       Modem Configuration
-    0x15: 0x15,  # DEVIATN       Modem Deviation Setting
-    0x18: 0x18,  # MCSM0         Main Radio Control State Machine Configuration
-    0x19: 0x16,  # FOCCFG        Frequency Offset Compensation Configuration
-    0x1B: 0xFB,  # WORCTRL       Wake On Radio Control
-    0x22: 0x11,  # FREND0        Front End TX Configuration
-    0x23: 0xE9,  # FSCAL3        Frequency Synthesizer Calibration
-    0x24: 0x2A,  # FSCAL2        Frequency Synthesizer Calibration
-    0x25: 0x00,  # FSCAL1        Frequency Synthesizer Calibration
-    0x26: 0x1F,  # FSCAL0        Frequency Synthesizer Calibration
-    0x2C: 0x81,  # TEST2         Various Test Settings
-    0x2D: 0x35,  # TEST1         Various Test Settings
-    0x2E: 0x09,  # TEST0         Various Test Settings
+    0x00: 0x0D,                 # IOCFG2        GDO2 Output Pin Configuration
+    0x02: 0x0D,                 # IOCFG0        GDO0 Output Pin Configuration
+    0x03: 0x47,                 # FIFOTHR       RX FIFO and TX FIFO Thresholds
+    0x08: 0x32,                 # PKTCTRL0      Packet Automation Control
+    0x0B: 0x06,                 # FSCTRL1       Frequency Synthesizer Control
+    0x0D: 0x10,                 # FREQ2         Frequency Control Word, High Byte
+    0x0E: 0xB0,                 # FREQ1         Frequency Control Word, Middle Byte
+    0x0F: 0x71,                 # FREQ0         Frequency Control Word, Low Byte
+    0x10: 0x76,                 # MDMCFG4       Modem Config: BW ≈ 58 kHz, DRATE_E = 6
+    0x11: 0x83,                 # MDMCFG3       DRATE_M = 131 (for 2.4 kbps)
+    0x12: 0x30,                 # MDMCFG2       Modem Configuration
+    0x13: 0x20,                 # MDMCFG1       Modem Configuration
+    0x14: 0xF7,                 # MDMCFG0       Modem Configuration
+    0x15: 0x15,                 # DEVIATN       Modem Deviation Setting
+    0x18: 0x18,                 # MCSM0         Main Radio Control State Machine Configuration
+    0x19: 0x16,                 # FOCCFG        Frequency Offset Compensation Configuration
+    0x1B: 0xFB,                 # WORCTRL       Wake On Radio Control
+    0x22: 0x11,                 # FREND0        Front End TX Configuration
+    0x23: 0xE9,                 # FSCAL3        Frequency Synthesizer Calibration
+    0x24: 0x2A,                 # FSCAL2        Frequency Synthesizer Calibration
+    0x25: 0x00,                 # FSCAL1        Frequency Synthesizer Calibration
+    0x26: 0x1F,                 # FSCAL0        Frequency Synthesizer Calibration
+    0x2C: 0x81,                 # TEST2         Various Test Settings
+    0x2D: 0x35,                 # TEST1         Various Test Settings
+    0x2E: 0x09,                 # TEST0         Various Test Settings
 }
 GDO2_PIN = 25                   # GPIO25 (Pin 22)
 BIT_DURATION = 416.7            # duration of each bit at its state in microseconds
