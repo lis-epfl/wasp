@@ -66,8 +66,3 @@ def get_distance(sensor_pin):
     distance = ((t2 - t1) * 1_000_000 / 29 / 2) / 100  # in meters
     echo.close()
     return distance
-
-#def is_there_obstacle
-
-
-

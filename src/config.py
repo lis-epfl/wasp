@@ -14,15 +14,16 @@ PULLEY_RADIUS = 0.05           # in meters (tacking into acount cable radius)
 
 
 # Ultrasonic sensors
-TIMEOUT1 = 1000                # in microseconds
-TIMEOUT2 = 10000               # in microseconds
-MAX_DIST = 6                   # in meters
 PIN_FRONT = 5                  # GPIO pin
 PIN_BACK = 16                  # GPIO pin
-
+TIMEOUT1 = 1000                # in microseconds
+TIMEOUT2 = 10000               # in microseconds
+MAX_DIST = 6.0                 # maximum detection distance, in meters
+OBST_THRESHOLD = 5.5           # distance under which an object is considered an obstacle, in meters
+NB_READINGS = 10               # number of readings to average
 
 # LEDs
-NUM_LEDS = 3                   # Number of LEDs
+NUM_LEDS = 3                   # number of LEDs
 RED = (255, 0, 0)              # RGB colors for red
 BLUE = (0, 0, 255)             # RGB colors for blue    
 GREEN = (0, 255, 0)            # RGB colors for green

@@ -17,7 +17,7 @@ def remote_control(shared_val):
     '''
     rf_receiver_ctrl.ini_rf_reciever() # Initialize CC1101
 
-    # Local variables
+    # Necessary local variables
     last_tick_ns = None
     last_level = None
     buffer = deque(maxlen=config.SEQUENCE_SIZE)
@@ -101,28 +101,37 @@ def remote_control(shared_val):
         chip.close()
 
 
-def entire_system(shared_val):
-    '''
-    Main function to run the entire system.
-    '''
+def main(shared_val):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
-    #ultrasonic_ctrl.ultrasonic_init()
+    ultrasonic_ctrl.ultrasonic_init()
 
     # Initial state
     state = config.STATE["STOP"]
+    last_state = state
+
+    # Deques to store the last ultrasonic sensor readings
+    front_readings = deque(maxlen=config.NB_READINGS)
+    back_readings = deque(maxlen=config.NB_READINGS)
 
     while True:
         # Get remote control command
         with shared_val.get_lock():
             remote_command = config.COMMAND_LOOKUP.get(shared_val.value, "NONE") # default value is "NONE"
 
-        # Get distance sensors readings
-        # front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-        # back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-        #obst = is_there_obstacle() # True if obstacle detected, False otherwise
-        obstacle_forward = False 
-        obstacle_backward = False
+        # Get distance sensor readings
+        front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+        back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+
+        # Filter valid distance sensor values
+        if front_value is not None and front_value <= config.MAX_DIST:
+            front_readings.append(front_value)
+        if back_value is not None and back_value <= config.MAX_DIST:
+            back_readings.append(back_value)
+
+        # Determine obstacle presence
+        obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+        obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
         print(f"Received command: {remote_command}   |    Obstacle forward: {obstacle_forward}    |    Obstacle backward: {obstacle_backward}")
 
@@ -130,7 +139,7 @@ def entire_system(shared_val):
         state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
         last_state = state
         
-        # Display current state
+        # Display current state with LEDs
         leds_ctrl.leds_set_color(leds, state)
 
 
@@ -148,7 +157,7 @@ if __name__ == "__main__":
     shared_val = Value('i', 0)  # Shared 'i' = integer (default value 0) between processes
 
     p1 = Process(target=remote_control, args=(shared_val,))
-    p2 = Process(target=entire_system, args=(shared_val,))
+    p2 = Process(target=main, args=(shared_val,))
 
     p1.start() # Start RF receiver process
     p2.start() # Start entire system process
