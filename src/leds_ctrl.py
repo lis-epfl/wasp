@@ -8,7 +8,7 @@ def leds_init():
     Initialize the NeoPixel leds
     :return: NeoPixel object
     """
-    leds = neopixel.NeoPixel(board.D12, config.NUM_LEDS, brightness=1.0, auto_write=False)
+    leds = neopixel.NeoPixel(board.D12, config.NUM_LEDS, brightness=1.0, auto_write=False) # GPIO12 (PIN 32) 
     return leds
 
 def leds_set_color(leds, state):

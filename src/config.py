@@ -5,7 +5,8 @@ STATE = {
     "BACKWARD": 2,
     "TRACKING": 3
 }
-DT = 0.1                       # execution period in seconds
+STATE_LOOKUP = {v: k for k, v in STATE.items()}
+DT = 0.5                       # execution period in seconds
 
 
 # Motor
@@ -14,8 +15,8 @@ PULLEY_RADIUS = 0.05           # in meters (tacking into acount cable radius)
 
 
 # Ultrasonic sensors
-PIN_FRONT = 5                  # GPIO pin
-PIN_BACK = 16                  # GPIO pin
+PIN_FRONT = 5                  # GPIO5 (PIN 29)
+PIN_BACK = 16                  # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
@@ -57,7 +58,7 @@ CC1101_CONFIG = {
     0x2D: 0x35,                 # TEST1         Various Test Settings
     0x2E: 0x09,                 # TEST0         Various Test Settings
 }
-GDO2_PIN = 25                   # GPIO25 (Pin 22)
+GDO2_PIN = 25                   # GPIO25 (PIN 22)
 BIT_DURATION = 416.7            # duration of each bit at its state in microseconds
 SEQUENCE_SIZE = 121             # sequence length in bits
 TIMEOUT_THRESHOLD_US = 30000    # 30 ms 

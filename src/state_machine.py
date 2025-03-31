@@ -10,6 +10,8 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward):
     :param obstacle_backward: True if obstacle detected in back, False otherwise
     :return: New state of the cart
     """
+    state = last_state  # Default state to avoid uninitialized variable
+
     if last_state == config.STATE["STOP"]:
         if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_backward or obstacle_forward):
             state = config.STATE["TRACKING"]

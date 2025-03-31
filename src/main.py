@@ -123,34 +123,41 @@ def main(shared_val):
 
         # Get remote control command
         with shared_val.get_lock():
-            remote_command = config.COMMAND_LOOKUP.get(shared_val.value, "NONE") # default value is "NONE"
+            remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
 
-        # Get distance sensor readings
-        front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-        back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-        # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
+        # # Get distance sensor readings
+        # front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+        # back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+        # # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
 
-        # Filter valid distance sensor values
-        if front_value is not None and front_value <= config.MAX_DIST:
-            front_readings.append(front_value)
-        if back_value is not None and back_value <= config.MAX_DIST:
-            back_readings.append(back_value)
+        # # Filter valid distance sensor values
+        # if front_value is not None and front_value <= config.MAX_DIST:
+        #     front_readings.append(front_value)
+        # if back_value is not None and back_value <= config.MAX_DIST:
+        #     back_readings.append(back_value)
 
-        # Determine obstacle presence
-        obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-        obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
+        # # Determine obstacle presence
+        # obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+        # obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
-        print(f"Received command: {remote_command}   |    Obstacle forward: {obstacle_forward}    |    Obstacle backward: {obstacle_backward}")
+        obstacle_forward = False
+        obstacle_backward = False
 
-        # Update state
+        # # Update state
         state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
         last_state = state
-        
+
+        # Print current state
+        log_message = f"Received command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
+                      f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
+                      f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
+        print(log_message)
+
         # Display current state with LEDs
         leds_ctrl.leds_set_color(leds, state)
 
-        # #target_velocity = get_target_velocity() # Get UAV linear velocity from camera
-        # #set_cart_velocity(state, target_velocity)
+        # # #target_velocity = get_target_velocity() # Get UAV linear velocity from camera
+        # # #set_cart_velocity(state, target_velocity)
 
         time_end = time.time()
 
