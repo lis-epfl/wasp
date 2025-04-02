@@ -45,10 +45,17 @@ def motor_init():
             print("ODrive's configuration:")
             print(odrv)  # will print the motor's configuration
 
-            odrv.axis0.requested_state = 8  # Closed-loop control
-            odrv.axis0.controller.config.control_mode = 2  # Velocity Control
-            odrv.axis0.controller.config.input_mode = 2  # Set to DIRECT_VELOCITY
             odrv.axis0.pos_estimate = 0  # Reset angular position value
+            odrv.axis0.requested_state = 8  # Closed-loop control
+            odrv.axis0.controller.config.control_mode = 2  # Velocity Control (sharp or ramped)
+
+            # For sharp velocity control
+            odrv.axis0.controller.config.input_mode = 1  # for PASSTHROUGH
+
+            # For ramped velocity control
+            # odrv.axis0.controller.config.vel_ramp_rate = 5.0 # acceleration in turn/s^2
+            # odrv.axis0.controller.config.input_mode = 2 # for VEL_RAMP
+                        
 
         return odrv
 
@@ -56,42 +63,71 @@ def motor_init():
         print(f"Error: {e}")
         return None
 
+# control motor through terminal
+# def motor_control(stdscr):
 
-def motor_control(stdscr):
+#     odrv = motor_init()
 
-    odrv = motor_init()
+#     stdscr.clear()
+#     stdscr.addstr("Use arrow keys to control the motor. Press SPACE to stop. Press 'q' to exit.\n")
+#     stdscr.refresh()
+#     stdscr.nodelay(True)  # Make getch() non-blocking
 
-    stdscr.clear()
-    stdscr.addstr("Use arrow keys to control the motor. Press SPACE to stop. Press 'q' to exit.\n")
-    stdscr.refresh()
-    stdscr.nodelay(True)  # Make getch() non-blocking
+#     while True:
+#         os.system('clear')  # For Linux/macOS, use 'cls' for Windows
 
-    while True:
-        os.system('clear')  # For Linux/macOS, use 'cls' for Windows
+#         # Print motor data with formatted velocity
+#         print(f"Velocity: {odrv.axis0.vel_estimate:.2f} turns/s")  # 2 decimal places
+#         print(f"Angular position: {odrv.axis0.pos_estimate:.2f} turns")
+#         print(f"Linear position: {compute_linear_position(odrv.axis0.pos_estimate):.2f} m")
 
-        # Print motor data with formatted velocity
-        print(f"Velocity: {odrv.axis0.vel_estimate:.2f} turns/s")  # 2 decimal places
-        print(f"Angular position: {odrv.axis0.pos_estimate:.2f} turns")
-        print(f"Linear position: {compute_linear_position(odrv.axis0.pos_estimate):.2f} m")
+#         #print(f"Current state: {odrv.axis0.current_state}")
+#         #print(f"Velocity Limit: {odrv.axis0.controller.config.vel_limit}")
+#         #print(f"Control mode: {odrv.axis0.controller.config.control_mode}")
+#         print(f"Input velocity: {odrv.axis0.controller.input_vel}")
+#         #print(f"Input mode: {odrv.axis0.controller.config.input_mode}")
 
-        #print(f"Current state: {odrv.axis0.current_state}")
-        #print(f"Velocity Limit: {odrv.axis0.controller.config.vel_limit}")
-        #print(f"Control mode: {odrv.axis0.controller.config.control_mode}")
-        print(f"Input velocity: {odrv.axis0.controller.input_vel}")
-        #print(f"Input mode: {odrv.axis0.controller.config.input_mode}")
-
-        # Read key (non-blocking)
-        key = stdscr.getch()
-        if key == curses.KEY_RIGHT:
-            odrv.axis0.controller.input_vel = config.MOTOR_SPEED
-        elif key == curses.KEY_LEFT:
-            odrv.axis0.controller.input_vel = -config.MOTOR_SPEED
-        elif key == ord(' '):
-            odrv.axis0.controller.input_vel = 0
-        elif key == ord('q'):
-            odrv.axis0.controller.input_vel = 0
-            break
+#         # Read key (non-blocking)
+#         key = stdscr.getch()
+#         if key == curses.KEY_RIGHT:
+#             odrv.axis0.controller.input_vel = config.MOTOR_SPEED
+#         elif key == curses.KEY_LEFT:
+#             odrv.axis0.controller.input_vel = -config.MOTOR_SPEED
+#         elif key == ord(' '):
+#             odrv.axis0.controller.input_vel = 0
+#         elif key == ord('q'):
+#             odrv.axis0.controller.input_vel = 0
+#             break
         
-        time.sleep(0.1)  # Update every 100ms
+#         time.sleep(0.1)  # Update every 100ms
 
-curses.wrapper(motor_control)
+# curses.wrapper(motor_control)
+
+
+def set_cart_velocity(odrv, state, target_velocity):
+    '''
+    Set the cart velocity based on the state
+    :param odrv: ODrive object
+    :param state: Current state of the cart
+    :param target_velocity: Target velocity in turns/s
+    '''
+    if state == config.STATE["STOP"]:
+        odrv.axis0.controller.input_vel = 0
+
+    elif state == config.STATE["FORWARD"]:
+        odrv.axis0.controller.input_vel = target_velocity
+
+    elif state == config.STATE["BACKWARD"]:
+        odrv.axis0.controller.input_vel = -target_velocity
+
+    elif state == config.STATE["TRACKING"]:
+        odrv.axis0.controller.input_vel = target_velocity
+    else:
+        odrv.axis0.controller.input_vel = 0
+
+    
+
+    
+
+
+    

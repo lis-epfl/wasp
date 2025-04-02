@@ -10,13 +10,14 @@ DT = 0.5                       # execution period in seconds
 
 
 # Motor
-MOTOR_SPEED = 10               # in turns/sec
+MOTOR_SPEED = 40               # in turns/sec (with 4S battery, max theoretical speed: 81 turns/sec, max practical speed: 60 turns/sec)
+STOP_SPEED_THRESHOLD = 1       # in turns/sec
 PULLEY_RADIUS = 0.05           # in meters (tacking into acount cable radius)
 
 
 # Ultrasonic sensors
-PIN_FRONT = 5                  # GPIO5 (PIN 29)
-PIN_BACK = 16                  # GPIO16 (PIN 36)
+PIN_BACK = 5                   # GPIO5 (PIN 29)
+PIN_FRONT = 16                 # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
