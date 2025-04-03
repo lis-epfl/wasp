@@ -1,68 +1,64 @@
 import time
-import gpiozero
-from gpiozero import Device
-from gpiozero.pins.lgpio import LGPIOFactory
-import numpy as np
+import gpiod
 
 import config
 
-def ultrasonic_init():
-    """
-    Initialize the ultrasonic sensor
-    """
-    Device.pin_factory = LGPIOFactory()  # force it to use pigpio to make it work in the venv
 
 def usleep(microseconds):
     """
-    Sleep for a given number of microseconds
-    :param microseconds: Time to sleep in microseconds
+    Sleep for a given number of microseconds.
+    :param microseconds: Time to sleep in microseconds.
     """
-    time.sleep(microseconds / 1000000.0)
+    time.sleep(microseconds / 1_000_000.0)
 
 
 def get_distance(sensor_pin):
     """
-    Get the distance from the ultrasonic sensor
-    :param PIN: GPIO pin number
-    :return: Distance in meters
-    (inspired from manufacturer's code: https://wiki.seeedstudio.com/Grove-Ultrasonic_Ranger/)
+    Get the distance from the ultrasonic sensor.
+    :param sensor_pin: GPIO pin number.
+    :return: Distance in meters.
     """
-    trig = gpiozero.DigitalOutputDevice(sensor_pin)
-    trig.off()
-    usleep(2)
-    trig.on()
-    usleep(10)
-    trig.off()
-    
-    trig.close()
-    echo = gpiozero.DigitalInputDevice(sensor_pin)
+    with gpiod.Chip('gpiochip0') as chip:
+        line = chip.get_line(sensor_pin)
 
-    t0 = time.time()
-    count = 0
-    while count < config.TIMEOUT1:
-        if echo.value:
-            break
-        count += 1
-    if count >= config.TIMEOUT1:
-        echo.close()
-        return config.MAX_DIST
-    
-    t1 = time.time()
-    count = 0
-    while count < config.TIMEOUT2:
-        if not echo.value:
-            break
-        count += 1
-    if count >= config.TIMEOUT2:
-        echo.close()
-        return config.MAX_DIST
-    
-    t2 = time.time()
-    dt = int((t1 - t0) * 1_000_000)
-    if dt > 530:
-        echo.close()
-        return config.MAX_DIST
-    
-    distance = ((t2 - t1) * 1_000_000 / 29 / 2) / 100  # in meters
-    echo.close()
-    return distance
+        # Set up the line for output (trigger)
+        line.request(consumer='ultrasonic', type=gpiod.LINE_REQ_DIR_OUT)
+        line.set_value(0)
+        usleep(2)
+        line.set_value(1)
+        usleep(10)
+        line.set_value(0)
+        line.release()
+
+        # Set up the line for input (echo)
+        line.request(consumer='ultrasonic', type=gpiod.LINE_REQ_DIR_IN)
+
+        t0 = time.time()
+        count = 0
+        while count < config.TIMEOUT1:
+            if line.get_value() == 1:
+                break
+            count += 1
+        if count >= config.TIMEOUT1:
+            line.release()
+            return config.MAX_DIST
+
+        t1 = time.time()
+        count = 0
+        while count < config.TIMEOUT2:
+            if line.get_value() == 0:
+                break
+            count += 1
+        if count >= config.TIMEOUT2:
+            line.release()
+            return config.MAX_DIST
+
+        t2 = time.time()
+        dt = int((t1 - t0) * 1_000_000)
+        if dt > 530:
+            line.release()
+            return config.MAX_DIST
+
+        distance = ((t2 - t1) * 1_000_000 / 29 / 2) / 100  # in meters
+        line.release()
+        return distance

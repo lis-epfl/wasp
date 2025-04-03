@@ -58,7 +58,7 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward):
         elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
             state = config.STATE["STOP"]
 
-    if (remote_command == config.REMOTE_COMMAND["NOTHING"]) or (remote_command == config.REMOTE_COMMAND["NONE"]):
+    if (remote_command == config.REMOTE_COMMAND["NOTHING"]): # Last button pressed (no used)
         state = last_state
 
     return state

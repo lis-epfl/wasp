@@ -6,11 +6,11 @@ STATE = {
     "TRACKING": 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.5                       # execution period in seconds
+DT = 0.2                       # execution period in seconds
 
 
 # Motor
-MOTOR_SPEED = 40               # in turns/sec (with 4S battery, max theoretical speed: 81 turns/sec, max practical speed: 60 turns/sec)
+MOTOR_SPEED = 10               # in turns/sec (with 4S battery, max theoretical speed: 81 turns/sec, max practical speed: 60 turns/sec)
 STOP_SPEED_THRESHOLD = 1       # in turns/sec
 PULLEY_RADIUS = 0.05           # in meters (tacking into acount cable radius)
 
@@ -21,8 +21,8 @@ PIN_FRONT = 16                 # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
-OBST_THRESHOLD = 5.5           # distance under which an object is considered an obstacle, in meters
-NB_READINGS = 10               # number of readings to average
+OBST_THRESHOLD = 0.3           # distance under which an object is considered an obstacle, in meters
+NB_READINGS = 3                # number of readings to consider an object as an obstacle
 
 # LEDs
 NUM_LEDS = 3                   # number of LEDs

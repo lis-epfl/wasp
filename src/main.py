@@ -48,6 +48,9 @@ def remote_control(shared_val):
                 #ini_rf_reciever() # Reset CC1101
                 #print("[Timeout] Buffer reset!")
             
+            # Ensure reset before detecting new input
+            detected_sequence_id = 0  
+            
             if event:
                 evt = line.event_read()
                 last_edge_time_ns = time.time_ns()
@@ -85,12 +88,10 @@ def remote_control(shared_val):
                 # Sequence detection
                 if len(buffer) >= config.SEQUENCE_SIZE:
                     current_seq = ''.join(buffer)
-                    for idx, seq in enumerate(config.BUTTON_SEQUENCES, 1):
+                    for idx, seq in enumerate(config.BUTTON_SEQUENCES, 1): # starts indexing from 1
                         if current_seq == seq:
                             detected_sequence_id = idx
                             #print(f"\nButton {detected_sequence_id} pushed!")
-                        # else:
-                        #     detected_sequence_id = 0
         
             # Update shared value between processes
             with shared_val.get_lock():
@@ -106,7 +107,6 @@ def remote_control(shared_val):
 def main(shared_val):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
-    ultrasonic_ctrl.ultrasonic_init()
     odrv = motor_ctrl.motor_init()
 
     # Time variables
@@ -130,7 +130,6 @@ def main(shared_val):
             if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
                 # Motor is stopped
                 want_to_stop = False
-
         else:
             # Get remote control command
             with shared_val.get_lock():
@@ -139,20 +138,14 @@ def main(shared_val):
             # Get distance sensor readings
             front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
             back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-            print('Back: {:.2f} m    |    Front: {:.2f} m'.format(front_value, back_value))
+            # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
 
-            # # Filter valid distance sensor values
-            # if front_value is not None and front_value <= config.MAX_DIST:
-            #     front_readings.append(front_value)
-            # if back_value is not None and back_value <= config.MAX_DIST:
-            #     back_readings.append(back_value)
+            front_readings.append(front_value)
+            back_readings.append(back_value)
 
-            # # Determine obstacle presence
-            # obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-            # obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
-
-            obstacle_forward = False
-            obstacle_backward = False
+            # Determine obstacle presence
+            obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+            obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
             # # Update state
             state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
@@ -166,7 +159,7 @@ def main(shared_val):
         log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
                       f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
                       f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
-        #print(log_message)
+        print(log_message)
 
         # Display current state with LEDs
         leds_ctrl.leds_set_color(leds, state)

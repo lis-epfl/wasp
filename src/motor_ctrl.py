@@ -45,6 +45,10 @@ def motor_init():
             print("ODrive's configuration:")
             print(odrv)  # will print the motor's configuration
 
+            # Depending on the battery
+            odrv.config.dc_bus_undervoltage_trip_level = 12.0 # 8.0V
+            odrv.config.dc_bus_overvoltage_trip_level = 17.0 # 17.0V
+            
             odrv.axis0.pos_estimate = 0  # Reset angular position value
             odrv.axis0.requested_state = 8  # Closed-loop control
             odrv.axis0.controller.config.control_mode = 2  # Velocity Control (sharp or ramped)
