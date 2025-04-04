@@ -82,4 +82,5 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 
 
 # Camera
+FRAME_RATE = 60              # in frames/sec
 

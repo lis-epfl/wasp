@@ -2,6 +2,9 @@ import time
 from multiprocessing import Process, Value
 from collections import deque
 import gpiod
+from picamera2.encoders import H264Encoder, Quality
+from picamera2.outputs import FfmpegOutput
+from datetime import datetime
 
 import config
 import rf_receiver_ctrl
@@ -9,6 +12,7 @@ import state_machine
 import leds_ctrl
 import ultrasonic_ctrl
 import motor_ctrl
+import camera_ctrl
 
 
 def remote_control(shared_val):
@@ -108,6 +112,14 @@ def main(shared_val):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
+    camera = camera_ctrl.camera_init()
+
+    # Caamera recording setings 
+    save_path = "data"
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"{save_path}/video_{timestamp}.mp4"
+    encoder = H264Encoder()
+    output = FfmpegOutput(filename)
 
     # Time variables
     time_start = 0
@@ -123,58 +135,68 @@ def main(shared_val):
 
     want_to_stop = False
 
-    while True:
-        time_start = time.time()
+    try:
+        # Start camera recording
+        print(f"Recording started: {filename}")
+        camera.start_recording(encoder, output, quality=Quality.HIGH)
 
-        if want_to_stop:
-            if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
-                # Motor is stopped
-                want_to_stop = False
-        else:
-            # Get remote control command
-            with shared_val.get_lock():
-                remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
+        while True:
+            time_start = time.time()
 
-            # Get distance sensor readings
-            front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-            back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-            # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
+            if want_to_stop:
+                if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
+                    # Motor is stopped
+                    want_to_stop = False
+            else:
+                # Get remote control command
+                with shared_val.get_lock():
+                    remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
 
-            front_readings.append(front_value)
-            back_readings.append(back_value)
+                # Get distance sensor readings
+                front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+                back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+                # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
 
-            # Determine obstacle presence
-            obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-            obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
+                front_readings.append(front_value)
+                back_readings.append(back_value)
 
-            # # Update state
-            state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
-            last_state = state
+                # Determine obstacle presence
+                obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+                obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
-            if state == config.STATE["STOP"]:
-                # Stop the motor
-                want_to_stop = True
+                # # Update state
+                state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
+                last_state = state
 
-        # Print current state
-        log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
-                      f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
-                      f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
-        print(log_message)
+                if state == config.STATE["STOP"]:
+                    # Stop the motor
+                    want_to_stop = True
 
-        # Display current state with LEDs
-        leds_ctrl.leds_set_color(leds, state)
+            # Print current state
+            log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
+                        f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
+                        f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
+            print(log_message)
 
-        # Set motor velocity based on state
-        target_velocity = config.MOTOR_SPEED
-        # print(motor_ctrl.compute_linear_speed(odrv.axis0.vel_estimate))
-        motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
+            # Display current state with LEDs
+            leds_ctrl.leds_set_color(leds, state)
 
-        # Sleep to respect the desired loop time
-        time_end = time.time()
-        if time_end - time_start < config.DT:
-            time.sleep(config.DT - (time_end - time_start))
-        else:
-            print(f"Execution time exceeded {config.DT} seconds.")
+            # Set motor velocity based on state
+            target_velocity = config.MOTOR_SPEED
+            # print(motor_ctrl.compute_linear_speed(odrv.axis0.vel_estimate))
+            motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
+
+            # Sleep to respect the desired loop time
+            time_end = time.time()
+            if time_end - time_start < config.DT:
+                time.sleep(config.DT - (time_end - time_start))
+            else:
+                print(f"Execution time exceeded {config.DT} seconds.")
+    
+    except KeyboardInterrupt:
+        print("\nStopping recording...")
+        camera.stop_recording()
+        print(f"Video saved as {filename}")
 
 
 if __name__ == "__main__":
