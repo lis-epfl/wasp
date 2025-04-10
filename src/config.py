@@ -10,13 +10,13 @@ DT = 0.1                       # execution period in seconds
 
 
 # Motor
-MIN_VOLTAGE = 12.0             # in volts
+MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
-MANUAL_MOTOR_SPEED = 20        # in turns/sec (with 4S battery, max theoretical speed: 81 turns/sec, max practical speed: 60 turns/sec)
+MANUAL_MOTOR_SPEED = 6         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MOTOR_ACCELERATION = 40.0      # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.5     # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
-ZIPLINE_LENGTH = 5.0           # in meters (length of the zipline)
+ZIPLINE_LENGTH = 50            # in meters (length of the zipline)
 
 # Ultrasonic sensors
 PIN_BACK = 5                   # GPIO5 (PIN 29)

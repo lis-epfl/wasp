@@ -217,7 +217,7 @@ def main(shared_val):
                 log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
                             f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
                             f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
-                #print(log_message)
+                print(log_message, current_linear_position)
 
                 # Display current state with LEDs
                 leds_ctrl.leds_set_color(leds, state)

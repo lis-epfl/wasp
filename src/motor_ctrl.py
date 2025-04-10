@@ -7,6 +7,15 @@ import os
 
 import config
 
+def compute_angular_speed(linear_speed):
+    """
+    Compute angular speed from linear speed  
+    :param linear_speed: Linear speed in m/s
+    :return: angular speed in turns/s
+    """
+    angular_speed = linear_speed/(config.PULLEY_RADIUS * 2 * np.pi)
+    return angular_speed
+
 
 def compute_linear_speed(angular_speed):
     """
@@ -78,13 +87,13 @@ def set_cart_velocity(odrv, state, target_velocity):
         odrv.axis0.controller.input_vel = 0
 
     elif state == config.STATE["FORWARD"]:
-        odrv.axis0.controller.input_vel = -target_velocity/3 # sign for logical direction of travel 
+        odrv.axis0.controller.input_vel = - compute_angular_speed(target_velocity) # sign for logical direction of travel 
 
     elif state == config.STATE["BACKWARD"]:
-        odrv.axis0.controller.input_vel = target_velocity
+        odrv.axis0.controller.input_vel = compute_angular_speed(target_velocity)
 
     elif state == config.STATE["TRACKING"]:
-        odrv.axis0.controller.input_vel = target_velocity
+        odrv.axis0.controller.input_vel = compute_angular_speed(target_velocity)
     else:
         odrv.axis0.controller.input_vel = 0
 
@@ -94,8 +103,8 @@ def get_data(odrv):
     :param odrv: ODrive object
     :return: Tuple of position, velocity and current
     """
-    angular_position = odrv.axis0.pos_estimate  # in turns
-    angular_velocity = odrv.axis0.vel_estimate  # in turns/s
+    angular_position = - odrv.axis0.pos_estimate  # in turns
+    angular_velocity = - odrv.axis0.vel_estimate  # in turns/s
     torque = odrv.axis0.motor.torque_estimate   # in Nm
 
     return angular_position, angular_velocity, torque
