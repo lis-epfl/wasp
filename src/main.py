@@ -5,6 +5,7 @@ import gpiod
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from datetime import datetime
+import pandas as pd
 
 import config
 import rf_receiver_ctrl
@@ -112,18 +113,19 @@ def main(shared_val):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    camera = camera_ctrl.camera_init()
+    # camera = camera_ctrl.camera_init()
 
     # Caamera recording setings 
     save_path = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{save_path}/video_{timestamp}.mp4"
-    encoder = H264Encoder()
-    output = FfmpegOutput(filename)
+    # filename = f"{save_path}/video_{timestamp}.mp4"
+    # encoder = H264Encoder()
+    # output = FfmpegOutput(filename)
 
     # Time variables
-    time_start = 0
-    time_end = 0
+    time_start_while = 0
+    time_end_while = 0
+    time_start_abs = time.time()
 
     # Initial state
     state = config.STATE["STOP"]
@@ -135,13 +137,42 @@ def main(shared_val):
 
     want_to_stop = False
 
+    # Data collection
+    columns = [
+        "run_time (s)",
+        "angular_position (turns)",
+        "angular_velocity (turns/s)",
+        "torque (Nm)",
+        "linear_position (m)",
+        "linear_speed (m/s)"
+    ]
+    df = pd.DataFrame(columns=columns)
+    csv_path = f"{save_path}/data_{timestamp}.csv"
+    df.to_csv(csv_path, index=False)
+
     try:
         # Start camera recording
-        print(f"Recording started: {filename}")
-        camera.start_recording(encoder, output, quality=Quality.HIGH)
-
+        print("Recording started:")
+        #camera.start_recording(encoder, output, quality=Quality.HIGH)
+        
         while True:
-            time_start = time.time()
+            time_start_while = time.time()
+
+            # Record data
+            current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
+            current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
+            current_linear_speed = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+            current_run_time = time.time() - time_start_abs
+
+            new_data = pd.DataFrame([[
+                current_run_time,
+                current_angular_position,
+                current_angular_velocity,
+                current_torque,
+                current_linear_position,
+                current_linear_speed
+            ]], columns=columns)
+            new_data.to_csv(csv_path, mode='a', header=False, index=False)
 
             if want_to_stop:
                 if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
@@ -164,8 +195,8 @@ def main(shared_val):
                 obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
                 obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
-                # # Update state
-                state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward)
+                # Update state
+                state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position)
                 last_state = state
 
                 if state == config.STATE["STOP"]:
@@ -182,21 +213,24 @@ def main(shared_val):
             leds_ctrl.leds_set_color(leds, state)
 
             # Set motor velocity based on state
-            target_velocity = config.MOTOR_SPEED
+            target_velocity = config.MANUAL_MOTOR_SPEED
             # print(motor_ctrl.compute_linear_speed(odrv.axis0.vel_estimate))
             motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
 
             # Sleep to respect the desired loop time
-            time_end = time.time()
-            if time_end - time_start < config.DT:
-                time.sleep(config.DT - (time_end - time_start))
+            
+            time_end_while = time.time()
+            #print(time_end_while - time_start_while)
+            
+            if time_end_while - time_start_while < config.DT:
+                time.sleep(config.DT - (time_end_while - time_start_while))
             else:
                 print(f"Execution time exceeded {config.DT} seconds.")
     
     except KeyboardInterrupt:
         print("\nStopping recording...")
-        camera.stop_recording()
-        print(f"Video saved as {filename}")
+        # camera.stop_recording()
+        # print(f"Video saved as {filename}")
 
 
 if __name__ == "__main__":
