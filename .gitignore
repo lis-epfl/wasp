@@ -20,3 +20,5 @@ src/grovepy
 .venv/
 venv/
 mocap/
+
+**/*.mp4
