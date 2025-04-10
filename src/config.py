@@ -32,6 +32,7 @@ NUM_LEDS = 3                   # number of LEDs
 RED = (255, 0, 0)              # RGB colors for red
 BLUE = (0, 0, 255)             # RGB colors for blue    
 GREEN = (0, 255, 0)            # RGB colors for green
+YELLOW = (255, 255, 0)         # RGB colors for yellow
 
 
 # RF communication

@@ -32,3 +32,20 @@ def leds_set_color(leds, state):
     else:
         leds.fill((0, 0, 0)) # Off
         leds.show()
+
+def leds_error_warning(leds, leds_off_before):
+    """
+    Toggle the color of the LEDs between yellow and off
+    :param leds: NeoPixel object
+    """
+    if leds_off_before:
+        leds.fill(config.YELLOW)
+        print("on")
+    else:
+        leds.fill((0, 0, 0))
+        print("off")
+    
+    leds.show()
+    leds_off_before = not leds_off_before  # Toggle the state for the next call
+
+    return leds_off_before

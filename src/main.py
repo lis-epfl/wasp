@@ -137,6 +137,8 @@ def main(shared_val):
 
     want_to_stop = False
 
+    leds_off_before = False
+
     # Data collection
     columns = [
         "run_time (s)",
@@ -156,76 +158,84 @@ def main(shared_val):
         #camera.start_recording(encoder, output, quality=Quality.HIGH)
         
         while True:
-            time_start_while = time.time()
-
-            # Record data
-            current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
-            current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-            current_linear_speed = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
-            current_run_time = time.time() - time_start_abs
-
-            new_data = pd.DataFrame([[
-                current_run_time,
-                current_angular_position,
-                current_angular_velocity,
-                current_torque,
-                current_linear_position,
-                current_linear_speed
-            ]], columns=columns)
-            new_data.to_csv(csv_path, mode='a', header=False, index=False)
-
-            if want_to_stop:
-                if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
-                    # Motor is stopped
-                    want_to_stop = False
-            else:
-                # Get remote control command
-                with shared_val.get_lock():
-                    remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
-
-                # Get distance sensor readings
-                front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-                back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-                # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
-
-                front_readings.append(front_value)
-                back_readings.append(back_value)
-
-                # Determine obstacle presence
-                obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-                obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
-
-                # Update state
-                state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position)
-                last_state = state
-
-                if state == config.STATE["STOP"]:
-                    # Stop the motor
-                    want_to_stop = True
-
-            # Print current state
-            log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
-                        f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
-                        f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
-            print(log_message)
-
-            # Display current state with LEDs
-            leds_ctrl.leds_set_color(leds, state)
-
-            # Set motor velocity based on state
-            target_velocity = config.MANUAL_MOTOR_SPEED
-            # print(motor_ctrl.compute_linear_speed(odrv.axis0.vel_estimate))
-            motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
-
-            # Sleep to respect the desired loop time
+            if odrv.axis0.active_errors != 0:
+                # Error on the motor detected
+                print(odrv.axis0.active_errors)
+                leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
+                time.sleep(0.5)
             
-            time_end_while = time.time()
-            #print(time_end_while - time_start_while)
-            
-            if time_end_while - time_start_while < config.DT:
-                time.sleep(config.DT - (time_end_while - time_start_while))
             else:
-                print(f"Execution time exceeded {config.DT} seconds.")
+                # Normal operation
+                time_start_while = time.time()
+
+                # Record data
+                current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
+                current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
+                current_linear_speed = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+                current_run_time = time.time() - time_start_abs
+
+                new_data = pd.DataFrame([[
+                    current_run_time,
+                    current_angular_position,
+                    current_angular_velocity,
+                    current_torque,
+                    current_linear_position,
+                    current_linear_speed
+                ]], columns=columns)
+                new_data.to_csv(csv_path, mode='a', header=False, index=False)
+
+                if want_to_stop:
+                    if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
+                        # Motor is stopped
+                        want_to_stop = False
+                else:
+                    # Get remote control command
+                    with shared_val.get_lock():
+                        remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
+
+                    # Get distance sensor readings
+                    front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+                    back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+                    # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
+
+                    front_readings.append(front_value)
+                    back_readings.append(back_value)
+
+                    # Determine obstacle presence
+                    obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+                    obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
+
+                    # Update state
+                    state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position)
+                    last_state = state
+
+                    if state == config.STATE["STOP"]:
+                        # Stop the motor
+                        want_to_stop = True
+
+                # Print current state
+                log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
+                            f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
+                            f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
+                #print(log_message)
+
+                # Display current state with LEDs
+                leds_ctrl.leds_set_color(leds, state)
+
+                # Set motor velocity based on state
+                target_velocity = config.MANUAL_MOTOR_SPEED
+                # print(motor_ctrl.compute_linear_speed(odrv.axis0.vel_estimate))
+                motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
+
+                # Sleep to respect the desired loop time
+                
+                time_end_while = time.time()
+                #print(time_end_while - time_start_while)
+                
+                if time_end_while - time_start_while < config.DT:
+                    time.sleep(config.DT - (time_end_while - time_start_while))
+                else:
+                    print(f"Execution time exceeded {config.DT} seconds.")
     
     except KeyboardInterrupt:
         print("\nStopping recording...")
