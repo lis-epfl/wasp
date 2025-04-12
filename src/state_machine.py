@@ -1,14 +1,16 @@
 import config
+import motor_ctrl
 
-def update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position):
+
+def update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position, current_angular_velocity):
     """
     Update the state of the cart based on the button pressed, obstacle detection, and position.
     """
     state = last_state
 
     # Check zipline limits
-    reached_end = current_linear_position >= config.ZIPLINE_LENGTH
-    reached_start = current_linear_position <= 0
+    reached_end = current_linear_position >= (config.ZIPLINE_LENGTH - motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MOTOR_ACCELERATION)))
+    reached_start = current_linear_position <=  motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MOTOR_ACCELERATION))
 
     if last_state == config.STATE["STOP"]:
         if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_forward or obstacle_backward):

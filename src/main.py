@@ -206,7 +206,7 @@ def main(shared_val):
                     obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
                     # Update state
-                    state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position)
+                    state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position, current_angular_velocity)
                     last_state = state
 
                     if state == config.STATE["STOP"]:
