@@ -34,7 +34,7 @@ GREEN = (0, 255, 0)            # RGB colors for green
 YELLOW = (255, 255, 0)         # RGB colors for yellow
 
 # RC communication
-STEERING_PIN = 24              # GPIO24 (PIN 18)
+BUTTON_PIN = 24                # GPIO24 (PIN 18)
 TROTTLE_PIN = 25               # GPIO25 (PIN 22)
 
 PWM_MIN_PULSE_WIDTH = 1000     # in µs
