@@ -58,7 +58,4 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, curr
         elif remote_command == config.REMOTE_COMMAND["GO_STOP"]:
             state = config.STATE["STOP"]
 
-    if remote_command == config.REMOTE_COMMAND["NOTHING"]:
-        state = last_state
-
     return state

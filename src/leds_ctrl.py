@@ -22,10 +22,8 @@ def leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_be
             # if stopped because of an obstacle, then blinking red
             if leds_off_before:
                 leds.fill(config.RED)
-                print("LEDs ON")
             else:
                 leds.fill((0, 0, 0))
-                print("LEDs OFF")
             leds_off_before = not leds_off_before  # Toggle the state for the next call
         else:
             # if stoped because end of line or manual stop, then constant red

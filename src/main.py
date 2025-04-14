@@ -6,9 +6,9 @@ from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from datetime import datetime
 import pandas as pd
+import numpy as np
 
 import config
-import rf_receiver_ctrl
 import state_machine
 import leds_ctrl
 import ultrasonic_ctrl
@@ -16,92 +16,51 @@ import motor_ctrl
 import camera_ctrl
 
 
-def remote_control(shared_val):
-    '''
-    Constantly check for button press through RF receiver (CC1101).
-    '''
-    rf_receiver_ctrl.ini_rf_reciever() # Initialize CC1101
-
-    # Necessary local variables
-    last_tick_ns = None
-    last_level = None
-    buffer = deque(maxlen=config.SEQUENCE_SIZE)
-    last_tick_ns = None
-    last_event_type = None
-    bit_count = 0
-    waiting_for_rising_edge = False
-    detected_sequence_id = 0
-
-    chip = gpiod.Chip('gpiochip0')
-    line = chip.get_line(config.GDO2_PIN)
-    line.request(consumer='sequence_detector', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-
-    last_edge_time_ns = time.time_ns()
-
+def rc_receiver_reading(shared_val1, shared_val2):
     try:
-        while True:
-            event = line.event_wait(sec=1)
-            current_time_ns = time.time_ns()
-            
-            # Check for idle timeout
-            if current_time_ns - last_edge_time_ns > config.TIMEOUT_THRESHOLD_US * 1000:
-                buffer.clear()
-                last_tick_ns = None
-                last_event_type = None
-                last_level = None
-                waiting_for_rising_edge = True
-                #ini_rf_reciever() # Reset CC1101
-                #print("[Timeout] Buffer reset!")
-            
-            # Ensure reset before detecting new input
-            detected_sequence_id = 0  
-            
-            if event:
-                evt = line.event_read()
-                last_edge_time_ns = time.time_ns()
-                
-                # Ignore until first rising edge after timeout
-                if waiting_for_rising_edge:
-                    if evt.type == gpiod.LineEvent.RISING_EDGE:
-                        #print("[Sync] Detected rising edge, starting fresh")
-                        waiting_for_rising_edge = False
-                        last_tick_ns = evt.sec * 1_000_000_000 + evt.nsec
-                        last_event_type = evt.type
-                        last_level = 1
-                    continue  # Skip further processing until resynchronized
-                
-                # Normal processing after sync
-                level = 1 if evt.type == gpiod.LineEvent.RISING_EDGE else 0
-                current_tick_ns = evt.sec * 1_000_000_000 + evt.nsec
+        with gpiod.Chip('gpiochip0') as chip:
+            line = chip.get_line(config.TROTTLE_PIN)
+            line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
 
-                # Check edge type change
-                if last_tick_ns is not None and evt.type != last_event_type:
-                    delta_ns = current_tick_ns - last_tick_ns
-                    delta_us = delta_ns / 1000
-                    bit_count = round(delta_us / config.BIT_DURATION)
+            # Initialize variables
+            last_rising = None
+            remote_command = 0 
+            target_speed = 0.0
 
-                    if bit_count > 0:
-                        bits_to_add = str(last_level) * bit_count
-                        buffer.extend(bits_to_add)
-                        #print(bits_to_add, end='', flush=True) # Print all bits detected
+            while True:
+                event = line.event_wait(sec=1)
+                if event:
+                    ev = line.event_read()
+                    timestamp = ev.sec + ev.nsec / 1e9
 
-                # Update last tick, level, event type
-                last_tick_ns = current_tick_ns
-                last_level = level
-                last_event_type = evt.type
+                    if ev.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising = timestamp
+                    elif ev.type == gpiod.LineEvent.FALLING_EDGE and last_rising is not None:
+                        pulse_width = (timestamp - last_rising) * 1_000_000  # in µs
 
-                # Sequence detection
-                if len(buffer) >= config.SEQUENCE_SIZE:
-                    current_seq = ''.join(buffer)
-                    for idx, seq in enumerate(config.BUTTON_SEQUENCES, 1): # starts indexing from 1
-                        if current_seq == seq:
-                            detected_sequence_id = idx
-                            #print(f"\nButton {detected_sequence_id} pushed!")
-        
-            # Update shared value between processes
-            with shared_val.get_lock():
-                shared_val.value = detected_sequence_id
+                        if (pulse_width < (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_TRHESHOLD)) and (pulse_width > (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_TRHESHOLD)):
+                            remote_command = 0 # corresponding to "GO_STOP"
+                            target_speed = 0.0
 
+                        elif pulse_width < config.PWM_DEFAULT_PULSE_WIDTH:
+                            remote_command = 1 # corresponding to "GO_BACKWARD"
+                            target_speed = config.MANUAL_MOTOR_SPEED - np.interp(pulse_width, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
+
+                        elif pulse_width > config.PWM_DEFAULT_PULSE_WIDTH:
+                            remote_command = 2 # corresponding to "GO_FORWARD"
+                            target_speed = np.interp(pulse_width, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
+
+                        # print(f"Before sending: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')} {target_speed:.2f} m/s")
+                        last_rising = None
+
+                # Update shared values between processes
+                with shared_val1.get_lock():
+                    shared_val1.value = remote_command
+
+                with shared_val2.get_lock():
+                    shared_val2.value = target_speed
+
+                time.sleep(0.01)
     except KeyboardInterrupt:
         print("\nStopped.")
     finally:
@@ -109,7 +68,7 @@ def remote_control(shared_val):
         chip.close()
 
 
-def main(shared_val):
+def main(shared_val1, shared_val2):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
@@ -154,11 +113,11 @@ def main(shared_val):
 
     try:
         # Start camera recording
-        print("Recording started:")
+        #print("Recording started:")
         #camera.start_recording(encoder, output, quality=Quality.HIGH)
         
         while True:
-            if odrv.axis0.active_errors != 0:
+            if odrv.axis0.active_errors == 0:
                 # If error on the motor detected, then blink yellow and stop everything 
                 print("Error with the motor:", odrv.axis0.active_errors)
                 leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
@@ -166,6 +125,7 @@ def main(shared_val):
                 target_velocity = 0
                 motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
                 time.sleep(config.DT)
+                continue
                 
             else:
                 # Normal operation
@@ -174,7 +134,7 @@ def main(shared_val):
                 # Record data
                 current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
                 current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-                current_linear_speed = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+                current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
                 current_run_time = time.time() - time_start_abs
 
                 new_data = pd.DataFrame([[
@@ -183,7 +143,7 @@ def main(shared_val):
                     current_angular_velocity,
                     current_torque,
                     current_linear_position,
-                    current_linear_speed
+                    current_linear_velocity
                 ]], columns=columns)
                 new_data.to_csv(csv_path, mode='a', header=False, index=False)
 
@@ -192,9 +152,11 @@ def main(shared_val):
                         # Motor is stopped
                         want_to_stop = False
                 else:
-                    # Get remote control command
-                    with shared_val.get_lock():
-                        remote_command = config.REMOTE_COMMAND.get(config.COMMAND_LOOKUP.get(shared_val.value, "NONE"), 0)
+                    # Get remote control commands
+                    with shared_val1.get_lock():
+                        remote_command = shared_val1.value
+                    with shared_val2.get_lock():
+                        target_speed = shared_val2.value
 
                     # Get distance sensor readings
                     front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
@@ -217,10 +179,12 @@ def main(shared_val):
                         want_to_stop = True
 
                 # Print current state
-                log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}   |   " \
-                              f"Obstacle backward: {obstacle_backward}   |   Obstacle forward: {obstacle_forward}   |   " \
-                              f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
-                print(log_message, current_linear_position)
+                log_message = f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  Target velocity: {target_speed:.2f}  |  " \
+                              f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  " \
+                              f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   " \
+                              f"Position: {current_linear_position:.2f} m  |  " \
+                              f"Velocity: {current_linear_velocity:.2f} m/s"
+                print(log_message)
 
                 # Display current state with LEDs
                 leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before)
@@ -247,12 +211,14 @@ def main(shared_val):
 
 
 if __name__ == "__main__":
-    shared_val = Value('i', 0)  # Shared 'i' = integer (default value 0) between processes
+    shared_val1 = Value('i', 0)  # remote_command state sent by the remote control
+    shared_val2 = Value('d', 0.0) # target_speed state sent by the remote control
 
-    p1 = Process(target=remote_control, args=(shared_val,))
-    p2 = Process(target=main, args=(shared_val,))
+    p1 = Process(target=rc_receiver_reading, args=(shared_val1, shared_val2))
+    p2 = Process(target=main, args=(shared_val1, shared_val2))
 
-    p1.start() # Start RF receiver process
+    p1.start() # Start RC receiver process
     p2.start() # Start entire system process
 
     p1.join()
+    p2.join()

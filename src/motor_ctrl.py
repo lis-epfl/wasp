@@ -51,8 +51,8 @@ def motor_init():
 
         else:
             print("ODrive found!")
-            print("ODrive's configuration:")
-            print(odrv)  # will print the motor's configuration
+            # print("ODrive's configuration:")
+            # print(odrv)  # will print the motor's configuration
 
             # Depending on the battery
             odrv.config.dc_bus_undervoltage_trip_level = config.MIN_VOLTAGE
