@@ -14,13 +14,13 @@ MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
 MANUAL_MOTOR_SPEED = 6         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MOTOR_ACCELERATION = 40.0      # in turns/sec^2
-STOP_SPEED_THRESHOLD = 0.5     # in turns/sec
+STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 ZIPLINE_LENGTH = 50            # in meters (length of the zipline)
 
 # Ultrasonic sensors
-PIN_BACK = 5                   # GPIO5 (PIN 29)
-PIN_FRONT = 16                 # GPIO16 (PIN 36)
+PIN_FRONT = 5                   # GPIO5 (PIN 29)
+PIN_BACK = 16                 # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters

@@ -11,14 +11,25 @@ def leds_init():
     leds = neopixel.NeoPixel(board.D12, config.NUM_LEDS, brightness=1.0, auto_write=False) # GPIO12 (PIN 32) 
     return leds
 
-def leds_set_color(leds, state):
+def leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before):
     """
     Set the color of the LEDs based on the state
     :param leds: NeoPixel object
     :param state: Current state of the cart
     """
     if state == config.STATE["STOP"]:
-        leds.fill(config.RED)
+        if obstacle_forward or obstacle_backward:
+            # if stopped because of an obstacle, then blinking red
+            if leds_off_before:
+                leds.fill(config.RED)
+                print("LEDs ON")
+            else:
+                leds.fill((0, 0, 0))
+                print("LEDs OFF")
+            leds_off_before = not leds_off_before  # Toggle the state for the next call
+        else:
+            # if stoped because end of line or manual stop, then constant red
+            leds.fill(config.RED)
         leds.show()
 
     elif (state == config.STATE["FORWARD"]) or (state == config.STATE["BACKWARD"]):
@@ -32,6 +43,8 @@ def leds_set_color(leds, state):
     else:
         leds.fill((0, 0, 0)) # Off
         leds.show()
+    
+    return leds_off_before
 
 def leds_error_warning(leds, leds_off_before):
     """
@@ -40,11 +53,8 @@ def leds_error_warning(leds, leds_off_before):
     """
     if leds_off_before:
         leds.fill(config.YELLOW)
-        print("on")
     else:
-        leds.fill((0, 0, 0))
-        print("off")
-    
+        leds.fill((0, 0, 0))    
     leds.show()
     leds_off_before = not leds_off_before  # Toggle the state for the next call
 

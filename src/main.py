@@ -159,11 +159,14 @@ def main(shared_val):
         
         while True:
             if odrv.axis0.active_errors != 0:
-                # Error on the motor detected
-                print(odrv.axis0.active_errors)
+                # If error on the motor detected, then blink yellow and stop everything 
+                print("Error with the motor:", odrv.axis0.active_errors)
                 leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                time.sleep(0.5)
-            
+                state = config.STATE["STOP"]
+                target_velocity = 0
+                motor_ctrl.set_cart_velocity(odrv, state, target_velocity)
+                time.sleep(config.DT)
+                
             else:
                 # Normal operation
                 time_start_while = time.time()
@@ -214,13 +217,13 @@ def main(shared_val):
                         want_to_stop = True
 
                 # Print current state
-                log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |   " \
-                            f"Obstacle forward: {obstacle_forward}   |   Obstacle backward: {obstacle_backward}   |   " \
-                            f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
+                log_message = f"Last command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}   |   " \
+                              f"Obstacle backward: {obstacle_backward}   |   Obstacle forward: {obstacle_forward}   |   " \
+                              f"Current state: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}"
                 print(log_message, current_linear_position)
 
                 # Display current state with LEDs
-                leds_ctrl.leds_set_color(leds, state)
+                leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before)
 
                 # Set motor velocity based on state
                 target_velocity = config.MANUAL_MOTOR_SPEED
