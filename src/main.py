@@ -14,7 +14,6 @@ import leds_ctrl
 import ultrasonic_ctrl
 import motor_ctrl
 import camera_ctrl
-import rc_receiver_ctrl
 
 
 def rc_receiver_reading(shared_val1, shared_val2):
