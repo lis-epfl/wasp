@@ -24,3 +24,5 @@ mocap/
 **/*.mp4
 
 src/data/
+
+src/camera_calib/calib_images

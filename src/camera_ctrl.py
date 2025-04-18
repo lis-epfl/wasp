@@ -37,7 +37,7 @@ def calibrate_camera():
         print(f'Taking image {i}')
         filepath = f'camera_calib/calib_images/unannotated/{i}.jpg'
         picam.capture_file(filepath)
-        time.sleep(2)
+        time.sleep(4) # Wait for a few seconds before taking the next picture
 
     picam.stop()
 
@@ -130,30 +130,86 @@ def load_calibration():
     return mtx, dist
 
 
-
-
-
-
-
-
-
-
-
-
-
 def camera_init():
     """
-    Initialize the camera and configure it for video recording.
+    Initialize the Picamera2.
     """
-    # Initialize the camera
     picam2 = Picamera2()
-
-    # Configure the camera for video recording
-    video_config = picam2.create_video_configuration()
-    picam2.configure(video_config)
+    config_cam = picam2.create_still_configuration()
+    picam2.configure(config_cam)
     picam2.set_controls({"FrameRate": config.FRAME_RATE})
-
+    picam2.start()
     return picam2
+
+
+def detect_aruco_pose(picam2):
+    """
+    Capture a frame and detect the specified ArUco marker.
+    Returns rotation and translation vectors if found, else (None, None).
+    """
+    # Load calibration
+    mtx, dist = load_calibration()
+
+    # Capture a frame
+    frame = picam2.capture_array()
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
+    # ArUco dictionary and detection setup
+    dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
+    parameters = cv.aruco.DetectorParameters()
+    detector = cv.aruco.ArucoDetector(dictionary, parameters)
+    corners, ids, _ = detector.detectMarkers(gray)
+
+    if ids is not None and config.ARUCO_ID in ids:
+        idx = np.where(ids == config.ARUCO_ID)[0][0]
+        image_points = corners[idx][0]  # shape (4,2), corner points in image
+
+        # Define 3D object points for the marker (centered at origin, Z=0)
+        s = config.ARUCO_REAL_SIZE
+        object_points = np.array([
+            [-s/2,  s/2, 0],  # top-left
+            [ s/2,  s/2, 0],  # top-right
+            [ s/2, -s/2, 0],  # bottom-right
+            [-s/2, -s/2, 0]   # bottom-left
+        ], dtype=np.float32)
+
+        # Solve PnP: retunrs 3D pose of the center of the ArUco marker in the camera frame
+        success, rvec, tvec = cv.solvePnP(
+            object_points,
+            image_points,
+            mtx,
+            dist,
+            flags=cv.SOLVEPNP_ITERATIVE
+        )
+
+        if success:
+            print(f"ArUco found: Rotation vector: {rvec.ravel()}  |  Translation vector: {tvec.ravel()}")
+            return rvec.ravel(), tvec.ravel()
+        else:
+            print("solvePnP failed.")
+            return None, None
+    else:
+        print("ArUco not found.")
+        return None, None
+
+
+
+
+
+
+# def camera_init():
+#     """
+#     Initialize the camera and configure it for video recording.
+#     """
+#     # Initialize the camera
+#     picam2 = Picamera2()
+
+#     # Configure the camera for video recording
+#     video_config = picam2.create_video_configuration()
+#     picam2.configure(video_config)
+#     picam2.set_controls({"FrameRate": config.FRAME_RATE})
+
+#     return picam2
 
 
 
@@ -220,16 +276,27 @@ def take_picture():
     print(f"Image saved as {filename}")
 
 
+# if __name__ == "__main__":
+#     if len(sys.argv) < 2:
+#         print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', or 'take_picture'")
+#     elif sys.argv[1] == "calibrate_camera":
+#         calibrate_camera()
+#     elif sys.argv[1] == "generate_markers":
+#         generate_markers()
+#     elif sys.argv[1] == "take_video":
+#         take_video()
+#     elif sys.argv[1] == "take_picture":
+#         take_picture()
+#     else:
+#         print(f"Unknown function: {sys.argv[1]}")
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', or 'take_picture'")
-    elif sys.argv[1] == "calibrate_camera":
-        calibrate_camera()
-    elif sys.argv[1] == "generate_markers":
-        generate_markers()
-    elif sys.argv[1] == "take_video":
-        take_video()
-    elif sys.argv[1] == "take_picture":
-        take_picture()
-    else:
-        print(f"Unknown function: {sys.argv[1]}")
+    picam2 = camera_init()
+    try:
+        while True:
+            rvec, tvec = detect_aruco_pose(picam2)
+            time.sleep(0.1)  # limit the loop rate (10 Hz)
+    except KeyboardInterrupt:
+        print("Exiting...")
+    finally:
+        picam2.stop()
