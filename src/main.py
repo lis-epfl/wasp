@@ -7,6 +7,7 @@ from picamera2.outputs import FfmpegOutput
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from simple_pid import PID
 
 import config
 import state_machine
@@ -88,6 +89,10 @@ def rc_receiver_reading(shared_val1, shared_val2):
                             # if the button or the trottle is touched, stop tracking
                             remote_command = 0 # corresponding to "GO_STOP"
                             target_speed = 0.0
+                        else:
+                            # if the button is not touched, keep tracking
+                            remote_command = 3
+                            target_speed = 0.0
                     else:
                         # Manual mode
                         if button_position != last_button_position:
@@ -125,33 +130,25 @@ def main(shared_val1, shared_val2):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    # camera = camera_ctrl.camera_init()
+    camera = camera_ctrl.camera_init()
 
-    # Caamera recording setings 
-    save_path = "data"
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # filename = f"{save_path}/video_{timestamp}.mp4"
-    # encoder = H264Encoder()
-    # output = FfmpegOutput(filename)
-
-    # Time variables
+    # Variable initialization
     time_start_while = 0
     time_end_while = 0
     time_start_abs = time.time()
-
-    # Initial state
+    want_to_stop = False
+    leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
-
-    # Deques to store the last ultrasonic sensor readings
     front_readings = deque(maxlen=config.NB_READINGS)
     back_readings = deque(maxlen=config.NB_READINGS)
+    offset_from_center = None
+    pid = PID(confi.KP, config.KI, config.KD, setpoint=0)
+    pid.output_limits = (-confi.MAX_TRACKING_SPEED, config.MAX_TRACKING_SPEED)
 
-    want_to_stop = False
-
-    leds_off_before = False
-
-    # Data collection
+    # Data recording setings 
+    save_path = "data"
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     columns = [
         "run_time (s)",
         "angular_position (turns)",
@@ -165,12 +162,8 @@ def main(shared_val1, shared_val2):
     df.to_csv(csv_path, index=False)
 
     try:
-        # Start camera recording
-        #print("Recording started:")
-        #camera.start_recording(encoder, output, quality=Quality.HIGH)
-        
         while True:
-            if odrv.axis0.active_errors != 0:
+            if odrv.axis0.active_errors == 0:
                 # If error on the motor detected, then blink yellow and stop everything 
                 print("Error with the motor:", odrv.axis0.active_errors)
                 leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
@@ -178,8 +171,6 @@ def main(shared_val1, shared_val2):
                 target_speed = 0
                 motor_ctrl.set_cart_velocity(odrv, state, target_speed)
                 time.sleep(config.DT)
-                continue
-                
             else:
                 # Normal operation
                 time_start_while = time.time()
@@ -202,7 +193,7 @@ def main(shared_val1, shared_val2):
 
                 if want_to_stop:
                     if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
-                        # Motor is stopped
+                        # Motor is now stopped
                         want_to_stop = False
                 else:
                     # Get remote control commands
@@ -218,8 +209,6 @@ def main(shared_val1, shared_val2):
 
                     front_readings.append(front_value)
                     back_readings.append(back_value)
-
-                    # Determine obstacle presence
                     obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
                     obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
@@ -230,14 +219,11 @@ def main(shared_val1, shared_val2):
                     if state == config.STATE["STOP"]:
                         # Stop the motor
                         want_to_stop = True
-
-                # Print current state
-                log_message = f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  Target velocity: {target_speed:.2f}  |  " \
-                              f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  " \
-                              f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   " \
-                              f"Position: {current_linear_position:.2f} m  |  " \
-                              f"Velocity: {current_linear_velocity:.2f} m/s"
-                print(log_message)
+                    
+                    # Compute target speed based on ArUco marker position
+                    if state == config.STATE["TRACKING"]:
+                        offset_from_center = camera_ctrl.detect_aruco_pose(camera)
+                        target_speed = pid(offset_from_center)
 
                 # Display current state with LEDs
                 leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before)
@@ -245,20 +231,30 @@ def main(shared_val1, shared_val2):
                 # Set motor velocity based on state
                 motor_ctrl.set_cart_velocity(odrv, state, target_speed)
 
+                # Print current state
+                if offset_from_center is None:
+                    offset_str = "N/A"
+                else:
+                    offset_str = f"{offset_from_center:.2f} m"
+                log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
+                               f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                               f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                               f"Position: {current_linear_position:.2f} m  |  "
+                               f"Velocity: {current_linear_velocity:.2f} m/s\n"
+                               f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
+                print(log_message)
+
                 # Sleep to respect the desired loop time
-                
                 time_end_while = time.time()
-                #print(time_end_while - time_start_while)
-                
+                print(time_end_while - time_start_while)
                 if time_end_while - time_start_while < config.DT:
                     time.sleep(config.DT - (time_end_while - time_start_while))
                 else:
                     print(f"Execution time exceeded {config.DT} seconds.")
-    
     except KeyboardInterrupt:
-        print("\nStopping recording...")
-        # camera.stop_recording()
-        # print(f"Video saved as {filename}")
+        print("\nStopping run...")
+    finally:
+        camera.stop()
 
 
 if __name__ == "__main__":

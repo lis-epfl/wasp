@@ -47,11 +47,11 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, curr
             state = config.STATE["STOP"]
 
     elif last_state == config.STATE["TRACKING"]:
-        if obstacle_forward or obstacle_backward or reached_end or reached_start:
+        if obstacle_forward or obstacle_backward or reached_end:
             state = config.STATE["STOP"]
         elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"]:
             state = config.STATE["TRACKING"]
-        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] and not reached_start:
             state = config.STATE["STOP"]
         elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not reached_end:
             state = config.STATE["STOP"]

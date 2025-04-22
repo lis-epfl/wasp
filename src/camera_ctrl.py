@@ -146,6 +146,7 @@ def detect_aruco_pose(picam2):
     """
     Capture a frame and detect the specified ArUco marker.
     Returns rotation and translation vectors if found, else (None, None).
+    Saves an annotated image showing the pose if detected.
     """
     # Load calibration
     mtx, dist = load_calibration()
@@ -173,49 +174,56 @@ def detect_aruco_pose(picam2):
             [-s/2, -s/2, 0]   # bottom-left
         ], dtype=np.float32)
 
-        # Solve PnP: retunrs 3D pose of the center of the ArUco marker in the camera frame
+        # Adjust camera matrix to center the image (origin at the center of the image)
+        img_center_x = frame.shape[1] / 2
+        img_center_y = frame.shape[0] / 2
+        adjusted_mtx = mtx.copy()
+        adjusted_mtx[0, 2] = img_center_x
+        adjusted_mtx[1, 2] = img_center_y
+
+        # Solve PnP to find the rotation and translation vectors
         success, rvec, tvec = cv.solvePnP(
             object_points,
             image_points,
-            mtx,
+            adjusted_mtx,
             dist,
             flags=cv.SOLVEPNP_ITERATIVE
-        )
+            )
+
+        # Project the 3D center of the marker to the image
+        marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
+        projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
+        projected_point = tuple(projected_center[0][0].astype(int))
 
         if success:
-            print(f"ArUco found: Rotation vector: {rvec.ravel()}  |  Translation vector: {tvec.ravel()}")
-            return rvec.ravel(), tvec.ravel()
+            offset_from_center = tvec[1]
+            # Draw the marker and its coordinate frame
+            annotated_frame = frame.copy()
+            height, width = annotated_frame.shape[:2]
+            center_y = height // 2
+            cv.line(
+                annotated_frame,
+                (0, center_y),
+                (width, center_y),
+                (252, 15, 192),
+                10
+            )
+            # Draw a circle at the projected marker center
+            cv.circle(annotated_frame, projected_point, 10, (255, 0, 0), -1)  # Blue dot
+            cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]),
+            cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+
+            # Save annotated image
+            filename = f"camera_calib/aruco_detection.jpg"
+            cv.imwrite(filename, annotated_frame)
+
+            return offset_from_center
         else:
-            print("solvePnP failed.")
-            return None, None
+            # SolvePnP failed
+            return None
     else:
-        print("ArUco not found.")
-        return None, None
-
-
-
-
-
-
-# def camera_init():
-#     """
-#     Initialize the camera and configure it for video recording.
-#     """
-#     # Initialize the camera
-#     picam2 = Picamera2()
-
-#     # Configure the camera for video recording
-#     video_config = picam2.create_video_configuration()
-#     picam2.configure(video_config)
-#     picam2.set_controls({"FrameRate": config.FRAME_RATE})
-
-#     return picam2
-
-
-
-
-
-
+        #ArUco not found
+        return None
 
 
 def take_video():
@@ -294,8 +302,12 @@ if __name__ == "__main__":
     picam2 = camera_init()
     try:
         while True:
-            rvec, tvec = detect_aruco_pose(picam2)
-            time.sleep(0.1)  # limit the loop rate (10 Hz)
+            time_start = time.time()
+            offset_from_center = detect_aruco_pose(picam2)
+            print(f"Offset from center: {offset_from_center}")
+            time_end = time.time()
+            elapsed_time = time_end - time_start
+            print(f"Elapsed time: {elapsed_time:.2f} seconds") # this takes about 0.3 seconds
     except KeyboardInterrupt:
         print("Exiting...")
     finally:

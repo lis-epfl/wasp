@@ -6,6 +6,7 @@ opencv-python==4.11.0.86
 pandas==2.2.3
 multiprocess==0.70.17
 matplotlib==3.10.1
+simple_pid==1.0.1
 
 # Camera
 wheel==0.45.1
