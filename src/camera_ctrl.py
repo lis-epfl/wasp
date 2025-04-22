@@ -1,6 +1,8 @@
 from picamera2 import Picamera2, Preview
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
+from pathlib import Path
+
 import sys
 import time
 from datetime import datetime
@@ -135,24 +137,22 @@ def camera_init():
     Initialize the Picamera2.
     """
     picam2 = Picamera2()
-    config_cam = picam2.create_still_configuration()
+    config_cam = picam2.create_video_configuration(main={"size": (320, 240)})
     picam2.configure(config_cam)
     picam2.set_controls({"FrameRate": config.FRAME_RATE})
     picam2.start()
     return picam2
 
 
-def detect_aruco_pose(picam2):
+def detect_aruco_pose(picam2, mtx, dist, save_path, time_now):
     """
     Capture a frame and detect the specified ArUco marker.
     Returns rotation and translation vectors if found, else (None, None).
     Saves an annotated image showing the pose if detected.
     """
-    # Load calibration
-    mtx, dist = load_calibration()
 
     # Capture a frame
-    frame = picam2.capture_array()
+    frame = picam2.capture_array("main")  # Non-blocking read of latest frame
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
     # ArUco dictionary and detection setup
@@ -197,6 +197,7 @@ def detect_aruco_pose(picam2):
 
         if success:
             offset_from_center = tvec[1]
+
             # Draw the marker and its coordinate frame
             annotated_frame = frame.copy()
             height, width = annotated_frame.shape[:2]
@@ -206,25 +207,33 @@ def detect_aruco_pose(picam2):
                 (0, center_y),
                 (width, center_y),
                 (252, 15, 192),
-                10
+                5
             )
             # Draw a circle at the projected marker center
-            cv.circle(annotated_frame, projected_point, 10, (255, 0, 0), -1)  # Blue dot
+            cv.circle(annotated_frame, projected_point, 5, (255, 0, 0), -1)  # Blue dot
             cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]),
             cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
 
             # Save annotated image
-            filename = f"camera_calib/aruco_detection.jpg"
+            filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
             cv.imwrite(filename, annotated_frame)
 
             return offset_from_center
         else:
             # SolvePnP failed
+            annotated_frame = frame.copy()
+            # Save annotated image
+            filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
+            cv.imwrite(filename, annotated_frame)
             return None
     else:
         #ArUco not found
+        annotated_frame = frame.copy()
+        # Save annotated image
+        filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
+        cv.imwrite(filename, annotated_frame)
         return None
-
+    
 
 def take_video():
     """

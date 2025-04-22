@@ -8,20 +8,22 @@ STATE = {
     "TRACKING": 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.3                       # execution period in seconds
-KP = 0.5                       # proportional gain of PID for tracking 
+DT = 0.07                      # execution period in seconds
+DT_VISION = 0.03               # execution period for vision in seconds
+KP = 7.0                       # proportional gain of PID for tracking 
 KI = 0.0                       # integral gain of PID for tracking 
-KD = 0.0                       # derivative gain of PID for tracking 
+KD = 1.0                       # derivative gain of PID for tracking 
 
 # Motor
 MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
-MANUAL_MOTOR_SPEED = 6         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MANUAL_MOTOR_SPEED = 3         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_TRACKING_SPEED = 5         # in m/s (max speed for tracking)
 MOTOR_ACCELERATION = 40.0      # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
-ZIPLINE_LENGTH = 50            # in meters (length of the zipline)
+ZIPLINE_LENGTH = 4             # in meters
+ZIPLINE_START = 0              # in meters
 
 # Ultrasonic sensors
 PIN_FRONT = 5                  # GPIO5 (PIN 29)
@@ -29,7 +31,7 @@ PIN_BACK = 16                  # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
-OBST_THRESHOLD = 0.2           # distance under which an object is considered an obstacle, in meters
+OBST_THRESHOLD = 2             # distance under which an object is considered an obstacle, in meters
 NB_READINGS = 1                # number of readings to consider an object as an obstacle
 
 # LEDs
@@ -47,6 +49,7 @@ PWM_MIN_PULSE_WIDTH = 1000     # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500 # in µs
 PWM_MAX_PULSE_WIDTH = 2000     # in µs
 GO_STOP_TRHESHOLD = 30         # in µs
+STAY_TRACKING_TRHESHOLD = 100  # in µs
 
 REMOTE_COMMAND = {
     "GO_STOP": 0,

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
 # Load CSV
-file_name = "data_2025-04-12_13-22-38"
+file_name = "data_2025-04-22_17-29-33"
 df = pd.read_csv(f"data/{file_name}.csv")
 
 # Extract data

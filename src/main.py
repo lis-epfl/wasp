@@ -1,11 +1,12 @@
 import time
+import csv
+from pathlib import Path
 from multiprocessing import Process, Value
 from collections import deque
 import gpiod
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from datetime import datetime
-import pandas as pd
 import numpy as np
 from simple_pid import PID
 
@@ -17,7 +18,7 @@ import motor_ctrl
 import camera_ctrl
 
 
-def rc_receiver_reading(shared_val1, shared_val2):
+def rc_receiver_reading(shared_remote_command, shared_target_speed):
     try:
         with gpiod.Chip('gpiochip0') as chip:
             trottle_line = chip.get_line(config.TROTTLE_PIN)
@@ -83,9 +84,10 @@ def rc_receiver_reading(shared_val1, shared_val2):
                         button_position = True
                     else:
                         button_position = False
+
                     if remote_command == 3:
                         # Tracking mode
-                        if (button_position != last_button_position) or (throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_TRHESHOLD)) or (throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_TRHESHOLD)):
+                        if (button_position != last_button_position) or (throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.STAY_TRACKING_TRHESHOLD)) or (throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.STAY_TRACKING_TRHESHOLD)):
                             # if the button or the trottle is touched, stop tracking
                             remote_command = 0 # corresponding to "GO_STOP"
                             target_speed = 0.0
@@ -112,25 +114,58 @@ def rc_receiver_reading(shared_val1, shared_val2):
                 last_remote_command = remote_command
 
                 # Update shared values between processes
-                with shared_val1.get_lock():
-                    shared_val1.value = remote_command
-                with shared_val2.get_lock():
-                    shared_val2.value = target_speed
+                with shared_remote_command.get_lock():
+                    shared_remote_command.value = remote_command
+                with shared_target_speed.get_lock():
+                    shared_target_speed.value = target_speed
 
                 time.sleep(0.01)
     except KeyboardInterrupt:
-        print("\nStopped.")
+        print("\nRC remote process stopped.")
     finally:
         trottle_line.release()
         button_line.release()
         chip.close()
 
 
-def main(shared_val1, shared_val2):
+def camera_process(shared_offset, shared_detect_flag):
+    # Initialize camera
+    camera = camera_ctrl.camera_init()
+
+    # Load calibration
+    mtx, dist = camera_ctrl.load_calibration()
+
+    # Data recording settings    
+    timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    save_path = Path("data") / f"images_{timestamp_folder}"
+    save_path.mkdir(parents=True, exist_ok=True)
+    try:
+        while True:
+            time_start_while = time.time()
+            # Only compute if tracking is on
+            if shared_detect_flag.value == 1:
+                offset = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, time_start_while)
+                with shared_offset.get_lock():
+                    shared_offset.value = offset if offset is not None else float('nan')
+            else:
+                time.sleep(0.01)
+            
+            time_end_while = time.time()
+            # print(time_end_while - time_start_while) # about 0.01s when ArUco is detected
+            if time_end_while - time_start_while < config.DT_VISION:
+                time.sleep(config.DT_VISION - (time_end_while - time_start_while))
+            else:
+                print(f"Execution time exceeded {config.DT} seconds.")
+    except KeyboardInterrupt:
+        print("\nCamera process stopped.")
+    finally:
+        camera.stop()
+
+
+def main(shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    camera = camera_ctrl.camera_init()
 
     # Variable initialization
     time_start_while = 0
@@ -143,12 +178,13 @@ def main(shared_val1, shared_val2):
     front_readings = deque(maxlen=config.NB_READINGS)
     back_readings = deque(maxlen=config.NB_READINGS)
     offset_from_center = None
-    pid = PID(confi.KP, config.KI, config.KD, setpoint=0)
-    pid.output_limits = (-confi.MAX_TRACKING_SPEED, config.MAX_TRACKING_SPEED)
+    pid = PID(config.KP, config.KI, config.KD, setpoint=0)
+    pid.output_limits = (-config.MAX_TRACKING_SPEED, config.MAX_TRACKING_SPEED)
 
     # Data recording setings 
-    save_path = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    save_path = Path("data") / f"data_{timestamp}"
+    save_path.mkdir(parents=True, exist_ok=True)
     columns = [
         "run_time (s)",
         "angular_position (turns)",
@@ -157,13 +193,14 @@ def main(shared_val1, shared_val2):
         "linear_position (m)",
         "linear_speed (m/s)"
     ]
-    df = pd.DataFrame(columns=columns)
     csv_path = f"{save_path}/data_{timestamp}.csv"
-    df.to_csv(csv_path, index=False)
-
+    csv_file = open(csv_path, 'w', newline='')
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(columns)
+    
     try:
         while True:
-            if odrv.axis0.active_errors == 0:
+            if odrv.axis0.active_errors != 0:
                 # If error on the motor detected, then blink yellow and stop everything 
                 print("Error with the motor:", odrv.axis0.active_errors)
                 leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
@@ -181,15 +218,14 @@ def main(shared_val1, shared_val2):
                 current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
                 current_run_time = time.time() - time_start_abs
 
-                new_data = pd.DataFrame([[
+                csv_writer.writerow([
                     current_run_time,
                     current_angular_position,
                     current_angular_velocity,
                     current_torque,
                     current_linear_position,
                     current_linear_velocity
-                ]], columns=columns)
-                new_data.to_csv(csv_path, mode='a', header=False, index=False)
+                ])
 
                 if want_to_stop:
                     if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
@@ -197,10 +233,9 @@ def main(shared_val1, shared_val2):
                         want_to_stop = False
                 else:
                     # Get remote control commands
-                    with shared_val1.get_lock():
-                        remote_command = shared_val1.value
-                    with shared_val2.get_lock():
-                        target_speed = shared_val2.value
+                    with shared_remote_command.get_lock(), shared_target_speed.get_lock():
+                        remote_command = shared_remote_command.value
+                        target_speed = shared_target_speed.value
 
                     # Get distance sensor readings
                     front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
@@ -222,11 +257,29 @@ def main(shared_val1, shared_val2):
                     
                     # Compute target speed based on ArUco marker position
                     if state == config.STATE["TRACKING"]:
-                        offset_from_center = camera_ctrl.detect_aruco_pose(camera)
-                        target_speed = pid(offset_from_center)
+                        with shared_detect_flag.get_lock():
+                            shared_detect_flag.value = 1
+                        with shared_offset.get_lock():
+                            offset_from_center = shared_offset.value
+                        # Get distance between the ArUco marker and the center of the camera    
+                        offset_from_center = offset_from_center if not np.isnan(offset_from_center) else None
+
+                        if offset_from_center is not None:
+                            # Compute target speed using PID controller
+                            pid.setpoint = 0
+                            pid.sample_time = config.DT
+                            pid.auto_mode = True
+                            target_speed = pid(offset_from_center)
+                        else:
+                            # If ArUco marker is not detected, stop the motor
+                            target_speed = 0.0
+                    else:
+                        with shared_detect_flag.get_lock():
+                            shared_detect_flag.value = 0
+                        offset_from_center = None
 
                 # Display current state with LEDs
-                leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before)
+                leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, offset_from_center, leds_off_before)
 
                 # Set motor velocity based on state
                 motor_ctrl.set_cart_velocity(odrv, state, target_speed)
@@ -242,30 +295,34 @@ def main(shared_val1, shared_val2):
                                f"Position: {current_linear_position:.2f} m  |  "
                                f"Velocity: {current_linear_velocity:.2f} m/s\n"
                                f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                print(log_message)
+                #print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
-                print(time_end_while - time_start_while)
+                # print(time_end_while - time_start_while)
                 if time_end_while - time_start_while < config.DT:
                     time.sleep(config.DT - (time_end_while - time_start_while))
                 else:
                     print(f"Execution time exceeded {config.DT} seconds.")
     except KeyboardInterrupt:
-        print("\nStopping run...")
-    finally:
-        camera.stop()
+        print("\nMain process stopped.")
 
 
 if __name__ == "__main__":
-    shared_val1 = Value('i', 0)  # remote_command state sent by the remote control
-    shared_val2 = Value('d', 0.0) # target_speed state sent by the remote control
+    shared_remote_command = Value('i', 0)  # remote_command
+    shared_target_speed = Value('d', 0.0)  # target_speed
 
-    p1 = Process(target=rc_receiver_reading, args=(shared_val1, shared_val2))
-    p2 = Process(target=main, args=(shared_val1, shared_val2))
+    shared_offset = Value('d', float('nan'))  # ArUco detection result
+    shared_detect_flag = Value('i', 0)        # flag to compute detection
 
-    p1.start() # Start RC receiver process
-    p2.start() # Start entire system process
+    p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed))
+    p2 = Process(target=main, args=(shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag))
+    p3 = Process(target=camera_process, args=(shared_offset, shared_detect_flag))
+
+    p1.start()
+    p2.start()
+    p3.start()
 
     p1.join()
     p2.join()
+    p3.join()

@@ -11,7 +11,7 @@ def leds_init():
     leds = neopixel.NeoPixel(board.D12, config.NUM_LEDS, brightness=1.0, auto_write=False) # GPIO12 (PIN 32) 
     return leds
 
-def leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_before):
+def leds_set_color(leds, state, obstacle_forward, obstacle_backward, offset_from_center, leds_off_before):
     """
     Set the color of the LEDs based on the state
     :param leds: NeoPixel object
@@ -35,7 +35,16 @@ def leds_set_color(leds, state, obstacle_forward, obstacle_backward, leds_off_be
         leds.show()
 
     elif state == config.STATE["TRACKING"]:
-        leds.fill(config.GREEN)
+        if offset_from_center is None:
+            # no finding the ArUco tag
+            if leds_off_before:
+                leds.fill(config.GREEN)
+            else:
+                leds.fill((0, 0, 0))
+            leds_off_before = not leds_off_before  # Toggle the state for the next call
+        else:
+            # tracking the ArUco tag
+            leds.fill(config.GREEN)
         leds.show()
 
     else:

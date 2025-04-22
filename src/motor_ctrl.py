@@ -93,7 +93,7 @@ def set_cart_velocity(odrv, state, target_velocity):
         odrv.axis0.controller.input_vel = compute_angular_speed(target_velocity)
 
     elif state == config.STATE["TRACKING"]:
-        odrv.axis0.controller.input_vel = compute_angular_speed(target_velocity)
+        odrv.axis0.controller.input_vel = - compute_angular_speed(target_velocity)
     else:
         odrv.axis0.controller.input_vel = 0
 
