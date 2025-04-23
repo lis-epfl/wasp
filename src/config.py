@@ -8,7 +8,7 @@ STATE = {
     "TRACKING": 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.07                      # execution period in seconds
+DT = 0.1                      # execution period in seconds
 DT_VISION = 0.03               # execution period for vision in seconds
 KP = 7.0                       # proportional gain of PID for tracking 
 KI = 0.0                       # integral gain of PID for tracking 
@@ -22,7 +22,7 @@ MAX_TRACKING_SPEED = 5         # in m/s (max speed for tracking)
 MOTOR_ACCELERATION = 40.0      # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
-ZIPLINE_LENGTH = 4             # in meters
+ZIPLINE_LENGTH = 5             # in meters
 ZIPLINE_START = 0              # in meters
 
 # Ultrasonic sensors
@@ -62,7 +62,7 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 # Camera
 CAM_HEIGHT = 4608                               # camera default resolution (maximum), in pixels
 CAM_WIDTH = 2592                                # camera default resolution (maximum), in pixels
-RES_DROP = 10                                    # resolution drop factor
+RES_DROP = 5                                    # resolution drop factor
 CAM_HEIGHT_LOW = int(CAM_HEIGHT/RES_DROP)       # lower resolution settings, in pixels
 CAM_WIDTH_LOW = int((CAM_HEIGHT_LOW / 16) * 9)  # lower resolution settings, in pixels
 FRAME_RATE = 60                                 # in frames/sec
