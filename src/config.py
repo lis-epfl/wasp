@@ -60,11 +60,16 @@ REMOTE_COMMAND = {
 COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 
 # Camera
-FRAME_RATE = 60                       # in frames/sec
-CALIBRATION_SQUARE = 0.0323           # size of the squares in the checkerboard, in meters
-CHECKERBOARD_SHAPE = (4, 7)           # number of inner corners per row and column !!nb of squares - 1!!
-NB_IMAGES_CALIBRATION = 20            # number of images to capture for calibration
-ARUCO_DICT = cv.aruco.DICT_5X5_250    # 5x5 dictionary with 250 unique markers
-ARUCO_ID = 77                         # exact marker ID to be detected between 0 and 249
-ARUCO_PIXEL_SIZE = 400                # size of the ArUco marker, in pixels (for ArUo generation)
-ARUCO_REAL_SIZE = 0.1355              # size of the ArUco marker, in meters (to be measured in real life)
+CAM_HEIGHT = 4608                               # camera default resolution (maximum), in pixels
+CAM_WIDTH = 2592                                # camera default resolution (maximum), in pixels
+RES_DROP = 10                                    # resolution drop factor
+CAM_HEIGHT_LOW = int(CAM_HEIGHT/RES_DROP)       # lower resolution settings, in pixels
+CAM_WIDTH_LOW = int((CAM_HEIGHT_LOW / 16) * 9)  # lower resolution settings, in pixels
+FRAME_RATE = 60                                 # in frames/sec
+CALIBRATION_SQUARE = 0.0323                     # size of the squares in the checkerboard, in meters
+CHECKERBOARD_SHAPE = (4, 7)                     # number of inner corners per row and column !!nb of squares - 1!!
+NB_IMAGES_CALIBRATION = 20                      # number of images to capture for calibration
+ARUCO_DICT = cv.aruco.DICT_5X5_250              # 5x5 dictionary with 250 unique markers
+ARUCO_ID = 77                                   # exact marker ID to be detected between 0 and 249
+ARUCO_PIXEL_SIZE = 400                          # size of the ArUco marker, in pixels (for ArUo generation)
+ARUCO_REAL_SIZE = 0.1355                        # size of the ArUco marker, in meters (to be measured in real life)

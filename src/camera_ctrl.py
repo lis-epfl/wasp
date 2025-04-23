@@ -137,9 +137,10 @@ def camera_init():
     Initialize the Picamera2.
     """
     picam2 = Picamera2()
-    config_cam = picam2.create_video_configuration(main={"size": (320, 240)})
+    # Lower resolution for faster processing
+    config_cam = picam2.create_video_configuration(main={"size": (config.CAM_HEIGHT_LOW, config.CAM_WIDTH_LOW)},
+                                                   raw={"size": (config.CAM_HEIGHT, config.CAM_WIDTH)})
     picam2.configure(config_cam)
-    picam2.set_controls({"FrameRate": config.FRAME_RATE})
     picam2.start()
     return picam2
 
@@ -273,51 +274,42 @@ def take_picture():
     """
     Capture a still image and save it to a file.
     """
-    # Initialize the camera
-    picam2 = Picamera2()
-
-    # Configure the camera for still image capture
-    camera_config = picam2.create_still_configuration()
-    picam2.configure(camera_config)
-
-    # Start the camera
-    picam2.start()
+    picam2 = camera_init()
     time.sleep(2)  # Give some time for the camera to adjust
+    frame = picam2.capture_array("main")  # Non-blocking read of latest frame
 
     save_path = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{save_path}/cam_view{timestamp}.jpg"
-
-    # Capture and save the image
     picam2.capture_file(filename)
     print(f"Image saved as {filename}")
 
 
-# if __name__ == "__main__":
-#     if len(sys.argv) < 2:
-#         print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', or 'take_picture'")
-#     elif sys.argv[1] == "calibrate_camera":
-#         calibrate_camera()
-#     elif sys.argv[1] == "generate_markers":
-#         generate_markers()
-#     elif sys.argv[1] == "take_video":
-#         take_video()
-#     elif sys.argv[1] == "take_picture":
-#         take_picture()
-#     else:
-#         print(f"Unknown function: {sys.argv[1]}")
-
 if __name__ == "__main__":
-    picam2 = camera_init()
-    try:
-        while True:
-            time_start = time.time()
-            offset_from_center = detect_aruco_pose(picam2)
-            print(f"Offset from center: {offset_from_center}")
-            time_end = time.time()
-            elapsed_time = time_end - time_start
-            print(f"Elapsed time: {elapsed_time:.2f} seconds") # this takes about 0.3 seconds
-    except KeyboardInterrupt:
-        print("Exiting...")
-    finally:
-        picam2.stop()
+    if len(sys.argv) < 2:
+        print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', or 'take_picture'")
+    elif sys.argv[1] == "calibrate_camera":
+        calibrate_camera()
+    elif sys.argv[1] == "generate_markers":
+        generate_markers()
+    elif sys.argv[1] == "take_video":
+        take_video()
+    elif sys.argv[1] == "take_picture":
+        take_picture()
+    else:
+        print(f"Unknown function: {sys.argv[1]}")
+
+# if __name__ == "__main__":
+#     picam2 = camera_init()
+#     try:
+#         while True:
+#             time_start = time.time()
+#             offset_from_center = detect_aruco_pose(picam2)
+#             print(f"Offset from center: {offset_from_center}")
+#             time_end = time.time()
+#             elapsed_time = time_end - time_start
+#             print(f"Elapsed time: {elapsed_time:.2f} seconds") # this takes about 0.3 seconds
+#     except KeyboardInterrupt:
+#         print("Exiting...")
+#     finally:
+#         picam2.stop()

@@ -9,6 +9,7 @@ from picamera2.outputs import FfmpegOutput
 from datetime import datetime
 import numpy as np
 from simple_pid import PID
+import os
 
 import config
 import state_machine
@@ -128,7 +129,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
         chip.close()
 
 
-def camera_process(shared_offset, shared_detect_flag):
+def camera_process(save_path, shared_offset, shared_detect_flag):
     # Initialize camera
     camera = camera_ctrl.camera_init()
 
@@ -137,7 +138,7 @@ def camera_process(shared_offset, shared_detect_flag):
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path("data") / f"images_{timestamp_folder}"
+    save_path = Path(save_path) / f"images_{timestamp_folder}"
     save_path.mkdir(parents=True, exist_ok=True)
     try:
         while True:
@@ -162,7 +163,7 @@ def camera_process(shared_offset, shared_detect_flag):
         camera.stop()
 
 
-def main(shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag):
+def main(save_path, shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
@@ -183,8 +184,6 @@ def main(shared_remote_command, shared_target_speed, shared_offset, shared_detec
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path("data") / f"data_{timestamp}"
-    save_path.mkdir(parents=True, exist_ok=True)
     columns = [
         "run_time (s)",
         "angular_position (turns)",
@@ -193,7 +192,8 @@ def main(shared_remote_command, shared_target_speed, shared_offset, shared_detec
         "linear_position (m)",
         "linear_speed (m/s)"
     ]
-    csv_path = f"{save_path}/data_{timestamp}.csv"
+    csv_path = Path(save_path) / f"data_{timestamp}.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)  # Create dir if missing
     csv_file = open(csv_path, 'w', newline='')
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(columns)
@@ -309,6 +309,12 @@ def main(shared_remote_command, shared_target_speed, shared_offset, shared_detec
 
 
 if __name__ == "__main__":
+    # Create a folder to save the data
+    timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    save_path = Path("data") / f"run_{timestamp_folder}"
+    os.makedirs(save_path, exist_ok=True)
+
+    # Shared variables for inter-process communication
     shared_remote_command = Value('i', 0)  # remote_command
     shared_target_speed = Value('d', 0.0)  # target_speed
 
@@ -316,8 +322,8 @@ if __name__ == "__main__":
     shared_detect_flag = Value('i', 0)        # flag to compute detection
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed))
-    p2 = Process(target=main, args=(shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag))
-    p3 = Process(target=camera_process, args=(shared_offset, shared_detect_flag))
+    p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_detect_flag))
+    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag))
 
     p1.start()
     p2.start()
