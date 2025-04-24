@@ -153,11 +153,11 @@ def camera_process(save_path, shared_offset, shared_detect_flag):
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            # print(time_end_while - time_start_while) # about 0.01s when ArUco is detected
+            # print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
             else:
-                print(f"Execution time exceeded {config.DT} seconds.")
+                print(f"Camera process: Execution time exceeded {config.DT_VISION} seconds.")
     except KeyboardInterrupt:
         print("\nCamera process stopped.")
     finally:
@@ -301,11 +301,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
-                    # print(time_end_while - time_start_while)
+                    # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
                     if time_end_while - time_start_while < config.DT:
                         time.sleep(config.DT - (time_end_while - time_start_while))
                     else:
-                        print(f"Execution time exceeded {config.DT} seconds.")
+                        print(f"Main process: Execution time exceeded {config.DT} seconds.")
         except KeyboardInterrupt:
             print("\nMain process stopped.")
             motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)

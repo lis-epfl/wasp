@@ -8,9 +8,9 @@ STATE = {
     "TRACKING": 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.1                      # execution period in seconds
-DT_VISION = 0.03               # execution period for vision in seconds
-KP = 7.0                       # proportional gain of PID for tracking 
+DT = 0.06                      # execution period in seconds
+DT_VISION = 0.10               # execution period for vision in seconds
+KP = 5.0                       # proportional gain of PID for tracking 
 KI = 0.0                       # integral gain of PID for tracking 
 KD = 1.0                       # derivative gain of PID for tracking 
 
