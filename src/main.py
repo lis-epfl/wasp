@@ -17,6 +17,7 @@ import leds_ctrl
 import ultrasonic_ctrl
 import motor_ctrl
 import camera_ctrl
+import plot_velocity_pos_torque
 
 
 def rc_receiver_reading(shared_remote_command, shared_target_speed):
@@ -130,22 +131,22 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
 
 
 def camera_process(save_path, shared_offset, shared_detect_flag):
-    # Initialize camera
     camera = camera_ctrl.camera_init()
-
-    # Load calibration
     mtx, dist = camera_ctrl.load_calibration()
+    frame_counter = 1
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path(save_path) / f"images_{timestamp_folder}"
+    save_path = Path(save_path) / f"frames_{timestamp_folder}"
     save_path.mkdir(parents=True, exist_ok=True)
     try:
         while True:
             time_start_while = time.time()
+
             # Only compute if tracking is on
             if shared_detect_flag.value == 1:
-                offset = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, time_start_while)
+                offset = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
+                frame_counter += 1
                 with shared_offset.get_lock():
                     shared_offset.value = offset if offset is not None else float('nan')
             else:
@@ -199,113 +200,122 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     csv_writer.writerow(columns)
     
     try:
-        while True:
-            if odrv.axis0.active_errors != 0:
-                # If error on the motor detected, then blink yellow and stop everything 
-                print("Error with the motor:", odrv.axis0.active_errors)
-                leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                state = config.STATE["STOP"]
-                target_speed = 0
-                motor_ctrl.set_cart_velocity(odrv, state, target_speed)
-                time.sleep(config.DT)
-            else:
-                # Normal operation
-                time_start_while = time.time()
-
-                # Record data
-                current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
-                current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-                current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
-                current_run_time = time.time() - time_start_abs
-
-                csv_writer.writerow([
-                    current_run_time,
-                    current_angular_position,
-                    current_angular_velocity,
-                    current_torque,
-                    current_linear_position,
-                    current_linear_velocity
-                ])
-
-                if want_to_stop:
-                    if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
-                        # Motor is now stopped
-                        want_to_stop = False
+        try:
+            while True:
+                if odrv.axis0.active_errors != 0:
+                    # If error on the motor detected, then blink yellow and stop everything 
+                    print("Error with the motor:", odrv.axis0.active_errors)
+                    leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
+                    state = config.STATE["STOP"]
+                    target_speed = 0
+                    motor_ctrl.set_cart_velocity(odrv, state, target_speed)
+                    time.sleep(config.DT)
                 else:
-                    # Get remote control commands
-                    with shared_remote_command.get_lock(), shared_target_speed.get_lock():
-                        remote_command = shared_remote_command.value
-                        target_speed = shared_target_speed.value
+                    # Normal operation
+                    time_start_while = time.time()
 
-                    # Get distance sensor readings
-                    front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-                    back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-                    # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
+                    # Record data
+                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
+                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
+                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+                    current_run_time = time.time() - time_start_abs
 
-                    front_readings.append(front_value)
-                    back_readings.append(back_value)
-                    obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-                    obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
+                    csv_writer.writerow([
+                        current_run_time,
+                        current_angular_position,
+                        current_angular_velocity,
+                        current_torque,
+                        current_linear_position,
+                        current_linear_velocity
+                    ])
 
-                    # Update state
-                    state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position, current_angular_velocity)
-                    last_state = state
-
-                    if state == config.STATE["STOP"]:
-                        # Stop the motor
-                        want_to_stop = True
-                    
-                    # Compute target speed based on ArUco marker position
-                    if state == config.STATE["TRACKING"]:
-                        with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1
-                        with shared_offset.get_lock():
-                            offset_from_center = shared_offset.value
-                        # Get distance between the ArUco marker and the center of the camera    
-                        offset_from_center = offset_from_center if not np.isnan(offset_from_center) else None
-
-                        if offset_from_center is not None:
-                            # Compute target speed using PID controller
-                            pid.setpoint = 0
-                            pid.sample_time = config.DT
-                            pid.auto_mode = True
-                            target_speed = pid(offset_from_center)
-                        else:
-                            # If ArUco marker is not detected, stop the motor
-                            target_speed = 0.0
+                    if want_to_stop:
+                        if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
+                            # Motor is now stopped
+                            want_to_stop = False
                     else:
-                        with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0
-                        offset_from_center = None
+                        # Get remote control commands
+                        with shared_remote_command.get_lock(), shared_target_speed.get_lock():
+                            remote_command = shared_remote_command.value
+                            target_speed = shared_target_speed.value
 
-                # Display current state with LEDs
-                leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, offset_from_center, leds_off_before)
+                        # Get distance sensor readings
+                        front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
+                        back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
+                        # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
 
-                # Set motor velocity based on state
-                motor_ctrl.set_cart_velocity(odrv, state, target_speed)
+                        front_readings.append(front_value)
+                        back_readings.append(back_value)
+                        obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
+                        obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
-                # Print current state
-                if offset_from_center is None:
-                    offset_str = "N/A"
-                else:
-                    offset_str = f"{offset_from_center:.2f} m"
-                log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                               f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
-                               f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                               f"Position: {current_linear_position:.2f} m  |  "
-                               f"Velocity: {current_linear_velocity:.2f} m/s\n"
-                               f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                #print(log_message)
+                        # Update state
+                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position, current_angular_velocity)
+                        last_state = state
 
-                # Sleep to respect the desired loop time
-                time_end_while = time.time()
-                # print(time_end_while - time_start_while)
-                if time_end_while - time_start_while < config.DT:
-                    time.sleep(config.DT - (time_end_while - time_start_while))
-                else:
-                    print(f"Execution time exceeded {config.DT} seconds.")
-    except KeyboardInterrupt:
-        print("\nMain process stopped.")
+                        if state == config.STATE["STOP"]:
+                            # Stop the motor
+                            want_to_stop = True
+                        
+                        # Compute target speed based on ArUco marker position
+                        if state == config.STATE["TRACKING"]:
+                            with shared_detect_flag.get_lock():
+                                shared_detect_flag.value = 1
+                            with shared_offset.get_lock():
+                                offset_from_center = shared_offset.value
+                            # Get distance between the ArUco marker and the center of the camera    
+                            offset_from_center = offset_from_center if not np.isnan(offset_from_center) else None
+
+                            if offset_from_center is not None:
+                                # Compute target speed using PID controller
+                                pid.setpoint = 0
+                                pid.sample_time = config.DT
+                                pid.auto_mode = True
+                                target_speed = pid(offset_from_center)
+                            else:
+                                # If ArUco marker is not detected, stop the motor
+                                target_speed = 0.0
+                        else:
+                            with shared_detect_flag.get_lock():
+                                shared_detect_flag.value = 0
+                            offset_from_center = None
+
+                    # Display current state with LEDs
+                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, offset_from_center, leds_off_before)
+
+                    # Set motor velocity based on state
+                    motor_ctrl.set_cart_velocity(odrv, state, target_speed)
+
+                    # Print current state
+                    if offset_from_center is None:
+                        offset_str = "N/A"
+                    else:
+                        offset_str = f"{offset_from_center:.2f} m"
+                    log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
+                                f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                                f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                                f"Position: {current_linear_position:.2f} m  |  "
+                                f"Velocity: {current_linear_velocity:.2f} m/s\n"
+                                f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
+                    #print(log_message)
+
+                    # Sleep to respect the desired loop time
+                    time_end_while = time.time()
+                    # print(time_end_while - time_start_while)
+                    if time_end_while - time_start_while < config.DT:
+                        time.sleep(config.DT - (time_end_while - time_start_while))
+                    else:
+                        print(f"Execution time exceeded {config.DT} seconds.")
+        except KeyboardInterrupt:
+            print("\nMain process stopped.")
+            motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)
+    finally:
+        csv_file.close()
+        print(f"\nRun complete. Data saved to {csv_path}")
+        try:
+            plot_velocity_pos_torque.plot_data(csv_path)
+        except Exception as e:
+            print(f"Plotting failed: {e}")
 
 
 if __name__ == "__main__":

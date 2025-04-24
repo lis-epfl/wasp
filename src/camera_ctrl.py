@@ -10,7 +10,6 @@ import cv2 as cv
 import numpy as np
 import glob
 import os
-from libcamera import controls
 
 import config
 
@@ -145,7 +144,7 @@ def camera_init():
     return picam2
 
 
-def detect_aruco_pose(picam2, mtx, dist, save_path, time_now):
+def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
     """
     Capture a frame and detect the specified ArUco marker.
     Returns rotation and translation vectors if found, else (None, None).
@@ -153,8 +152,10 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, time_now):
     """
 
     # Capture a frame
-    frame = picam2.capture_array("main")  # Non-blocking read of latest frame
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    frame_rgb = picam2.capture_array("main")  # Non-blocking read of latest frame (rgb format)
+    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR) # (bgr format)
+    gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY) # (gray scale format)
+    filename = f"{save_path}/frame_{frame_counter:04d}.png"
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
@@ -176,8 +177,8 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, time_now):
         ], dtype=np.float32)
 
         # Adjust camera matrix to center the image (origin at the center of the image)
-        img_center_x = frame.shape[1] / 2
-        img_center_y = frame.shape[0] / 2
+        img_center_x = frame_bgr.shape[1] / 2
+        img_center_y = frame_bgr.shape[0] / 2
         adjusted_mtx = mtx.copy()
         adjusted_mtx[0, 2] = img_center_x
         adjusted_mtx[1, 2] = img_center_y
@@ -197,44 +198,35 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, time_now):
         projected_point = tuple(projected_center[0][0].astype(int))
 
         if success:
+            # SolvePnP succeeded
             offset_from_center = tvec[1]
 
-            # Draw the marker and its coordinate frame
-            annotated_frame = frame.copy()
+            # Draw the marker and the center line on the frame
+            annotated_frame = frame_bgr.copy()
             height, width = annotated_frame.shape[:2]
             center_y = height // 2
-            cv.line(
-                annotated_frame,
-                (0, center_y),
-                (width, center_y),
-                (252, 15, 192),
-                5
-            )
-            # Draw a circle at the projected marker center
-            cv.circle(annotated_frame, projected_point, 5, (255, 0, 0), -1)  # Blue dot
+            cv.line(annotated_frame, (0, center_y), (width, center_y), (147, 20, 255), 5) # draw center line
+            cv.circle(annotated_frame, projected_point, 5, (255, 0, 0), -1)  # draw dot
             cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]),
-            cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+            cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2) # draw text
 
             # Save annotated image
-            filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
             cv.imwrite(filename, annotated_frame)
-
-            return offset_from_center
         else:
             # SolvePnP failed
-            annotated_frame = frame.copy()
+            offset_from_center = None
+
             # Save annotated image
-            filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
-            cv.imwrite(filename, annotated_frame)
-            return None
+            cv.imwrite(filename, frame_bgr)
     else:
-        #ArUco not found
-        annotated_frame = frame.copy()
+        # ArUco not found
+        offset_from_center = None
+
         # Save annotated image
-        filename = f"{save_path}/image-{int(time_now * 1000)}.jpg"
-        cv.imwrite(filename, annotated_frame)
-        return None
-    
+        cv.imwrite(filename, frame_bgr)
+
+    return offset_from_center    
+
 
 def take_video():
     """
