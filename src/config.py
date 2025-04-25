@@ -20,7 +20,7 @@ MOTOR_ACCELERATION = 40.0      # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 ZIPLINE_LENGTH = 5             # in meters
-ZIPLINE_START = 0              # in meters
+ZIPLINE_START = -5              # in meters
 
 # Ultrasonic sensors
 PIN_FRONT = 5                  # GPIO5 (PIN 29)
@@ -45,8 +45,9 @@ TROTTLE_PIN = 25               # GPIO25 (PIN 22)
 PWM_MIN_PULSE_WIDTH = 1000     # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500 # in µs
 PWM_MAX_PULSE_WIDTH = 2000     # in µs
-GO_STOP_TRHESHOLD = 30         # in µs
-STAY_TRACKING_TRHESHOLD = 100  # in µs
+GO_STOP_THRESHOLD = 30         # in µs
+STAY_TRACKING_THRESHOLD = 150  # in µs
+BUTTON_TOGGLE_THRESHOLD = 150  # in µs
 
 REMOTE_COMMAND = {
     "GO_STOP": 0,
@@ -70,9 +71,11 @@ ARUCO_DICT = cv.aruco.DICT_5X5_250              # 5x5 dictionary with 250 unique
 ARUCO_ID = 77                                   # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                          # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.1355                        # size of the ArUco marker, in meters (to be measured in real life)
+EXPOSURE_TIME = 1500                            # in microseconds
+ANALOGUE_GAIN = 20.0                             # in dB
 
 # Tracking
-KP = 5.0                       # proportional gain of PID for tracking 
-KI = 0.0                       # integral gain of PID for tracking 
-KD = 1.0                       # derivative gain of PID for tracking 
+KP = 3.0                       # proportional gain of PID for tracking 
+KI = 0.5                       # integral gain of PID for tracking 
+KD = 0.5                       # derivative gain of PID for tracking 
 MAX_CNT_MOVING_BLINDLY = 5     # number of iterations applying last detected position without any new detection
