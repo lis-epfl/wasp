@@ -43,7 +43,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
             target_speed = 0.0
             initial_button_pulse = 0.0
             button_in_default_position = True
-            button_initalized = False
+            button_initialized = False
 
             while True:
                 throttle_event = throttle_line.event_wait(sec=1)
@@ -74,16 +74,14 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                 else:
                     button_pulse = 0.0
                     button_timeout = True
-                
-                # print(f"Throttle pulse: {throttle_pulse} µs, Button pulse: {button_pulse} µs {initial_button_pulse}  {button_in_default_position}")
-                                                                
+                                                                                
                 # If this is the first button pulse read, use it as the reference
-                if initial_button_pulse == 0.0:
+                if not button_initialized and initial_button_pulse > 0.0:
                     initial_button_pulse = button_pulse
-                    button_initalized = True
+                    button_initialized = True
                     
                 # Determine if the button is in the same position as initial (GO_STOP) or toggled (GO_TRACKING)
-                if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initalized:
+                if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initialized:
                     button_in_default_position = True # button is in the same position as initial
                 else:
                     button_in_default_position = False # button is in the opposite position as initial
@@ -102,6 +100,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                             # if the button or the trottle is touched, stop tracking
                             remote_command = 0 
                             target_speed = 0.0
+                            initial_button_pulse = button_pulse  # so that it require a button toggle to resume tracking
                         else:
                             # if the button is not touched, keep tracking
                             remote_command = 3
