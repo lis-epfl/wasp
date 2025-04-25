@@ -10,9 +10,6 @@ STATE = {
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT = 0.07                      # execution period in seconds
 DT_VISION = 0.10               # execution period for vision in seconds
-KP = 5.0                       # proportional gain of PID for tracking 
-KI = 0.0                       # integral gain of PID for tracking 
-KD = 1.0                       # derivative gain of PID for tracking 
 
 # Motor
 MIN_VOLTAGE = 12.5             # in volts
@@ -73,3 +70,9 @@ ARUCO_DICT = cv.aruco.DICT_5X5_250              # 5x5 dictionary with 250 unique
 ARUCO_ID = 77                                   # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                          # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.1355                        # size of the ArUco marker, in meters (to be measured in real life)
+
+# Tracking
+KP = 5.0                       # proportional gain of PID for tracking 
+KI = 0.0                       # integral gain of PID for tracking 
+KD = 1.0                       # derivative gain of PID for tracking 
+MAX_CNT_MOVING_BLINDLY = 5     # number of iterations applying last detected position without any new detection
