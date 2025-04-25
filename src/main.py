@@ -208,7 +208,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
             while True:
                 if odrv.axis0.active_errors != 0:
                     # If error on the motor detected, then blink yellow and stop everything 
-                    print("Error with the motor:", odrv.axis0.active_errors)
+                    print("Error with the motor:", odrv.a3xis0.active_errors) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)

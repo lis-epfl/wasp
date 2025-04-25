@@ -141,6 +141,14 @@ def camera_init():
     config_cam = picam2.create_video_configuration(main={"size": (config.CAM_HEIGHT_LOW, config.CAM_WIDTH_LOW)},
                                                    raw={"size": (config.CAM_HEIGHT, config.CAM_WIDTH)})
     picam2.configure(config_cam)
+
+    # Disable auto exposure
+    picam2.set_controls({
+        "AeEnable": False,      # Auto-exposure off
+        "ExposureTime": 20000,  # Exposure time in microseconds
+        "AnalogueGain": 1.0     # fix gain for brightness
+    })
+
     picam2.start()
     return picam2
 
@@ -154,6 +162,10 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
 
     # Capture a frame
     frame_rgb = picam2.capture_array("main")  # Non-blocking read of latest frame (rgb format)
+    
+    metadata = picam2.capture_metadata()
+    print("Exposure:", metadata.get("ExposureTime"), "µs") # 34308 µs = 34 ms = 0.034 s
+
     frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR) # (bgr format)
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY) # (gray scale format)
     filename = f"{save_path}/frame_{frame_counter:04d}.png"
