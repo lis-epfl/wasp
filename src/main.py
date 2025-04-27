@@ -188,8 +188,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     last_state = state
     front_readings = deque(maxlen=config.NB_READINGS)
     back_readings = deque(maxlen=config.NB_READINGS)
-    offset_from_center = None
-    last_offset_from_center = None
+    tracking_error = None
+    last_tracking_error = None
     cnt_moving_blindly = 0
     pid = PID(config.KP, config.KI, config.KD, setpoint=0)
     pid.output_limits = (-config.MAX_TRACKING_SPEED, config.MAX_TRACKING_SPEED)
@@ -204,10 +204,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         "angular_velocity (turns/s)",
         "torque (Nm)",
         "linear_position (m)",
-        "linear_speed (m/s)"
+        "linear_speed (m/s)",
+        "tracking_error (m)"
     ]
     csv_path = Path(save_path) / f"data_{timestamp}.csv"
-    csv_path.parent.mkdir(parents=True, exist_ok=True)  # Create dir if missing
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
     csv_file = open(csv_path, 'w', newline='')
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(columns)
@@ -223,23 +224,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)
                     time.sleep(config.DT)
                 else:
-                    # Normal operation
                     time_start_while = time.time()
-
-                    # Record data
-                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
-                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
-                    current_run_time = time.time() - time_start_abs
-
-                    csv_writer.writerow([
-                        current_run_time,
-                        current_angular_position,
-                        current_angular_velocity,
-                        current_torque,
-                        current_linear_position,
-                        current_linear_velocity
-                    ])
 
                     if want_to_stop:
                         # Decelerate the motor until it stops
@@ -274,37 +259,53 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
                             with shared_offset.get_lock():
-                                offset_from_center = shared_offset.value
+                                tracking_error = shared_offset.value
 
-                            offset_from_center = offset_from_center if not np.isnan(offset_from_center) else None
+                            tracking_error = tracking_error if not np.isnan(tracking_error) else None
 
-                            if offset_from_center is not None:
+                            if tracking_error is not None:
                                 # ArUco marker detected: compute target speed using PID controller
-                                target_speed = pid(offset_from_center)
+                                target_speed = pid(tracking_error)
                                 cnt_moving_blindly = 0
                             else:
                                 # ArUco marker not detected: keep the last target speed for a while
-                                if (last_offset_from_center is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    target_speed = pid(last_offset_from_center)
+                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                    target_speed = pid(last_tracking_error)
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
                                     target_speed = 0.0
                             
-                            last_offset_from_center = offset_from_center
+                            last_tracking_error = tracking_error
                         else:
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 0
-                            offset_from_center = None
-
+                            tracking_error = None
+                        
                     # Display current state with LEDs
-                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, offset_from_center, leds_off_before)
+                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
                     # Set motor velocity based on state
                     motor_ctrl.set_cart_velocity(odrv, state, target_speed)
 
+                    # Record data
+                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
+                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
+                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+                    current_run_time = time.time() - time_start_abs
+
+                    csv_writer.writerow([
+                        current_run_time,
+                        current_angular_position,
+                        current_angular_velocity,
+                        current_torque,
+                        current_linear_position,
+                        current_linear_velocity,
+                        tracking_error if tracking_error is not None else float('nan')
+                    ])
+
                     # Print current state
-                    offset_str = "N/A" if offset_from_center is None else f"{offset_from_center:.2f} m"
+                    offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
                     log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
                                    f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
                                    f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
@@ -324,7 +325,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         except KeyboardInterrupt:
             print("\nMain process stopped.")
             motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)
-            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, offset_from_center, leds_off_before)
+            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
     finally:
         csv_file.close()
