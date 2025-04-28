@@ -276,7 +276,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             else:
                                 # ArUco marker not detected: keep the last target speed for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    target_speed = pid(last_tracking_error)
+                                    tracking_error = last_tracking_error
+                                    target_speed = pid(tracking_error)
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
@@ -287,6 +288,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 0
                             tracking_error = None
+                            last_tracking_error = None
                         
                     # Display current state with LEDs
                     leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
@@ -313,7 +315,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                    f"Position: {current_linear_position:.2f} m  |  "
                                    f"Velocity: {current_linear_velocity:.2f} m/s\n"
                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                    # print(log_message)
+                    print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()

@@ -14,13 +14,14 @@ DT_VISION = 0.10               # execution period for vision in seconds
 # Motor
 MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
-MANUAL_MOTOR_SPEED = 3         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MANUAL_MOTOR_SPEED = 6         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_TRACKING_SPEED = 5         # in m/s (max speed for tracking)
 MOTOR_ACCELERATION = 40.0      # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
-ZIPLINE_LENGTH = 5             # in meters
-ZIPLINE_START = -5              # in meters
+ZIPLINE_LENGTH = 0             # in meters
+ZIPLINE_START = -4             # in meters
+SECURITY_FACTOR = 1.5          # safety factor for the distance to the end of the zipline           
 
 # Ultrasonic sensors
 PIN_FRONT = 5                  # GPIO5 (PIN 29)
@@ -75,7 +76,7 @@ EXPOSURE_TIME = 1500                            # in microseconds
 ANALOGUE_GAIN = 20.0                             # in dB
 
 # Tracking
-KP = 3.0                       # proportional gain of PID for tracking 
-KI = 0.5                       # integral gain of PID for tracking 
+KP = 2.5                       # proportional gain of PID for tracking 
+KI = 0.1                       # integral gain of PID for tracking 
 KD = 0.5                       # derivative gain of PID for tracking 
-MAX_CNT_MOVING_BLINDLY = 5     # number of iterations applying last detected position without any new detection
+MAX_CNT_MOVING_BLINDLY = 3     # number of iterations applying last detected position without any new detection

@@ -50,7 +50,7 @@ def motor_init():
             print("No ODrive found!")
 
         else:
-            # print("ODrive found!")
+            print("ODrive found!")
             # print("ODrive's configuration:")
             # print(odrv)  # will print the motor's configuration
 
