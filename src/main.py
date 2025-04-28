@@ -74,26 +74,26 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                 else:
                     button_pulse = 0.0
                     button_timeout = True
-                                                                                
-                # If this is the first button pulse read, use it as the reference
-                if not button_initialized and initial_button_pulse > 0.0:
-                    initial_button_pulse = button_pulse
-                    button_initialized = True
-                    
-                # Determine if the button is in the same position as initial (GO_STOP) or toggled (GO_TRACKING)
-                if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initialized:
-                    button_in_default_position = True # button is in the same position as initial
-                else:
-                    button_in_default_position = False # button is in the opposite position as initial
-                
-                if throttle_timeout or button_timeout:
+
+                if throttle_timeout or button_timeout or (throttle_pulse == 0.0) or (button_pulse == 0.0):
                     if last_remote_command == 3:
                         remote_command = 3  # stay in "GO_TRACKING" if deconnection and was in tracking mode
                         target_speed = 0.0
                     else:
                         remote_command = 0 # chang to "GO_STOP" if deconnection and was in manual mode
                         target_speed = 0.0
-                else:
+                else:                                                      
+                    # If this is the first button pulse read, use it as the reference
+                    if not button_initialized:
+                        initial_button_pulse = button_pulse
+                        button_initialized = True
+                        
+                    # Determine if the button is in the same position as initial (GO_STOP) or toggled (GO_TRACKING)
+                    if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initialized:
+                        button_in_default_position = True # button is in the same position as initial
+                    else:
+                        button_in_default_position = False # button is in the opposite position as initial
+                
                     if remote_command == 3:
                         # Tracking mode
                         if (button_in_default_position) or abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.STAY_TRACKING_THRESHOLD:
@@ -115,10 +115,10 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                             if abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) < config.GO_STOP_THRESHOLD:
                                 remote_command = 0  # corresponding to "GO_STOP"
                                 target_speed = 0.0
-                            elif throttle_pulse < config.PWM_DEFAULT_PULSE_WIDTH:
+                            elif throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD):
                                 remote_command = 1  # corresponding to "GO_BACKWARD"
                                 target_speed = config.MANUAL_MOTOR_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
-                            elif throttle_pulse > config.PWM_DEFAULT_PULSE_WIDTH:
+                            elif throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD):
                                 remote_command = 2  # corresponding to "GO_FORWARD"
                                 target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
                             
@@ -226,6 +226,12 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                 else:
                     time_start_while = time.time()
 
+                    # Get current motor data
+                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
+                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
+                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
+                    current_run_time = time.time() - time_start_abs
+
                     if want_to_stop:
                         # Decelerate the motor until it stops
                         if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
@@ -289,11 +295,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     motor_ctrl.set_cart_velocity(odrv, state, target_speed)
 
                     # Record data
-                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
-                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
-                    current_run_time = time.time() - time_start_abs
-
                     csv_writer.writerow([
                         current_run_time,
                         current_angular_position,
