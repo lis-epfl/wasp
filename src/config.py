@@ -10,6 +10,7 @@ STATE = {
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT = 0.07                      # execution period in seconds
 DT_VISION = 0.10               # execution period for vision in seconds
+DT_LI550 = 0.15                # execution period for LI-550 in seconds
 
 # Motor
 MIN_VOLTAGE = 12.5             # in volts
@@ -80,3 +81,9 @@ KP = 2.5                       # proportional gain of PID for tracking
 KI = 0.1                       # integral gain of PID for tracking 
 KD = 0.5                       # derivative gain of PID for tracking 
 MAX_CNT_MOVING_BLINDLY = 3     # number of iterations applying last detected position without any new detection
+
+# Wind sensor
+SERIAL_PORT_LI550= '/dev/tty.usbserial-10'
+BAUD_RATE_LI550 = 115200                    # in bps
+WIND_AXIS_LENGTH = 5                        # in meters/s
+NUM_PAST_VECTORS = 10                       # number of past vector displayed

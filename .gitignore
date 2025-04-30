@@ -21,6 +21,9 @@ src/grovepy
 venv/
 mocap/
 
+.DS_Store
+src/.DS_Store
+
 **/*.mp4
 
 src/data/
