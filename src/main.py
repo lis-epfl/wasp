@@ -120,10 +120,10 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                                 target_speed = 0.0
                             elif throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD):
                                 remote_command = 1  # corresponding to "GO_BACKWARD"
-                                target_speed = config.MANUAL_MOTOR_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
+                                target_speed = config.MAX_MANUAL_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
                             elif throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD):
                                 remote_command = 2  # corresponding to "GO_FORWARD"
-                                target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MANUAL_MOTOR_SPEED])
+                                target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
                             
                 last_remote_command = remote_command
 
@@ -190,15 +190,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
-    front_readings = deque(maxlen=config.NB_READINGS)
-    back_readings = deque(maxlen=config.NB_READINGS)
     tracking_error = None
     last_tracking_error = None
     cnt_moving_blindly = 0
-    pid = PID(config.KP, config.KI, config.KD, setpoint=0)
-    pid.output_limits = (-config.MAX_TRACKING_SPEED, config.MAX_TRACKING_SPEED)
-    pid.sample_time = config.DT
-    pid.auto_mode = True
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -216,7 +210,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     print("Error with the motor:", odrv.a3xis0.active_errors) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                    motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)
+                    motor_ctrl.set_postion(odrv, odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
                 else:
                     time_start_while = time.time()
@@ -236,24 +230,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         # Get remote control commands
                         with shared_remote_command.get_lock(), shared_target_speed.get_lock():
                             remote_command = shared_remote_command.value
-                            target_speed = shared_target_speed.value
+                            target_speed = shared_target_speed.value # in m/s
 
                         # Get distance sensor readings
-                        front_value = ultrasonic_ctrl.get_distance(config.PIN_FRONT)
-                        back_value = ultrasonic_ctrl.get_distance(config.PIN_BACK)
-                        # print('Back: {:.2f} m    |    Front: {:.2f} m'.format(back_value, front_value))
-                        front_readings.append(front_value)
-                        back_readings.append(back_value)
-                        obstacle_forward = len(front_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in front_readings)
-                        obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
+                        obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
 
                         # Update state
                         state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity)
                         last_state = state
-
-                        if state == config.STATE["STOP"]:
-                            # Stop the motor
-                            want_to_stop = True
                         
                         if state == config.STATE["TRACKING"]:
                             # Start camera recording and get ArUco marker position
@@ -262,21 +246,21 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             with shared_offset.get_lock():
                                 tracking_error = shared_offset.value
 
-                            tracking_error = tracking_error if not np.isnan(tracking_error) else None
+                            tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
                             if tracking_error is not None:
                                 # ArUco marker detected: compute target speed using PID controller
-                                target_speed = pid(tracking_error)
+                                x_ref = linear_position + tracking_error
                                 cnt_moving_blindly = 0
                             else:
                                 # ArUco marker not detected: keep the last target speed for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
                                     tracking_error = last_tracking_error
-                                    target_speed = pid(tracking_error)
+                                    x_ref = linear_position + tracking_error
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
-                                    target_speed = 0.0
+                                    x_ref = linear_position
                             
                             last_tracking_error = tracking_error
                         else:
@@ -284,12 +268,26 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                 shared_detect_flag.value = 0
                             tracking_error = None
                             last_tracking_error = None
-                        
-                    # Display current state with LEDs
-                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
+
+                            if state == config.STATE["STOP"]:
+                                # Stop the motor
+                                want_to_stop = True
+                                x_ref = linear_position # stay in the same position
+                            elif state == config.STATE["FORWARD"]:
+                                # Move forward
+                                x_ref = linear_position + target_speed * config.DT
+                            elif state == config.STATE["BACKWARD"]:
+                                # Move backward
+                                x_ref = linear_position - target_speed * config.DT
+                            else:
+                                # Stay in the same position
+                                x_ref = linear_position
 
                     # Set motor velocity based on state
-                    motor_ctrl.set_cart_velocity(odrv, state, target_speed)
+                    motor_ctrl.set_postion(odrv, motor_ctrl.compute_angular_position(x_ref))
+
+                    # Display current state with LEDs
+                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
                     # Save data to CSV
                     motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error)

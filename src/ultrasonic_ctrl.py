@@ -62,3 +62,24 @@ def get_distance(sensor_pin):
         distance = ((t2 - t1) * 1_000_000 / 29 / 2) / 100  # in meters
         line.release()
         return distance
+    
+
+def is_there_an_obstacle():
+    """
+    Check if there is an obstacle in front or behind the cart.
+    :return: Tuple (obstacle_forward, obstacle_backward)
+    """
+    front_value = get_distance(config.PIN_FRONT)
+    back_value = get_distance(config.PIN_BACK)
+
+    if front_value < config.OBST_THRESHOLD:
+        obstacle_forward = True
+    else:
+        obstacle_forward = False
+    
+    if back_value < config.OBST_THRESHOLD:
+        obstacle_backward = True
+    else:
+        obstacle_backward = False
+    
+    return obstacle_forward, obstacle_backward

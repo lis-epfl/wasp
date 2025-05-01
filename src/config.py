@@ -14,13 +14,14 @@ DT_VISION = 0.10               # execution period for vision in seconds
 # Motor
 MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
-MANUAL_MOTOR_SPEED = 6         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
-MAX_TRACKING_SPEED = 5         # in m/s (max speed for tracking)
-MOTOR_ACCELERATION = 40.0      # in turns/sec^2
+MAX_MANUAL_SPEED = 5           # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_TRACKING_SPEED = 2         # in m/s (max speed for tracking)
+MAX_ACCELERATION = 40.0      # in turns/sec^2
+
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
-ZIPLINE_LENGTH = 0             # in meters
-ZIPLINE_START = -4             # in meters
+ZIPLINE_START = 0              # in meters
+ZIPLINE_LENGTH = 3             # in meters
 SECURITY_FACTOR = 1.5          # safety factor for the distance to the end of the zipline           
 
 # Ultrasonic sensors
@@ -29,8 +30,7 @@ PIN_BACK = 16                  # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
-OBST_THRESHOLD = 0.1             # distance under which an object is considered an obstacle, in meters
-NB_READINGS = 1                # number of readings to consider an object as an obstacle
+OBST_THRESHOLD = 0.1           # distance under which an object is considered an obstacle, in meters
 
 # LEDs
 NUM_LEDS = 3                   # number of LEDs

@@ -9,7 +9,7 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, curr
     state = last_state
 
     # Check zipline limits
-    deceleration_distance = motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MOTOR_ACCELERATION))
+    deceleration_distance = motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
 
     reached_end = current_linear_position >= (config.ZIPLINE_LENGTH - config.SECURITY_FACTOR*deceleration_distance)
     reached_start = current_linear_position <=  (config.ZIPLINE_START + config.SECURITY_FACTOR*deceleration_distance)

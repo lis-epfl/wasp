@@ -27,6 +27,16 @@ def compute_linear_speed(angular_speed):
     return linear_speed
 
 
+def compute_angular_position(linear_position):
+    """
+    Compute angular position from linear position
+    :param linear_position: Linear position in m
+    :return: Angular position in turns
+    """
+    angular_position = linear_position/(config.PULLEY_RADIUS * 2 * np.pi) # radius * angle
+    return angular_position
+
+
 def compute_linear_position(angular_position):
     """
     Compute linear position from angular position
@@ -51,23 +61,34 @@ def motor_init():
 
         else:
             print("ODrive found!")
-            # print("ODrive's configuration:")
-            # print(odrv)  # will print the motor's configuration
+            # print("ODrive's configuration:", odrv)
 
-            # Depending on the battery
+            # Motor configuration
             odrv.config.dc_bus_undervoltage_trip_level = config.MIN_VOLTAGE
             odrv.config.dc_bus_overvoltage_trip_level = config.MAX_VOLTAGE
             
-            odrv.axis0.pos_estimate = 0  # Reset angular position value
-            odrv.axis0.requested_state = 8  # Closed-loop control
-            odrv.axis0.controller.config.control_mode = 2  # Velocity Control (sharp or ramped)
+            odrv.axis0.pos_estimate = 0                    # Reset angular position value
+            odrv.axis0.requested_state = 8                 # Closed-loop control
+            odrv.axis0.controller.config.control_mode = 3  # 0: voltage control, 1: torque control, 2: velocity control, 3: position control
+
+            # For position control
+            odrv.axis0.controller.config.input_mode = 5                        # POS_FILTER = 3, TRAP_TRAJ = 5
+            odrv.axis0.trap_traj.config.vel_limit = config.MAX_TRACKING_SPEED  # [turns/s]
+            odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION  # [turns/s^2]
+            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION  # [turns/s^2]
+
+
+            # odrv.axis0.controller.config.input_filter_bandwidth = 1/config.DT # Set the filter bandwidth [1/s] for POS_FILTER
+            # odrv.axis0.controller.config.pos_gain = 1.0  # Proportional gain for position loop [(rev/s) / rev]
+            # odrv.axis0.controller.config.vel_gain = 0.02  # Proportional gain for velocity loop  [Nm / (rev/s)]
+            # odrv.axis0.controller.config.vel_integrator_gain = 0.1  # Integral gain for velocity loop [(Nm/s) / (rev/s)]
 
             # For sharp velocity control
             #odrv.axis0.controller.config.input_mode = 1  # for PASSTHROUGH
 
             # For ramped velocity control
-            odrv.axis0.controller.config.vel_ramp_rate = config.MOTOR_ACCELERATION  # in turns/s^2
-            odrv.axis0.controller.config.input_mode = 2 # for VEL_RAMP
+            # odrv.axis0.controller.config.vel_ramp_rate = config.MAX_ACCELERATION  # in turns/s^2
+            # odrv.axis0.controller.config.input_mode = 2 # for VEL_RAMP
                         
         return odrv
 
@@ -76,26 +97,13 @@ def motor_init():
         return None
 
 
-def set_cart_velocity(odrv, state, target_velocity):
-    '''
-    Set the cart velocity based on the state
+def set_postion(odrv, position):
+    """
+    Set the position of the motor
     :param odrv: ODrive object
-    :param state: Current state of the cart
-    :param target_velocity: Target velocity in turns/s
-    '''
-    if state == config.STATE["STOP"]:
-        odrv.axis0.controller.input_vel = 0
-
-    elif state == config.STATE["FORWARD"]:
-        odrv.axis0.controller.input_vel = - compute_angular_speed(target_velocity) # sign for logical direction of travel 
-
-    elif state == config.STATE["BACKWARD"]:
-        odrv.axis0.controller.input_vel = compute_angular_speed(target_velocity)
-
-    elif state == config.STATE["TRACKING"]:
-        odrv.axis0.controller.input_vel = - compute_angular_speed(target_velocity)
-    else:
-        odrv.axis0.controller.input_vel = 0
+    :param position: Position in turns
+    """
+    odrv.axis0.controller.pos_setpoint = position  # in turns
 
 
 def get_data(odrv):
