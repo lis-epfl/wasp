@@ -121,5 +121,5 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
         "Torque [Nm]": torque,
         "Linear position [m]": linear_position,
         "Linear speed [m/s]": linear_velocity,
-        "Tracking error [m]": tracking_error
-    }    
+        "Tracking error [m]":  tracking_error if tracking_error is not None else float('nan')
+    } 

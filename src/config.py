@@ -82,7 +82,7 @@ MAX_CNT_MOVING_BLINDLY = 3     # number of iterations applying last detected pos
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
 BAUD_RATE_LI550 = 115200             # in bps
-WIND_AXIS_LENGTH = 5                 # in meters/s
+WIND_AXIS_LENGTH = 10                # in meters/s
 NUM_PAST_VECTORS = 10                # number of past vector displayed
 LI550_MAPPING = {
     'S': 'Wind 3D norm [m/s]',

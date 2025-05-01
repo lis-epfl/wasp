@@ -19,7 +19,8 @@ import ultrasonic_ctrl
 import motor_ctrl
 import camera_ctrl
 import airspeed_sensor_ctrl
-import plot_velocity_pos_torque
+import plot_motor_data
+import plot_li550_data
 
 
 def rc_receiver_reading(shared_remote_command, shared_target_speed):
@@ -323,7 +324,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
-            plot_velocity_pos_torque.plot_data(csv_path)
+            plot_motor_data.plot_data(csv_path)
+            plot_li550_data.plot_data(csv_path)
+            # plot_li550_data.create_video_from_data(csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")
 

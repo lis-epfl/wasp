@@ -1,4 +1,5 @@
 import csv
+from pathlib import Path
 import matplotlib.pyplot as plt
 import random
 from matplotlib.ticker import MaxNLocator, FuncFormatter
@@ -17,50 +18,30 @@ def plot_data(csv_path):
         reader = csv.DictReader(csvfile)
         data = [row for row in reader]
     
+    # Extract timestamp from filename
+    timestamp = Path(csv_path).stem.replace("data_", "")
+    csv_path = Path(csv_path)
+    
     # First figure
     fig1, axs = plt.subplots(3, 6, figsize=(14, 8))
     axs = axs.flatten()
-
-    # Tags to plot and their y-axis labels
-    fields_with_units = {
-        'S': 'Wind 3D norm [m/s]',
-        'S2': 'Wind 2D norm [m/s]',
-        'D': 'Horizontal wind direction [°]',
-        'DV': 'Vertical wind direction [°]',
-        'U': 'U Vector [m/s]',
-        'V': 'V Vector [m/s]',
-        'W': 'W Vector [m/s]',
-        'T': 'Temperature [°C]',
-        'C': 'Speed of sound [m/s]',
-        'H': 'Humidity [%]',
-        'DP': 'Dew point [°C]',
-        'P': 'Pressure [hPa]',
-        'AD': 'Air density [kg/cm³]', 
-        'PI': 'Pitch [°]',
-        'RO': 'Roll [°]',
-        'MD': 'Heading [°]',
-        'TD': 'TrueHead [°]'
-    }
 
     # Generate a random color for each field
     def generate_random_color():
         return [random.random() for _ in range(3)]  # RGB values between 0 and 1
 
-    for idx, (field, name) in enumerate(fields_with_units.items()):
-        if field in data[0]:
-            timestamps = [float(row['Timestamp']) for row in data]
-            values = [float(row[field]) for row in data]
-            random_color = generate_random_color()  # Generate a random color for each plot
+    for idx, (short_key, full_name) in enumerate(config.LI550_MAPPING.items()):
+        if full_name in data[0]:
+            timestamps = [float(row['Timestamp [s]']) for row in data]
+            values = [float(row[full_name]) for row in data]
+            random_color = generate_random_color()
             axs[idx].plot(timestamps, values, color=random_color)
-            axs[idx].set_ylabel(f"{name}")
+            axs[idx].set_ylabel(full_name)
             axs[idx].grid(True)
-            axs[idx].tick_params(axis='x', labelrotation=0)  # Ensure labels are horizontal
-
-            # Force one decimal for y-ticks using FuncFormatter
+            axs[idx].tick_params(axis='x', labelrotation=0)
             axs[idx].yaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.1f}'))
-
-            # Remove x-axis ticks for all plots except the bottom row
-            if idx < 12:  # First 12 plots (non-bottom row)
+            axs[idx].xaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.0f}'))
+            if idx < 12:
                 axs[idx].set_xticks([])
 
     # Set the x-axis labels only for the bottom row (indices 12 to 17)
@@ -68,13 +49,13 @@ def plot_data(csv_path):
         axs[i].set_xlabel("Time [s]")
         
         # Extract the first decimal of the timestamp for ticks
-        timestamps = [float(row['Timestamp']) for row in data]
+        timestamps = [float(row['Timestamp [s]']) for row in data]
         
         # Create ticks every 5th timestamp value
         ticks = sorted(set([round(t, 1) for t in timestamps]))  # Remove duplicates and sort
         
         # Get only every 5th timestamp for the ticks
-        ticks = ticks[::10]  # Take every 10th value
+        ticks = ticks[::int((5/config.DT))]  # Take every 5s
         
         axs[i].set_xticks(ticks)  # Set x-axis ticks to the first decimal of the timestamp
         axs[i].tick_params(axis='x', labelrotation=0)  # Ensure labels are horizontal
@@ -87,7 +68,7 @@ def plot_data(csv_path):
 
     fig1.suptitle('LI-550 Sensor Measurements')
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig('li550_data_plot.png', dpi=300)
+    plt.savefig(csv_path.parent / f"plot_li550_data_{timestamp}.png", dpi=300)
 
 
 def create_video_from_data(csv_path):
@@ -96,12 +77,16 @@ def create_video_from_data(csv_path):
         reader = csv.DictReader(csvfile)
         data = [row for row in reader]
 
-    timestamps = [float(row['Timestamp']) for row in data]
-    u_values = [float(row['U']) for row in data]
-    v_values = [float(row['V']) for row in data]
-    w_values = [float(row['W']) for row in data]
-    norms_3D = [float(row['S']) for row in data]
+    timestamps = [float(row['Timestamp [s]']) for row in data]
+    u_values = [float(row['U Vector [m/s]']) for row in data]
+    v_values = [float(row['V Vector [m/s]']) for row in data]
+    w_values = [float(row['W Vector [m/s]']) for row in data]
+    norms_3D = [float(row['Wind 3D norm [m/s]']) for row in data]
     max_norm = np.max(norms_3D)
+
+    # Extract timestamp from filename
+    timestamp = Path(csv_path).stem.replace("data_", "")
+    csv_path = Path(csv_path)
 
     # Setup figure
     fig = plt.figure(figsize=(10, 6))
@@ -156,9 +141,9 @@ def create_video_from_data(csv_path):
 
     # Create animation and save it
     ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT * 1000, blit=False)
-    ani.save('wind_vectors_animation_2.mp4', writer='ffmpeg', fps=1/config.DT, dpi=300)
-    
+    ani.save(csv_path.parent / f"wind_animation_{timestamp}.mp4", writer='ffmpeg', fps=1/config.DT, dpi=200)
 
+    
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Choose either 'plot_data' or 'create_video_from_data'")
