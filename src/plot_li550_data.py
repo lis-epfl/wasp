@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.animation as animation
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
+import sys
 
 import config
 
@@ -16,8 +17,8 @@ def plot_data(csv_path):
         reader = csv.DictReader(csvfile)
         data = [row for row in reader]
     
-    # Create a figure with multiple subplots
-    fig1, axs = plt.subplots(3, 6, figsize=(14, 8))  # Update to 3x6 grid as before 6X3  3*
+    # First figure
+    fig1, axs = plt.subplots(3, 6, figsize=(14, 8))
     axs = axs.flatten()
 
     # Tags to plot and their y-axis labels
@@ -86,128 +87,90 @@ def plot_data(csv_path):
 
     fig1.suptitle('LI-550 Sensor Measurements')
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig('li550_data_plot.png', dpi=300)
 
 
-    # --- Now plot the wind vector (U, V, W) ---
-    fig2 = plt.figure(figsize=(14, 6))  # Adjusted width for subplot on the right
+def create_video_from_data(csv_path):
+    # Read the CSV file
+    with open(csv_path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        data = [row for row in reader]
 
-    # Data preparation
     timestamps = [float(row['Timestamp']) for row in data]
     u_values = [float(row['U']) for row in data]
     v_values = [float(row['V']) for row in data]
     w_values = [float(row['W']) for row in data]
+    norms_3D = [float(row['S']) for row in data]
+    max_norm = np.max(norms_3D)
 
-    # Left subplot: 3D wind vector components over time
-    ax1 = fig2.add_subplot(121)  # 1 row, 2 columns, first subplot
-    ax1.plot(timestamps, u_values, label='U [m/s]')
-    ax1.plot(timestamps, v_values, label='V [m/s]')
-    ax1.plot(timestamps, w_values, label='W [m/s]')
-    ax1.set_xlabel('Time [s]')
-    ax1.set_ylabel('Wind speed components [m/s]')
-    ax1.set_title('3D Wind Vector Components Over Time')
-    ax1.grid(True)
-    ax1.set_ylim([-10, 10])
-    ax1.legend()
+    # Setup figure
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111, projection='3d')
 
-    # Right subplot: 3D vector visualization
-    ax2 = fig2.add_subplot(122, projection='3d')  # 1 row, 2 columns, second subplot with 3D projection
-    wind_magnitudes = np.sqrt(np.array(u_values)**2 + np.array(v_values)**2 + np.array(w_values)**2)
+    ax.set_xlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
+    ax.set_ylim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
+    ax.set_zlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
+    ax.set_xlabel('U [m/s]')
+    ax.set_ylabel('V [m/s]')
+    ax.set_zlabel('W [m/s]')
+    ax.set_title('3D wind vectors animation')
 
-    # Plotting the vectors
-    sc = ax2.quiver(np.zeros_like(u_values), np.zeros_like(v_values), np.zeros_like(w_values),
-                    u_values, v_values, w_values, color=plt.cm.viridis(wind_magnitudes / max(wind_magnitudes)),
-                    length=0.1, normalize=True)
+    # Create ScalarMappable for the colorbar
+    norm = Normalize(vmin=min(norms_3D), vmax=max(norms_3D))
+    sm = ScalarMappable(cmap='viridis', norm=norm)
+    sm.set_array([])
 
-    ax2.set_xlabel('U [m/s]')
-    ax2.set_ylabel('V [m/s]')
-    ax2.set_zlabel('W [m/s]')
-    ax2.set_title('3D Wind Vectors')
+    # Add the colorbar
+    cbar = plt.colorbar(sm, ax=ax, pad=0.1)
+    cbar.set_label('Wind magnitude [m/s]')
 
-    # Fixing the axis limits to 10 for all axes
-    # ax2.set_xlim([-10, 10])
-    # ax2.set_ylim([-10, 10])
-    # ax2.set_zlim([-10, 10])
-
-    # Add color bar for the vector intensities
-    cbar = plt.colorbar(sc, ax=ax2)
-    cbar.set_label('Vector Magnitude')
-
-    plt.show()
-
-
-# def create_video_from_data(csv_path):
-
-# Path to your CSV data
-
-# Load data
-csv_path = 'li550_data.csv'
-
-with open(csv_path, newline='') as csvfile:
-    reader = csv.DictReader(csvfile)
-    data = [row for row in reader]
-
-timestamps = [float(row['Timestamp']) for row in data]
-u_values = [float(row['U']) for row in data]
-v_values = [float(row['V']) for row in data]
-w_values = [float(row['W']) for row in data]
-norms_3D = [float(row['S']) for row in data]
-max_norm = np.max(norms_3D)
-
-# Setup figure
-fig = plt.figure(figsize=(10, 6))
-ax = fig.add_subplot(111, projection='3d')
-
-ax.set_xlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
-ax.set_ylim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
-ax.set_zlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
-ax.set_xlabel('U [m/s]')
-ax.set_ylabel('V [m/s]')
-ax.set_zlabel('W [m/s]')
-ax.set_title('3D wind vectors animation')
-
-
-# Create ScalarMappable for the colorbar
-norm = Normalize(vmin=min(norms_3D), vmax=max(norms_3D))
-sm = ScalarMappable(cmap='viridis', norm=norm)
-sm.set_array([])
-
-# Add the colorbar
-cbar = plt.colorbar(sm, ax=ax, pad=0.1)
-cbar.set_label('Wind magnitude [m/s]')
-
-# Initialize empty list for quivers
-quivers = []
-
-# Update function for animation
-def update(frame):
-    global quivers
-    for q in quivers:
-        q.remove()
+    # Initialize empty list for quivers
     quivers = []
 
-    # Plot last config.NUM_PAST_VECTORS vectors up to current frame
-    start = max(0, frame - config.NUM_PAST_VECTORS + 1)
-    end = frame + 1
+    # Update function for animation
+    def update(frame):
+        nonlocal quivers
+        for q in quivers:
+            q.remove()
+        quivers = []
 
-    for idx, i in enumerate(range(start, end)):
-        color = plt.cm.viridis(norms_3D[i] / max_norm)
+        # Plot last config.NUM_PAST_VECTORS vectors up to current frame
+        start = max(0, frame - config.NUM_PAST_VECTORS + 1)
+        end = frame + 1
 
-        # Dynamically compute alpha from min_alpha to 1.0
-        min_alpha = 0.1
-        fraction = (idx + 1) / (end - start)
-        alpha = min_alpha + (1.0 - min_alpha) * fraction
+        for idx, i in enumerate(range(start, end)):
+            color = plt.cm.viridis(norms_3D[i] / max_norm)
 
-        q = ax.quiver(0, 0, 0,
-                      u_values[i], v_values[i], w_values[i],
-                      length=1.0, normalize=False, arrow_length_ratio=0.1, linewidth = 2,
-                      color=color, alpha=alpha)
-        quivers.append(q)
+            # Dynamically compute alpha from min_alpha to 1.0
+            min_alpha = 0.1
+            fraction = (idx + 1) / (end - start)
+            alpha = min_alpha + (1.0 - min_alpha) * fraction
 
-    return quivers
+            q = ax.quiver(0, 0, 0,
+                        u_values[i], v_values[i], w_values[i],
+                        length=1.0, normalize=False, arrow_length_ratio=0.1, linewidth = 2,
+                        color=color, alpha=alpha)
+            quivers.append(q)
 
-# Create animation
-ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT_LI550 * 1000, blit=False)
+        return quivers
 
-# Save animation
-ani.save('wind_vectors_animation.mp4', writer='ffmpeg', fps=1/config.DT_LI550, dpi=300)
+    # Create animation and save it
+    ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT * 1000, blit=False)
+    ani.save('wind_vectors_animation_2.mp4', writer='ffmpeg', fps=1/config.DT, dpi=300)
     
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Choose either 'plot_data' or 'create_video_from_data'")
+    elif sys.argv[1] == "plot_data":
+        if len(sys.argv) >= 3:
+            plot_data(sys.argv[2])
+        else:
+            print("Please provide the path to the CSV file.")
+    elif sys.argv[1] == "create_video_from_data":
+        if len(sys.argv) >= 3:
+            create_video_from_data(sys.argv[2])
+        else:
+            print("Please provide the path to the CSV file.")
+    else:
+        print(f"Unknown function: {sys.argv[1]}")

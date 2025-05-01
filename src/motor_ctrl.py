@@ -97,6 +97,7 @@ def set_cart_velocity(odrv, state, target_velocity):
     else:
         odrv.axis0.controller.input_vel = 0
 
+
 def get_data(odrv):
     """
     Get data from ODrive
@@ -106,7 +107,19 @@ def get_data(odrv):
     angular_position = - odrv.axis0.pos_estimate  # in turns
     angular_velocity = - odrv.axis0.vel_estimate  # in turns/s
     torque = odrv.axis0.motor.torque_estimate   # in Nm
+    linear_position = compute_linear_position(angular_position) # in m
+    linear_velocity = compute_linear_speed(angular_velocity) # in m/s
 
-    return angular_position, angular_velocity, torque
-    
-    
+    return angular_position, angular_velocity, torque, linear_position, linear_velocity
+
+
+def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error):
+    return {
+        "Timestamp [s]": timestamp,
+        "Angular position [turns]": angular_position,
+        "Angular velocity [turns/s]": angular_velocity,
+        "Torque [Nm]": torque,
+        "Linear position [m]": linear_position,
+        "Linear speed [m/s]": linear_velocity,
+        "Tracking error [m]": tracking_error
+    }    

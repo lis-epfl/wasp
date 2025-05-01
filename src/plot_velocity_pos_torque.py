@@ -15,7 +15,7 @@ def plot_data(csv_path):
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            time_vals.append(float(row["run_time (s)"]))
+            time_vals.append(float(row["timestamp (s)"]))
             velocity_vals.append(float(row["linear_speed (m/s)"]))
             position_vals.append(float(row["linear_position (m)"]))
             torque_vals.append(float(row["torque (Nm)"]))

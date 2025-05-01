@@ -10,6 +10,7 @@ from datetime import datetime
 import numpy as np
 from simple_pid import PID
 import os
+import serial
 
 import config
 import state_machine
@@ -17,6 +18,7 @@ import leds_ctrl
 import ultrasonic_ctrl
 import motor_ctrl
 import camera_ctrl
+import airspeed_sensor_ctrl
 import plot_velocity_pos_torque
 
 
@@ -177,6 +179,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
+    ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
 
     # Variable initialization
     time_start_while = 0
@@ -198,20 +201,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    columns = [
-        "run_time (s)",
-        "angular_position (turns)",
-        "angular_velocity (turns/s)",
-        "torque (Nm)",
-        "linear_position (m)",
-        "linear_speed (m/s)",
-        "tracking_error (m)"
-    ]
     csv_path = Path(save_path) / f"data_{timestamp}.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     csv_file = open(csv_path, 'w', newline='')
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(columns)
+    writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
+    writer.writeheader()
     
     try:
         try:
@@ -225,13 +219,13 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     time.sleep(config.DT)
                 else:
                     time_start_while = time.time()
+                
+                    # Read data from the LI-5500 sensor
+                    li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
 
-                    # Get current motor data
-                    current_angular_position, current_angular_velocity, current_torque = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm
-                    current_linear_position = motor_ctrl.compute_linear_position(current_angular_position) # in m
-                    current_linear_velocity = motor_ctrl.compute_linear_speed(current_angular_velocity) # in m/s
-                    current_run_time = time.time() - time_start_abs
-
+                    # Read and save data from the ODrive motor
+                    angular_position, angular_velocity, torque, linear_position, linear_velocity = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+                    
                     if want_to_stop:
                         # Decelerate the motor until it stops
                         if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
@@ -253,7 +247,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         obstacle_backward = len(back_readings) == config.NB_READINGS and all(d <= config.OBST_THRESHOLD for d in back_readings)
 
                         # Update state
-                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, current_linear_position, current_angular_velocity)
+                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity)
                         last_state = state
 
                         if state == config.STATE["STOP"]:
@@ -296,30 +290,25 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     # Set motor velocity based on state
                     motor_ctrl.set_cart_velocity(odrv, state, target_speed)
 
-                    # Record data
-                    csv_writer.writerow([
-                        current_run_time,
-                        current_angular_position,
-                        current_angular_velocity,
-                        current_torque,
-                        current_linear_position,
-                        current_linear_velocity,
-                        tracking_error if tracking_error is not None else float('nan')
-                    ])
+                    # Save data to CSV
+                    motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error)
+                    row = {**motor_data, **li550_data}
+                    writer.writerow(row)
+                    csv_file.flush()
 
                     # Print current state
                     offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
                     log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
                                    f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
                                    f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                   f"Position: {current_linear_position:.2f} m  |  "
-                                   f"Velocity: {current_linear_velocity:.2f} m/s\n"
+                                   f"Position: {linear_position:.2f} m  |  "
+                                   f"Velocity: {linear_velocity:.2f} m/s\n"
                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                    print(log_message)
+                    # print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
-                    # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
+                    print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
                     if time_end_while - time_start_while < config.DT:
                         time.sleep(config.DT - (time_end_while - time_start_while))
                     else:
