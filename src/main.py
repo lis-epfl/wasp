@@ -254,17 +254,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
                             if tracking_error is not None:
                                 # ArUco marker detected: compute target speed using PID controller
-                                x_ref = linear_position + tracking_error
+                                x_ref = last_x_ref + tracking_error
                                 cnt_moving_blindly = 0
                             else:
                                 # ArUco marker not detected: keep the last target speed for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
                                     tracking_error = last_tracking_error
-                                    x_ref = linear_position + tracking_error
+                                    x_ref = last_x_ref + tracking_error
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
-                                    x_ref = linear_position
+                                    x_ref = last_x_ref
                             
                             last_tracking_error = tracking_error
                         else:
@@ -274,14 +274,16 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             last_tracking_error = None
 
                             if state == config.STATE["STOP"]:
-                                # Stop the motor
                                 want_to_stop = True
                                 if reached_end:
+                                    # Stop at the end of the zipline
                                     x_ref = config.ZIPLINE_LENGTH
                                 elif reached_start:
+                                    # Stop at the beginning of the zipline
                                     x_ref = config.ZIPLINE_START
                                 else:
-                                    x_ref = last_x_ref # stay in the same position
+                                    # Stay in the same position
+                                    x_ref = last_x_ref
                             elif state == config.STATE["FORWARD"]:
                                 # Move forward
                                 x_ref = last_x_ref + target_speed * config.DT
@@ -290,7 +292,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                 x_ref = last_x_ref - target_speed * config.DT
                             else:
                                 # Stay in the same position
-                                x_ref = linear_position
+                                x_ref = last_x_ref
                                                                                     
                     # Set motor velocity based on state
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
@@ -335,7 +337,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
             print("Plotting data...")
             plot_motor_data.plot_data(csv_path)
             plot_li550_data.plot_data(csv_path)
-            plot_li550_data.create_video_from_data(csv_path)
+            # plot_li550_data.create_video_from_data(csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")
 
