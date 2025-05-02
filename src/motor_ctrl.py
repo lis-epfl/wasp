@@ -74,7 +74,6 @@ def motor_init():
             # For position control
             odrv.axis0.controller.config.input_mode = 5                        # POS_FILTER = 3, TRAP_TRAJ = 5
             odrv.axis0.trap_traj.config.vel_limit = compute_angular_speed(config.MAX_TRACKING_SPEED)  # [turns/s]
-            print(compute_linear_speed(compute_angular_speed(config.MAX_TRACKING_SPEED)))
             odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION  # [turns/s^2]
             odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION  # [turns/s^2]
 
@@ -103,17 +102,6 @@ def set_position(odrv, position):
     :param position: Position in turns
     """
     odrv.axis0.controller.input_pos = - position  # in turns (minus sign because of the direction of the motor)
-
-
-def last_position_reached(last_x_ref, linear_position):
-    """
-    Check if the last position is reached
-    :param last_x_ref: Last reference position in m
-    :param linear_position: Current position in m
-    :return: True if the last position is reached, False otherwise
-    """
-    return abs(last_x_ref - linear_position) < config.POSITION_THRESHOLD
-
 
 def get_data(odrv):
     """

@@ -194,6 +194,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     last_tracking_error = None
     cnt_moving_blindly = 0
     x_ref = 0.0
+    last_x_ref = 0.0
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -237,7 +238,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
 
                         # Update state
-                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity)
+                        state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
                         last_state = state
                         
                         if state == config.STATE["TRACKING"]:
@@ -273,13 +274,18 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             if state == config.STATE["STOP"]:
                                 # Stop the motor
                                 want_to_stop = True
-                                x_ref += linear_position # stay in the same position
+                                if reached_end:
+                                    x_ref = config.ZIPLINE_LENGTH
+                                elif reached_start:
+                                    x_ref = config.ZIPLINE_START
+                                else:
+                                    x_ref = last_x_ref # stay in the same position
                             elif state == config.STATE["FORWARD"]:
                                 # Move forward
-                                x_ref += target_speed * config.DT
+                                x_ref = last_x_ref + target_speed * config.DT
                             elif state == config.STATE["BACKWARD"]:
                                 # Move backward
-                                x_ref -= target_speed * config.DT
+                                x_ref = last_x_ref - target_speed * config.DT
                             else:
                                 # Stay in the same position
                                 x_ref = linear_position
@@ -288,6 +294,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                                         
                     # Set motor velocity based on state
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                    last_x_ref = x_ref
 
                     # Display current state with LEDs
                     leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
