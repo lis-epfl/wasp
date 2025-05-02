@@ -73,16 +73,15 @@ def motor_init():
 
             # For position control
             odrv.axis0.controller.config.input_mode = 5                        # POS_FILTER = 3, TRAP_TRAJ = 5
-            odrv.axis0.trap_traj.config.vel_limit = config.MAX_TRACKING_SPEED  # [turns/s]
+            odrv.axis0.trap_traj.config.vel_limit = compute_angular_speed(config.MAX_TRACKING_SPEED)  # [turns/s]
+            print(compute_linear_speed(compute_angular_speed(config.MAX_TRACKING_SPEED)))
             odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION  # [turns/s^2]
             odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION  # [turns/s^2]
 
-
             # odrv.axis0.controller.config.input_filter_bandwidth = 1/config.DT # Set the filter bandwidth [1/s] for POS_FILTER
-            # odrv.axis0.controller.config.pos_gain = 1.0  # Proportional gain for position loop [(rev/s) / rev]
-            # odrv.axis0.controller.config.vel_gain = 0.02  # Proportional gain for velocity loop  [Nm / (rev/s)]
-            # odrv.axis0.controller.config.vel_integrator_gain = 0.1  # Integral gain for velocity loop [(Nm/s) / (rev/s)]
-
+            odrv.axis0.controller.config.pos_gain = 20.0  # Proportional gain for position loop [(rev/s) / rev]
+            odrv.axis0.controller.config.vel_gain = 0.1666  # Proportional gain for velocity loop  [Nm / (rev/s)]
+            odrv.axis0.controller.config.vel_integrator_gain = 0.3333  # Integral gain for velocity loop [(Nm/s) / (rev/s)]
             # For sharp velocity control
             #odrv.axis0.controller.config.input_mode = 1  # for PASSTHROUGH
 
@@ -97,13 +96,23 @@ def motor_init():
         return None
 
 
-def set_postion(odrv, position):
+def set_position(odrv, position):
     """
     Set the position of the motor
     :param odrv: ODrive object
     :param position: Position in turns
     """
-    odrv.axis0.controller.pos_setpoint = position  # in turns
+    odrv.axis0.controller.input_pos = - position  # in turns (minus sign because of the direction of the motor)
+
+
+def last_position_reached(last_x_ref, linear_position):
+    """
+    Check if the last position is reached
+    :param last_x_ref: Last reference position in m
+    :param linear_position: Current position in m
+    :return: True if the last position is reached, False otherwise
+    """
+    return abs(last_x_ref - linear_position) < config.POSITION_THRESHOLD
 
 
 def get_data(odrv):

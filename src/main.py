@@ -193,6 +193,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     tracking_error = None
     last_tracking_error = None
     cnt_moving_blindly = 0
+    x_ref = 0.0
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -207,10 +208,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
             while True:
                 if odrv.axis0.active_errors != 0:
                     # If error on the motor detected, then blink yellow and stop everything 
-                    print("Error with the motor:", odrv.a3xis0.active_errors) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
+                    print("Error with the motor:", odrv.axis0.active_errors) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                    motor_ctrl.set_postion(odrv, odrv.axis0.pos_estimate) # stay in the same position
+                    motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
                 else:
                     time_start_while = time.time()
@@ -272,19 +273,21 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             if state == config.STATE["STOP"]:
                                 # Stop the motor
                                 want_to_stop = True
-                                x_ref = linear_position # stay in the same position
+                                x_ref += linear_position # stay in the same position
                             elif state == config.STATE["FORWARD"]:
                                 # Move forward
-                                x_ref = linear_position + target_speed * config.DT
+                                x_ref += target_speed * config.DT
                             elif state == config.STATE["BACKWARD"]:
                                 # Move backward
-                                x_ref = linear_position - target_speed * config.DT
+                                x_ref -= target_speed * config.DT
                             else:
                                 # Stay in the same position
                                 x_ref = linear_position
-
+                            
+                            print(state, "linear position:", linear_position, "linear velocity:", linear_velocity, "target speed", target_speed, "x_ref:", x_ref)
+                                                        
                     # Set motor velocity based on state
-                    motor_ctrl.set_postion(odrv, motor_ctrl.compute_angular_position(x_ref))
+                    motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
 
                     # Display current state with LEDs
                     leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
@@ -307,7 +310,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
-                    print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
+                    # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
                     if time_end_while - time_start_while < config.DT:
                         time.sleep(config.DT - (time_end_while - time_start_while))
                     else:
@@ -315,7 +318,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
-            motor_ctrl.set_cart_velocity(odrv, config.STATE["STOP"], 0)
+            motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
             leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
     finally:
@@ -323,7 +326,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
             plot_motor_data.plot_data(csv_path)
-            plot_li550_data.plot_data(csv_path)
+            # plot_li550_data.plot_data(csv_path)
             # plot_li550_data.create_video_from_data(csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")

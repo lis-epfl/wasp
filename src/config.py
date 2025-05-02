@@ -15,14 +15,14 @@ DT_VISION = 0.10               # execution period for vision in seconds
 MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
 MAX_MANUAL_SPEED = 5           # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
-MAX_TRACKING_SPEED = 2         # in m/s (max speed for tracking)
-MAX_ACCELERATION = 40.0      # in turns/sec^2
+MAX_TRACKING_SPEED = 10        # in m/s (max speed for tracking)
+MAX_ACCELERATION = 40.0        # in turns/sec^2
+POSITION_THRESHOLD = 0.1       # in meters
 
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 ZIPLINE_START = 0              # in meters
-ZIPLINE_LENGTH = 3             # in meters
-SECURITY_FACTOR = 1.5          # safety factor for the distance to the end of the zipline           
+ZIPLINE_LENGTH = 10            # in meters
 
 # Ultrasonic sensors
 PIN_FRONT = 5                  # GPIO5 (PIN 29)

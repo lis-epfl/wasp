@@ -12,8 +12,8 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, curr
     deceleration_distance = motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
 
     # Check if we're approaching physical limits
-    reached_end = current_linear_position >= (config.ZIPLINE_LENGTH - deceleration_distance)
-    reached_start = current_linear_position <= (config.ZIPLINE_START + deceleration_distance)
+    reached_end = current_linear_position >= (config.ZIPLINE_LENGTH - config.SECURITY_FACTOR * deceleration_distance)
+    reached_start = current_linear_position <= (config.ZIPLINE_START + config.SECURITY_FACTOR * deceleration_distance)
 
     if last_state == config.STATE["STOP"]:
         if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_forward or obstacle_backward or reached_end or reached_start):
