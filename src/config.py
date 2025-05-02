@@ -15,7 +15,7 @@ DT_VISION = 0.10               # execution period for vision in seconds
 MIN_VOLTAGE = 12.5             # in volts
 MAX_VOLTAGE = 17.0             # in volts
 MAX_MANUAL_SPEED = 5           # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
-MAX_TRACKING_SPEED = 5         # in m/s (max speed for tracking)
+MAX_TRACKING_SPEED = 6         # in m/s (max speed for tracking)
 MAX_ACCELERATION = 40.0        # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
@@ -82,6 +82,7 @@ SERIAL_PORT_LI550= '/dev/ttyUSB0'
 BAUD_RATE_LI550 = 115200             # in bps
 WIND_AXIS_LENGTH = 10                # in meters/s
 NUM_PAST_VECTORS = 10                # number of past vector displayed
+INIT_TIME_LI550 = 10                 # time to wait for the LI550 to be ready, in seconds
 LI550_MAPPING = {
     'S': 'Wind 3D norm [m/s]',
     'S2': 'Wind 2D norm [m/s]',

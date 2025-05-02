@@ -181,6 +181,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
     ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
+    print("Waiting for LI550 to be ready...")
+    time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
 
     # Variable initialization
     time_start_while = 0
@@ -289,9 +291,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             else:
                                 # Stay in the same position
                                 x_ref = linear_position
-                            
-                            print(state, "linear position:", linear_position, "linear velocity:", linear_velocity, "target speed", target_speed, "x_ref:", x_ref)
-                                                        
+                                                                                    
                     # Set motor velocity based on state
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
@@ -313,7 +313,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                    f"Position: {linear_position:.2f} m  |  "
                                    f"Velocity: {linear_velocity:.2f} m/s\n"
                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                    # print(log_message)
+                    print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
@@ -332,9 +332,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
+            print("Plotting data...")
             plot_motor_data.plot_data(csv_path)
-            # plot_li550_data.plot_data(csv_path)
-            # plot_li550_data.create_video_from_data(csv_path)
+            plot_li550_data.plot_data(csv_path)
+            plot_li550_data.create_video_from_data(csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")
 

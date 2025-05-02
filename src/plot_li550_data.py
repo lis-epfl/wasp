@@ -17,7 +17,7 @@ def plot_data(csv_path):
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         data = [row for row in reader]
-    
+
     # Extract timestamp from filename
     timestamp = Path(csv_path).stem.replace("data_", "")
     csv_path = Path(csv_path)
