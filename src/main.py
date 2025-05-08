@@ -203,10 +203,15 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     tracking_error = None
     last_tracking_error = None
     cnt_moving_blindly = 0
-    x_ref = 0.0
-    last_x_ref = 0.0
     calib_values = []
     calib_zipline_length = 0
+
+    if config.CALIBRATING:
+        x_ref = config.INITAL_MOTOR_POS_CALIB
+        last_x_ref = config.INITAL_MOTOR_POS_CALIB
+    else:
+        x_ref = config.INITAL_MOTOR_POS
+        last_x_ref = config.INITAL_MOTOR_POS
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -219,10 +224,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     try:
         try:
             while True:
-                print("Axis state:", odrv.axis0.current_state)
-                print("Error:", odrv.axis0.active_errors)
-                print("Voltage:", odrv.vbus_voltage)
                 if (odrv.axis0.active_errors != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
+
+                    print("Error detected in ODrive or zipline length/start is negative. Stopping the motor.")
+                    print(f"ODrive errors: {odrv.axis0.active_errors}", "Zipline start:", config.ZIPLINE_START, "Zipline length:", config.ZIPLINE_LENGTH)
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
@@ -269,12 +274,12 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                 cnt_moving_blindly += 1
                             else:
                                 # No ArUco marker detected and no previous offset: stop the motor
-                                x_ref = linear_position # Stay in the same position, thus max deceleration
+                                x_ref = linear_position
                         
                         last_tracking_error = tracking_error
                     else:
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0
+                            shared_detect_flag.value = 0    # saves frames from camera (should be 0)     !!FIXME!!
                         tracking_error = None
                         last_tracking_error = None
 
@@ -313,7 +318,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         calib_values.append(linear_position)
                         calib_zipline_length = max(calib_values) - min(calib_values)
 
-                        print(f"CALIBRATING  State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                        print(f"CALIBRATING    State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |  "
                               f"Position: {linear_position:.2f} m  |  "
                               f"Velocity: {linear_velocity:.2f} m/s  |  "
                               f"Zipline length: {calib_zipline_length:.2f} m")
