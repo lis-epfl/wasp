@@ -219,9 +219,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     try:
         try:
             while True:
+                print("Axis state:", odrv.axis0.current_state)
+                print("Error:", odrv.axis0.active_errors)
+                print("Voltage:", odrv.vbus_voltage)
                 if (odrv.axis0.active_errors != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
-                    print("Error with the motor:", odrv.axis0.active_errors, "Zipline lenght:", config.ZIPLINE_LENGTH) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
-
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
@@ -241,7 +242,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         target_speed = shared_target_speed.value # in m/s
 
                     # Get distance sensor readings
-                    obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
+                    obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
 
                     # Update state
                     state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)

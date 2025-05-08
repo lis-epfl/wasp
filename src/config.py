@@ -19,7 +19,7 @@ MAX_VOLTAGE = 17.0             # in volts
 POS_GAIN = 20.0                # Proportional gain for position loop [(rev/s) / rev]
 VEL_GAIN = 0.1666              # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.3333       # Integral gain for velocity loop [Nm / (rev/s^2)]
-MAX_TRACKING_SPEED = 6         # in m/s (max speed for tracking)
+MAX_TRACKING_SPEED = 10         # in m/s (max speed for tracking)
 MAX_ACCELERATION = 40.0        # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
@@ -32,7 +32,7 @@ ZIPLINE_LENGTH_CALIB = 1500      # in meters
 MAX_MANUAL_SPEED = 10            # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 INITAL_MOTOR_POS = 0.0           # in meters
 ZIPLINE_START = 0.0              # in meters
-ZIPLINE_LENGTH = 20              # in meters
+ZIPLINE_LENGTH = 100              # in meters
 
 
 # Ultrasonic sensors
