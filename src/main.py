@@ -180,9 +180,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
-    print("Waiting for LI550 to be ready...")
-    time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
+    # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
+    # print("Waiting for LI550 to be ready...")
+    # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
 
     # Variable initialization
     time_start_while = 0
@@ -220,7 +220,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     time_start_while = time.time()
                 
                     # Read data from the LI-5500 sensor
-                    li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
+                    # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
+                    li550_data = {}
 
                     # Read and save data from the ODrive motor
                     angular_position, angular_velocity, torque, linear_position, linear_velocity = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
@@ -240,7 +241,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
 
                         # Update state
-                        state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
+                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
                         last_state = state
                         
                         if state == config.STATE["TRACKING"]:
@@ -274,26 +275,20 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                             last_tracking_error = None
 
                             if state == config.STATE["STOP"]:
-                                want_to_stop = True
-                                if reached_end:
-                                    # Stop at the end of the zipline
-                                    x_ref = config.ZIPLINE_LENGTH
-                                elif reached_start:
-                                    # Stop at the beginning of the zipline
-                                    x_ref = config.ZIPLINE_START
-                                else:
-                                    # Stay in the same position
-                                    x_ref = last_x_ref
+                                x_ref = linear_position + motor_ctrl.compute_linear_position((angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
+                                want_to_stop = True # Constant position given for deceleration
+                                print("fix:", x_ref)
+
                             elif state == config.STATE["FORWARD"]:
-                                # Move forward
-                                x_ref = last_x_ref + target_speed * config.DT
+                                x_ref = last_x_ref + target_speed * config.DT # Move forward
+
                             elif state == config.STATE["BACKWARD"]:
-                                # Move backward
-                                x_ref = last_x_ref - target_speed * config.DT
+                                x_ref = last_x_ref - target_speed * config.DT  # Move backward
+
                             else:
-                                # Stay in the same position
-                                x_ref = last_x_ref
-                                                                                    
+                                x_ref = last_x_ref # Stay in the same position
+
+                    print(x_ref)
                     # Set motor velocity based on state
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
@@ -315,7 +310,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                    f"Position: {linear_position:.2f} m  |  "
                                    f"Velocity: {linear_velocity:.2f} m/s\n"
                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                    print(log_message)
+                    #print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
@@ -336,7 +331,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
         try:
             print("Plotting data...")
             plot_motor_data.plot_data(csv_path)
-            plot_li550_data.plot_data(csv_path)
+            # plot_li550_data.plot_data(csv_path)
             # plot_li550_data.create_video_from_data(csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")

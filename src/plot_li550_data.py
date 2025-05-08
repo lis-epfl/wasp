@@ -12,11 +12,23 @@ import sys
 
 import config
 
+
 def plot_data(csv_path):
-    # Read the CSV file
+    # Read and filter the CSV file
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
-        data = [row for row in reader]
+        valid_data = []
+        for row in reader:
+            try:
+                # Check that at least the timestamp can be parsed
+                float(row['Timestamp [s]'])  # raises ValueError if invalid
+                valid_data.append(row)
+            except (ValueError, KeyError):
+                continue
+
+    if not valid_data:
+        print("No valid rows found in CSV.")
+        return
 
     # Extract timestamp from filename
     timestamp = Path(csv_path).stem.replace("data_", "")
@@ -31,37 +43,40 @@ def plot_data(csv_path):
         return [random.random() for _ in range(3)]  # RGB values between 0 and 1
 
     for idx, (short_key, full_name) in enumerate(config.LI550_MAPPING.items()):
-        if full_name in data[0]:
-            timestamps = [float(row['Timestamp [s]']) for row in data]
-            values = [float(row[full_name]) for row in data]
-            random_color = generate_random_color()
-            axs[idx].plot(timestamps, values, color=random_color)
-            axs[idx].set_ylabel(full_name)
-            axs[idx].grid(True)
-            axs[idx].tick_params(axis='x', labelrotation=0)
-            axs[idx].yaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.1f}'))
-            axs[idx].xaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.0f}'))
-            if idx < 12:
-                axs[idx].set_xticks([])
+        if full_name in valid_data[0]:
+            timestamps = []
+            values = []
+            for row in valid_data:
+                try:
+                    t = float(row['Timestamp [s]'])
+                    val = float(row[full_name])
+                    timestamps.append(t)
+                    values.append(val)
+                except (ValueError, KeyError):
+                    continue  # Skip this row if conversion fails
+            if timestamps and values:
+                random_color = generate_random_color()
+                axs[idx].plot(timestamps, values, color=random_color)
+                axs[idx].set_ylabel(full_name)
+                axs[idx].grid(True)
+                axs[idx].tick_params(axis='x', labelrotation=0)
+                axs[idx].yaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.1f}'))
+                axs[idx].xaxis.set_major_formatter(FuncFormatter(lambda val, pos: f'{val:.0f}'))
+                if idx < 12:
+                    axs[idx].set_xticks([])
 
-    # Set the x-axis labels only for the bottom row (indices 12 to 17)
-    for i in range(12, 17):  # Adjusted to avoid the last subplot
+    # Set the x-axis labels only for the bottom row (indices 12 to 16)
+    for i in range(12, 17):  # Avoid the last subplot
         axs[i].set_xlabel("Time [s]")
-        
-        # Extract the first decimal of the timestamp for ticks
-        timestamps = [float(row['Timestamp [s]']) for row in data]
-        
-        # Create ticks every 5th timestamp value
-        ticks = sorted(set([round(t, 1) for t in timestamps]))  # Remove duplicates and sort
-        
-        # Get only every 5th timestamp for the ticks
-        ticks = ticks[::int((5/config.DT))]  # Take every 5s
-        
-        axs[i].set_xticks(ticks)  # Set x-axis ticks to the first decimal of the timestamp
-        axs[i].tick_params(axis='x', labelrotation=0)  # Ensure labels are horizontal
-
-        # Remove vertical grid lines for the bottom subplots (indices 12 to 16)
-        axs[i].grid(axis='x')  # Remove grid lines from the y-axis
+        try:
+            timestamps = [float(row['Timestamp [s]']) for row in valid_data]
+            ticks = sorted(set(round(t, 1) for t in timestamps))
+            ticks = ticks[::int(5 / config.DT)] if config.DT > 0 else ticks  # Avoid division by 0
+            axs[i].set_xticks(ticks)
+            axs[i].tick_params(axis='x', labelrotation=0)
+            axs[i].grid(axis='x')
+        except Exception as e:
+            print(f"Could not set x-axis ticks for subplot {i}: {e}")
 
     # Remove the last subplot (bottom-right corner)
     axs[17].axis('off')
@@ -75,13 +90,34 @@ def create_video_from_data(csv_path):
     # Read the CSV file
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
-        data = [row for row in reader]
+        data = []
+        for row in reader:
+            try:
+                # Ensure all required values exist and are valid floats
+                timestamp = float(row['Timestamp [s]'])
+                u = float(row['U Vector [m/s]'])
+                v = float(row['V Vector [m/s]'])
+                w = float(row['W Vector [m/s]'])
+                norm3D = float(row['Wind 3D norm [m/s]'])
+                data.append({
+                    'timestamp': timestamp,
+                    'u': u,
+                    'v': v,
+                    'w': w,
+                    'norm3D': norm3D
+                })
+            except (ValueError, KeyError):
+                continue  # Skip rows with missing or invalid data
 
-    timestamps = [float(row['Timestamp [s]']) for row in data]
-    u_values = [float(row['U Vector [m/s]']) for row in data]
-    v_values = [float(row['V Vector [m/s]']) for row in data]
-    w_values = [float(row['W Vector [m/s]']) for row in data]
-    norms_3D = [float(row['Wind 3D norm [m/s]']) for row in data]
+    if not data:
+        print("No valid data found in CSV.")
+        return
+
+    timestamps = [row['timestamp'] for row in data]
+    u_values = [row['u'] for row in data]
+    v_values = [row['v'] for row in data]
+    w_values = [row['w'] for row in data]
+    norms_3D = [row['norm3D'] for row in data]
     max_norm = np.max(norms_3D)
 
     # Extract timestamp from filename
@@ -132,16 +168,16 @@ def create_video_from_data(csv_path):
             alpha = min_alpha + (1.0 - min_alpha) * fraction
 
             q = ax.quiver(0, 0, 0,
-                        u_values[i], v_values[i], w_values[i],
-                        length=1.0, normalize=False, arrow_length_ratio=0.1, linewidth = 2,
-                        color=color, alpha=alpha)
+                          u_values[i], v_values[i], w_values[i],
+                          length=1.0, normalize=False, arrow_length_ratio=0.1, linewidth=2,
+                          color=color, alpha=alpha)
             quivers.append(q)
 
         return quivers
 
     # Create animation and save it
     ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT * 1000, blit=False)
-    ani.save(csv_path.parent / f"wind_animation_{timestamp}.mp4", writer='ffmpeg', fps=1/config.DT, dpi=200)
+    ani.save(csv_path.parent / f"wind_animation_{timestamp}.mp4", writer='ffmpeg', fps=1 / config.DT, dpi=200)
 
     
 if __name__ == "__main__":
