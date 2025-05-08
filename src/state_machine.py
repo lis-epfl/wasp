@@ -12,8 +12,13 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_re
     deceleration_distance = motor_ctrl.compute_linear_position((current_angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
 
     # Check if we're approaching physical limits
-    reached_end = x_ref >= (config.ZIPLINE_LENGTH - deceleration_distance)
-    reached_start = x_ref <= (config.ZIPLINE_START + deceleration_distance)
+    if config.CALIBRATING:
+        reached_end = x_ref >= (config.ZIPLINE_LENGTH_CALIB - deceleration_distance)
+        reached_start = x_ref <= (config.ZIPLINE_START_CALIB + deceleration_distance)
+    else:
+        reached_end = x_ref >= (config.ZIPLINE_LENGTH - deceleration_distance)
+        reached_start = x_ref <= (config.ZIPLINE_START + deceleration_distance)
+        
 
     if last_state == config.STATE["STOP"]:
         if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_forward or obstacle_backward or reached_end or reached_start):
@@ -22,6 +27,8 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_re
             state = config.STATE["BACKWARD"]
         elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not obstacle_forward and not reached_end:
             state = config.STATE["FORWARD"]
+        else:
+            state = config.STATE["STOP"]
 
     elif last_state == config.STATE["FORWARD"]:
         if obstacle_forward or reached_end:
@@ -31,6 +38,8 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_re
         elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
             state = config.STATE["STOP"]
         elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not reached_end:
+            state = config.STATE["FORWARD"]
+        else:
             state = config.STATE["FORWARD"]
 
     elif last_state == config.STATE["BACKWARD"]:
@@ -42,15 +51,19 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_re
             state = config.STATE["BACKWARD"]
         elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
             state = config.STATE["STOP"]
+        else:
+            state = config.STATE["BACKWARD"]
 
     elif last_state == config.STATE["TRACKING"]:
         if obstacle_forward or obstacle_backward or reached_end or reached_start:
             state = config.STATE["STOP"]
         elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] or remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
             state = config.STATE["STOP"]
+        else:
+            state = config.STATE["TRACKING"]
 
     # Always allow STOP command
     if remote_command == config.REMOTE_COMMAND["GO_STOP"]:
         state = config.STATE["STOP"]
-
+    
     return state, reached_end, reached_start

@@ -120,10 +120,19 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                                 target_speed = 0.0
                             elif throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD):
                                 remote_command = 1  # corresponding to "GO_BACKWARD"
-                                target_speed = config.MAX_MANUAL_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+
+                                if config.CALIBRATING:
+                                    target_speed = config.MAX_MANUAL_SPEED_CALIB - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                                else:
+                                    target_speed = config.MAX_MANUAL_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+
                             elif throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD):
                                 remote_command = 2  # corresponding to "GO_FORWARD"
-                                target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+
+                                if config.CALIBRATING:
+                                    target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                                else:
+                                    target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
                             
                 last_remote_command = remote_command
 
@@ -188,7 +197,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     time_start_while = 0
     time_end_while = 0
     time_start_abs = time.time()
-    want_to_stop = False
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
@@ -197,6 +205,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     cnt_moving_blindly = 0
     x_ref = 0.0
     last_x_ref = 0.0
+    calib_values = []
+    calib_zipline_length = 0
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -209,12 +219,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     try:
         try:
             while True:
-                if odrv.axis0.active_errors != 0:
-                    # If error on the motor detected, then blink yellow and stop everything 
-                    print("Error with the motor:", odrv.axis0.active_errors) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
+                if (odrv.axis0.active_errors != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
+                    print("Error with the motor:", odrv.axis0.active_errors, "Zipline lenght:", config.ZIPLINE_LENGTH) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                    motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
+                    motor_ctrl.set_position(odrv, odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
                 else:
                     time_start_while = time.time()
@@ -226,69 +235,60 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     # Read and save data from the ODrive motor
                     angular_position, angular_velocity, torque, linear_position, linear_velocity = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
                     
-                    if want_to_stop:
-                        # Decelerate the motor until it stops
-                        if odrv.axis0.vel_estimate < config.STOP_SPEED_THRESHOLD:
-                            # Motor is now stopped
-                            want_to_stop = False
-                    else:
-                        # Get remote control commands
-                        with shared_remote_command.get_lock(), shared_target_speed.get_lock():
-                            remote_command = shared_remote_command.value
-                            target_speed = shared_target_speed.value # in m/s
+                    # Get remote control commands
+                    with shared_remote_command.get_lock(), shared_target_speed.get_lock():
+                        remote_command = shared_remote_command.value
+                        target_speed = shared_target_speed.value # in m/s
 
-                        # Get distance sensor readings
-                        obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
+                    # Get distance sensor readings
+                    obstacle_backward, obstacle_forward = ultrasonic_ctrl.is_there_an_obstacle()
 
-                        # Update state
-                        state = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
-                        last_state = state
-                        
-                        if state == config.STATE["TRACKING"]:
-                            # Start camera recording and get ArUco marker position
-                            with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 1
-                            with shared_offset.get_lock():
-                                tracking_error = shared_offset.value
+                    # Update state
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
+                    last_state = state
+                    
+                    if state == config.STATE["TRACKING"]:
+                        # Start camera recording and get ArUco marker position
+                        with shared_detect_flag.get_lock():
+                            shared_detect_flag.value = 1
+                        with shared_offset.get_lock():
+                            tracking_error = shared_offset.value
 
-                            tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
+                        tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
-                            if tracking_error is not None:
-                                # ArUco marker detected: compute target speed using PID controller
-                                x_ref = last_x_ref + tracking_error
-                                cnt_moving_blindly = 0
-                            else:
-                                # ArUco marker not detected: keep the last target speed for a while
-                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    tracking_error = last_tracking_error
-                                    x_ref = last_x_ref + tracking_error
-                                    cnt_moving_blindly += 1
-                                else:
-                                    # No ArUco marker detected and no previous offset: stop the motor
-                                    x_ref = last_x_ref
-                            
-                            last_tracking_error = tracking_error
+                        if tracking_error is not None:
+                            # ArUco marker detected: compute target speed using PID controller
+                            x_ref = last_x_ref + tracking_error
+                            cnt_moving_blindly = 0
                         else:
-                            with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 0
-                            tracking_error = None
-                            last_tracking_error = None
-
-                            if state == config.STATE["STOP"]:
-                                x_ref = linear_position + motor_ctrl.compute_linear_position((angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
-                                want_to_stop = True # Constant position given for deceleration
-                                print("fix:", x_ref)
-
-                            elif state == config.STATE["FORWARD"]:
-                                x_ref = last_x_ref + target_speed * config.DT # Move forward
-
-                            elif state == config.STATE["BACKWARD"]:
-                                x_ref = last_x_ref - target_speed * config.DT  # Move backward
-
+                            # ArUco marker not detected: keep the last target speed for a while
+                            if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                tracking_error = last_tracking_error
+                                x_ref = last_x_ref + tracking_error
+                                cnt_moving_blindly += 1
                             else:
-                                x_ref = last_x_ref # Stay in the same position
+                                # No ArUco marker detected and no previous offset: stop the motor
+                                x_ref = linear_position # Stay in the same position, thus max deceleration
+                        
+                        last_tracking_error = tracking_error
+                    else:
+                        with shared_detect_flag.get_lock():
+                            shared_detect_flag.value = 0
+                        tracking_error = None
+                        last_tracking_error = None
 
-                    print(x_ref)
+                        if state == config.STATE["STOP"]:
+                            x_ref = linear_position # Stay in the same position, thus max deceleration
+
+                        elif state == config.STATE["FORWARD"]:
+                            x_ref = last_x_ref + target_speed * config.DT # Move forward
+
+                        elif state == config.STATE["BACKWARD"]:
+                            x_ref = last_x_ref - target_speed * config.DT  # Move backward
+
+                        else:
+                            x_ref = linear_position # Stay in the same position, thus max deceleration
+
                     # Set motor velocity based on state
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
@@ -303,14 +303,23 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     csv_file.flush()
 
                     # Print current state
-                    offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
-                    log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                                   f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
-                                   f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                   f"Position: {linear_position:.2f} m  |  "
-                                   f"Velocity: {linear_velocity:.2f} m/s\n"
-                                   f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                    #print(log_message)
+                    if config.CALIBRATING:
+                        calib_values.append(linear_position)
+                        calib_zipline_length = max(calib_values) - min(calib_values)
+
+                        print(f"CALIBRATING  State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                              f"Position: {linear_position:.2f} m  |  "
+                              f"Velocity: {linear_velocity:.2f} m/s  |  "
+                              f"Zipline length: {calib_zipline_length:.2f} m")
+                    else:
+                        offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
+                        log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
+                                    f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                                    f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                                    f"Position: {linear_position:.2f} m  |  "
+                                    f"Velocity: {linear_velocity:.2f} m/s\n"
+                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
+                        # print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
@@ -322,7 +331,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
-            motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
+            motor_ctrl.set_position(odrv, odrv.axis0.pos_estimate) # stay in the same position
             leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
     finally:
