@@ -223,7 +223,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     print("Error with the motor:", odrv.axis0.active_errors, "Zipline lenght:", config.ZIPLINE_LENGTH) # (usually, it's 512 = DC_BUS_UNDER_VOLTAGE)
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                    motor_ctrl.set_position(odrv, odrv.axis0.pos_estimate) # stay in the same position
+                    motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
                 else:
                     time_start_while = time.time()
@@ -278,7 +278,12 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         last_tracking_error = None
 
                         if state == config.STATE["STOP"]:
-                            x_ref = linear_position # Stay in the same position, thus max deceleration
+                            if reached_end:
+                                x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
+                            elif reached_start:
+                                x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
+                            else:
+                                x_ref = linear_position # Stay in the same position, thus max deceleration
 
                         elif state == config.STATE["FORWARD"]:
                             x_ref = last_x_ref + target_speed * config.DT # Move forward
@@ -319,7 +324,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                     f"Position: {linear_position:.2f} m  |  "
                                     f"Velocity: {linear_velocity:.2f} m/s\n"
                                     f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                        # print(log_message)
+                        print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()
@@ -331,7 +336,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
-            motor_ctrl.set_position(odrv, odrv.axis0.pos_estimate) # stay in the same position
+            motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
             leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
     finally:

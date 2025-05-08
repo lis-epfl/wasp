@@ -10,7 +10,7 @@ STATE = {
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT = 0.12                      # execution period in seconds
 DT_VISION = 0.10               # execution period for vision in seconds
-CALIBRATING = True             # set to True to calibrate the line distance
+CALIBRATING = False             # set to True to calibrate the line distance
 
 
 # Motor
@@ -29,7 +29,7 @@ INITAL_MOTOR_POS_CALIB = 1000    # in meters
 ZIPLINE_START_CALIB = 500        # in meters
 ZIPLINE_LENGTH_CALIB = 1500      # in meters
 
-MAX_MANUAL_SPEED = 5             # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_MANUAL_SPEED = 10            # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 INITAL_MOTOR_POS = 0.0           # in meters
 ZIPLINE_START = 0.0              # in meters
 ZIPLINE_LENGTH = 20              # in meters

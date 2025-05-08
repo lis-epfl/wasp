@@ -70,9 +70,9 @@ def motor_init():
             odrv.axis0.controller.config.control_mode = 3  # 0: voltage control, 1: torque control, 2: velocity control, 3: position control
 
             if config.CALIBRATING:
-                odrv.axis0.pos_estimate = compute_angular_position(config.INITAL_MOTOR_POS_CALIB)  
+                odrv.axis0.pos_estimate = compute_angular_position(- config.INITAL_MOTOR_POS_CALIB)  
             else:
-                odrv.axis0.pos_estimate = compute_angular_position(config.INITAL_MOTOR_POS)
+                odrv.axis0.pos_estimate = compute_angular_position(- config.INITAL_MOTOR_POS)
 
             # For position control
             odrv.axis0.controller.config.input_mode = 5                                               # POS_FILTER = 3, TRAP_TRAJ = 5
@@ -96,7 +96,7 @@ def set_position(odrv, position):
     :param odrv: ODrive object
     :param position: Position in turns
     """
-    odrv.axis0.controller.input_pos = position  # in turns
+    odrv.axis0.controller.input_pos = - position  # in turns (minus sign because of the motor direction)
 
 def get_data(odrv):
     """
@@ -104,8 +104,8 @@ def get_data(odrv):
     :param odrv: ODrive object
     :return: Tuple of position, velocity and current
     """
-    angular_position = odrv.axis0.pos_estimate  # in turns
-    angular_velocity = odrv.axis0.vel_estimate  # in turns/s
+    angular_position = - odrv.axis0.pos_estimate  # in turns    (minus sign because of the motor direction)
+    angular_velocity = - odrv.axis0.vel_estimate  # in turns/s  (minus sign because of the motor direction)
     torque = odrv.axis0.motor.torque_estimate   # in Nm
     linear_position = compute_linear_position(angular_position) # in m
     linear_velocity = compute_linear_speed(angular_velocity) # in m/s
