@@ -13,6 +13,8 @@ def plot_data(csv_path):
     position_vals = []
     torque_vals = []
     tracking_error = []
+    voltage_vals = []
+    current_vals = []
 
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -22,6 +24,8 @@ def plot_data(csv_path):
             position_vals.append(float(row['Linear position [m]']))
             torque_vals.append(float(row['Torque [Nm]']))
             tracking_error.append(float(row['Tracking error [m]']))
+            voltage_vals.append(float(row['Voltage [V]']))
+            current_vals.append(float(row['Current [A]']))
 
     # Compute plane_position_vals
     plane_position_vals = []
@@ -35,7 +39,7 @@ def plot_data(csv_path):
     timestamp = Path(csv_path).stem.replace("data_", "")
 
     # Create one figure with 4 subplots
-    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axs = plt.subplots(3, 3, figsize=(14, 10))
 
     # Plot 1: Cart and Plane Position over Time
     axs[0, 0].plot(time_vals, position_vals, label="Cart position", color="tab:red")
@@ -73,6 +77,26 @@ def plot_data(csv_path):
     axs[1, 1].grid(True)
     axs[1, 1].legend(loc='upper right')
     axs[1, 1].set_title("Velocity vs Position")
+
+    # Plot 5: Voltage over Time
+    axs[2, 0].plot(time_vals, voltage_vals, label="Voltage", color="tab:green")
+    axs[2, 0].set_xlabel("Time [s]")
+    axs[2, 0].set_ylabel("Voltage [V]")
+    axs[2, 0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[2, 0].grid(True)
+    axs[2, 0].legend(loc='upper right')
+    axs[2, 0].set_title("Voltage vs Time")
+    axs[2, 0].set_ylim(12, 18)
+
+    # Plot 6: Current over Time
+    axs[2, 1].plot(time_vals, current_vals, label="Current", color="tab:green")
+    axs[2, 1].set_xlabel("Time [s]")
+    axs[2, 1].set_ylabel("Current [V]")
+    axs[2, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[2, 1].grid(True)
+    axs[2, 1].legend(loc='upper right')
+    axs[2, 1].set_title("Current vs Time")
+
 
     plt.suptitle(f"System Overview - {timestamp}", fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])

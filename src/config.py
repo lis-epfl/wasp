@@ -10,7 +10,7 @@ STATE = {
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT = 0.12                      # execution period in seconds
 DT_VISION = 0.10               # execution period for vision in seconds
-CALIBRATING = True             # set to True to calibrate the line distance
+CALIBRATING = False             # set to True to calibrate the line distance
 
 
 # Motor
@@ -19,8 +19,8 @@ MAX_VOLTAGE = 17.0             # in volts
 POS_GAIN = 20.0                # Proportional gain for position loop [(rev/s) / rev]
 VEL_GAIN = 0.1666              # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.3333       # Integral gain for velocity loop [Nm / (rev/s^2)]
-MAX_TRACKING_SPEED = 6         # in m/s (max speed for tracking)
-MAX_ACCELERATION = 40.0        # in turns/sec^2
+MAX_TRACKING_SPEED = 10         # in m/s (max speed for tracking)
+MAX_ACCELERATION = 30.0        # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in turns/sec
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 
@@ -29,10 +29,10 @@ INITAL_MOTOR_POS_CALIB = 1000    # in meters
 ZIPLINE_START_CALIB = 500        # in meters
 ZIPLINE_LENGTH_CALIB = 1500      # in meters
 
-MAX_MANUAL_SPEED = 5             # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_MANUAL_SPEED = 10             # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 INITAL_MOTOR_POS = 0.0           # in meters
 ZIPLINE_START = 0.0              # in meters (!!always positive!!)
-ZIPLINE_LENGTH = 20              # in meters (!!always positive!!)
+ZIPLINE_LENGTH = 70              # in meters (!!always positive!!)
 
 
 # Ultrasonic sensors
@@ -41,7 +41,7 @@ PIN_BACK = 16                  # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                # in microseconds
 TIMEOUT2 = 10000               # in microseconds
 MAX_DIST = 6.0                 # maximum detection distance, in meters
-OBST_THRESHOLD = 0.1           # distance under which an object is considered an obstacle, in meters
+OBST_THRESHOLD = 5           # distance under which an object is considered an obstacle, in meters
 
 
 # LEDs
@@ -127,5 +127,7 @@ CSV_COLUMNS = [
     'Torque [Nm]',
     'Linear position [m]',
     'Linear speed [m/s]',
-    'Tracking error [m]'
+    'Tracking error [m]',
+    'Voltage [V]',
+    'Current [A]',
 ] + list(LI550_MAPPING.values())

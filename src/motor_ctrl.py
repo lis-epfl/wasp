@@ -109,11 +109,13 @@ def get_data(odrv):
     torque = odrv.axis0.motor.torque_estimate   # in Nm
     linear_position = compute_linear_position(angular_position) # in m
     linear_velocity = compute_linear_speed(angular_velocity) # in m/s
+    voltage = odrv.vbus_voltage  # in V
+    current = odrv.ibus  # in A
 
-    return angular_position, angular_velocity, torque, linear_position, linear_velocity
+    return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current
 
 
-def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error):
+def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current):
     return {
         "Timestamp [s]": timestamp,
         "Angular position [turns]": angular_position,
@@ -121,5 +123,7 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
         "Torque [Nm]": torque,
         "Linear position [m]": linear_position,
         "Linear speed [m/s]": linear_velocity,
-        "Tracking error [m]":  tracking_error if tracking_error is not None else float('nan')
+        "Tracking error [m]":  tracking_error if tracking_error is not None else float('nan'),
+        "Voltage [V]": voltage,
+        "Current [A]": current
     } 
