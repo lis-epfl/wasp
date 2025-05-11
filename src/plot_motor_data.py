@@ -15,6 +15,7 @@ def plot_data(csv_path):
     tracking_error = []
     voltage_vals = []
     current_vals = []
+    x_ref_vals = []
 
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -26,6 +27,7 @@ def plot_data(csv_path):
             tracking_error.append(float(row['Tracking error [m]']))
             voltage_vals.append(float(row['Voltage [V]']))
             current_vals.append(float(row['Current [A]']))
+            x_ref_vals.append(float(row['x_ref [m]']))
 
     # Compute plane_position_vals
     plane_position_vals = []
@@ -91,12 +93,21 @@ def plot_data(csv_path):
     # Plot 6: Current over Time
     axs[2, 1].plot(time_vals, current_vals, label="Current", color="tab:green")
     axs[2, 1].set_xlabel("Time [s]")
-    axs[2, 1].set_ylabel("Current [V]")
+    axs[2, 1].set_ylabel("Current [A]")
     axs[2, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[2, 1].grid(True)
     axs[2, 1].legend(loc='upper right')
     axs[2, 1].set_title("Current vs Time")
 
+    # Plot 7: x_ref over Time
+    axs[0, 2].plot(time_vals, position_vals, label="Current position", color="tab:red")
+    axs[0, 2].plot(time_vals, x_ref_vals, label="Reference", color="tab:blue")
+    axs[0, 2].set_xlabel("Time [s]")
+    axs[0, 2].set_ylabel("Position [m]")
+    axs[0, 2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[0, 2].grid(True)
+    axs[0, 2].legend(loc='upper right')
+    axs[0, 2].set_title("diff_ref_vals vs Time")
 
     plt.suptitle(f"System Overview - {timestamp}", fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])

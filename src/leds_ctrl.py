@@ -31,7 +31,14 @@ def leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_er
         leds.show()
 
     elif (state == config.STATE["FORWARD"]) or (state == config.STATE["BACKWARD"]):
-        leds.fill(config.BLUE) 
+        if config.CALIBRATING:
+            if leds_off_before:
+                leds.fill(config.BLUE)
+            else:
+                leds.fill((0, 0, 0))
+            leds_off_before = not leds_off_before  # Toggle the state for the next call
+        else:
+            leds.fill(config.BLUE)
         leds.show()
 
     elif state == config.STATE["TRACKING"]:

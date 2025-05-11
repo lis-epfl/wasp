@@ -221,20 +221,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
 
-    # print(odrv.axis0.config.motor.current_hard_max)
-    # print(odrv)
-    odrv.axis0.config.general_lockin.current = 30
-    
     try:
         try:
             while True:
-                # odrv.axis0.requested_state = 8
-
-                # print("motor state start:", odrv.axis0.current_state)
-
-
                 if (odrv.axis0.active_errors != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
-
                     print("Error detected in ODrive or zipline length/start is negative. Stopping the motor.")
                     print(f"ODrive errors: {odrv.axis0.active_errors}", "Zipline start:", config.ZIPLINE_START, "Zipline length:", config.ZIPLINE_LENGTH)
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
@@ -309,7 +299,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         else:
                             x_ref = linear_position # Stay in the same position, thus max deceleration
 
-                    # Set motor velocity based on state
+                    #print(target_speed * config.DT, x_ref-last_x_ref, x_ref-linear_position)
+
+                    x_ref = (linear_position + config.MAXIMUM_STEP_SIZE) if abs(x_ref - linear_position) > config.MAXIMUM_STEP_SIZE else x_ref # avoid to set a too high speed
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
 
@@ -317,7 +309,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
 
                     # Save data to CSV
-                    motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current)
+                    motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
                     row = {**motor_data, **li550_data}
                     writer.writerow(row)
                     csv_file.flush()
@@ -339,9 +331,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                     f"Position: {linear_position:.2f} m  |  "
                                     f"Velocity: {linear_velocity:.2f} m/s\n"
                                     f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                        print(log_message)
-
-                    # print("motor state end:", odrv.axis0.current_state)
+                        #print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()

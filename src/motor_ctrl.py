@@ -61,6 +61,7 @@ def motor_init():
 
         else:
             print("ODrive found!")
+            print("Maximum achievable speed:", compute_linear_speed(odrv.vbus_voltage*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
             # print("ODrive's configuration:", odrv)
 
             # Motor configuration
@@ -70,15 +71,18 @@ def motor_init():
             odrv.axis0.controller.config.control_mode = 3  # 0: voltage control, 1: torque control, 2: velocity control, 3: position control
 
             if config.CALIBRATING:
-                odrv.axis0.pos_estimate = compute_angular_position(- config.INITAL_MOTOR_POS_CALIB)  
+                odrv.axis0.pos_estimate = compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)  
             else:
-                odrv.axis0.pos_estimate = compute_angular_position(- config.INITAL_MOTOR_POS)
+                odrv.axis0.pos_estimate = compute_angular_position(-config.INITAL_MOTOR_POS)
 
             # For position control
-            odrv.axis0.controller.config.input_mode = 5                                               # POS_FILTER = 3, TRAP_TRAJ = 5
-            odrv.axis0.trap_traj.config.vel_limit = compute_angular_speed(config.MAX_TRACKING_SPEED)  # [turns/s]
-            odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION                         # [turns/s^2]
-            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION                         # [turns/s^2]
+            odrv.axis0.controller.config.input_mode = 5  # POS_FILTER = 3, TRAP_TRAJ = 5
+            odrv.axis0.trap_traj.config.vel_limit = compute_angular_speed(max(config.MAX_TRACKING_SPEED, config.MAX_MANUAL_SPEED))  
+            odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION                        
+            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION                                                  
+
+            odrv.axis0.config.motor.current_soft_max = config.SOFT_MAX_CURRENT
+            odrv.axis0.config.motor.current_hard_max = config.HARD_MAX_CURRENT
 
             odrv.axis0.controller.config.pos_gain = config.POS_GAIN                    # Proportional gain for position loop [(rev/s) / rev]
             odrv.axis0.controller.config.vel_gain = config.VEL_GAIN                    # Proportional gain for velocity loop  [Nm / (rev/s)]
@@ -110,12 +114,12 @@ def get_data(odrv):
     linear_position = compute_linear_position(angular_position) # in m
     linear_velocity = compute_linear_speed(angular_velocity) # in m/s
     voltage = odrv.vbus_voltage  # in V
-    current = odrv.ibus  # in A
+    current = odrv.axis0.motor.foc.Iq_measured # odrv.ibus  # in A
 
     return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current
 
 
-def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current):
+def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref):
     return {
         "Timestamp [s]": timestamp,
         "Angular position [turns]": angular_position,
@@ -125,5 +129,32 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
         "Linear speed [m/s]": linear_velocity,
         "Tracking error [m]":  tracking_error if tracking_error is not None else float('nan'),
         "Voltage [V]": voltage,
-        "Current [A]": current
+        "Current [A]": current,
+        "x_ref [m]": x_ref,
     } 
+
+
+if __name__ == "__main__":
+    odrv = motor_init()
+
+    print(odrv.config.dc_max_positive_current)
+    print(odrv.config.dc_max_negative_current)
+
+    # current_hard_max: 60.0 (float)
+    # current_slew_rate_limit: 10000.0 (float)
+    # torque_soft_max: inf (float)
+    # torque_soft_min: -inf (float)
+
+    # current_soft_max: 40.0 (float) in odrv.axis0.config.motor
+    # effective_current_lim: 40.0 (float) in odrv.axis0.motor
+    # torque_ramp_rate: 1.0  # or higher (Nm/s)
+    # torque_constant: 0.025060605257749557 (float)
+
+    #print(odrv.ibus)
+    #print(odrv.axis0.motor.foc.Iq_measured)
+    #print(odrv.axis0.controller)
+
+
+    #<axis>.config.I_bus_soft_min … <axis>.config.I_bus_soft_max
+
+    #print(odrv)
