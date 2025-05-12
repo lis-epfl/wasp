@@ -291,17 +291,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                 x_ref = linear_position # Stay in the same position, thus max deceleration
 
                         elif state == config.STATE["FORWARD"]:
-                            x_ref = last_x_ref + target_speed * config.DT # Move forward
+                            x_ref = linear_position + target_speed * config.DT * config.BANG_BANG_GAIN # Move forward
 
                         elif state == config.STATE["BACKWARD"]:
-                            x_ref = last_x_ref - target_speed * config.DT  # Move backward
+                            x_ref = linear_position - target_speed * config.DT * config.BANG_BANG_GAIN # Move backward
 
                         else:
                             x_ref = linear_position # Stay in the same position, thus max deceleration
 
-                    #print(target_speed * config.DT, x_ref-last_x_ref, x_ref-linear_position)
-
-                    x_ref = (linear_position + config.MAXIMUM_STEP_SIZE) if abs(x_ref - linear_position) > config.MAXIMUM_STEP_SIZE else x_ref # avoid to set a too high speed
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
 
@@ -331,7 +328,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                     f"Position: {linear_position:.2f} m  |  "
                                     f"Velocity: {linear_velocity:.2f} m/s\n"
                                     f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
-                        #print(log_message)
+                        print(log_message)
 
                     # Sleep to respect the desired loop time
                     time_end_while = time.time()

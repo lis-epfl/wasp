@@ -4,6 +4,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 import sys
+import numpy as np
+
+import config   
 
 
 def plot_data(csv_path):
@@ -28,6 +31,8 @@ def plot_data(csv_path):
             voltage_vals.append(float(row['Voltage [V]']))
             current_vals.append(float(row['Current [A]']))
             x_ref_vals.append(float(row['x_ref [m]']))
+
+    t_max = max(time_vals)
 
     # Compute plane_position_vals
     plane_position_vals = []
@@ -68,8 +73,11 @@ def plot_data(csv_path):
     axs[1, 0].set_ylabel("Torque [Nm]")
     axs[1, 0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[1, 0].grid(True)
-    axs[1, 0].legend(loc='upper right')
     axs[1, 0].set_title("Torque vs Time")
+    axs[1, 0].set_ylim(-config.HARD_MAX_TORQUE, config.HARD_MAX_TORQUE)
+    axs[1, 0].hlines(-config.SOFT_MAX_TORQUE, xmin=0, xmax=t_max, color='tab:orange', linestyle='--', label='Soft max torque')
+    axs[1, 0].hlines(config.SOFT_MAX_TORQUE, xmin=0, xmax=t_max, color='tab:orange', linestyle='--')
+    axs[1, 0].legend(loc='upper right')
 
     # Plot 4: Velocity vs Position
     axs[1, 1].plot(position_vals, velocity_vals, label="Linear velocity", color="tab:purple")
@@ -88,7 +96,7 @@ def plot_data(csv_path):
     axs[2, 0].grid(True)
     axs[2, 0].legend(loc='upper right')
     axs[2, 0].set_title("Voltage vs Time")
-    axs[2, 0].set_ylim(12, 18)
+    axs[2, 0].set_ylim(config.MIN_VOLTAGE, config.MAX_VOLTAGE)
 
     # Plot 6: Current over Time
     axs[2, 1].plot(time_vals, current_vals, label="Current", color="tab:green")
@@ -96,11 +104,14 @@ def plot_data(csv_path):
     axs[2, 1].set_ylabel("Current [A]")
     axs[2, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[2, 1].grid(True)
-    axs[2, 1].legend(loc='upper right')
     axs[2, 1].set_title("Current vs Time")
+    axs[2, 1].set_ylim(-config.HARD_MAX_CURRENT, config.HARD_MAX_CURRENT)
+    axs[2, 1].hlines(-config.SOFT_MAX_CURRENT, xmin=0, xmax=t_max, color='tab:orange', linestyle='--', label='Soft max current')
+    axs[2, 1].hlines(config.SOFT_MAX_CURRENT, xmin=0, xmax=t_max, color='tab:orange', linestyle='--')
+    axs[2, 1].legend(loc='upper right')
 
     # Plot 7: x_ref over Time
-    axs[0, 2].plot(time_vals, position_vals, label="Current position", color="tab:red")
+    axs[0, 2].plot(time_vals, position_vals, label="Measurement", color="tab:red")
     axs[0, 2].plot(time_vals, x_ref_vals, label="Reference", color="tab:blue")
     axs[0, 2].set_xlabel("Time [s]")
     axs[0, 2].set_ylabel("Position [m]")

@@ -1,7 +1,7 @@
 import config
 import motor_ctrl
 
-def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity):
+def update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity):
     """
     Update the state of the cart based on the button pressed, obstacle detection, and position.
     Adapted for position control: safety relies on anticipating deceleration distance.
@@ -13,11 +13,11 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, x_re
 
     # Check if we're approaching physical limits
     if config.CALIBRATING:
-        reached_end = x_ref >= (config.ZIPLINE_LENGTH_CALIB - deceleration_distance)
-        reached_start = x_ref <= (config.ZIPLINE_START_CALIB + deceleration_distance)
+        reached_end = linear_position >= (config.ZIPLINE_LENGTH_CALIB - deceleration_distance)
+        reached_start = linear_position <= (config.ZIPLINE_START_CALIB + deceleration_distance)
     else:
-        reached_end = x_ref >= (config.ZIPLINE_LENGTH - deceleration_distance)
-        reached_start = x_ref <= (config.ZIPLINE_START + deceleration_distance)
+        reached_end = linear_position >= (config.ZIPLINE_LENGTH - deceleration_distance)
+        reached_start = linear_position <= (config.ZIPLINE_START + deceleration_distance)
         
     if last_state == config.STATE["STOP"]:
         if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_forward or obstacle_backward or reached_end or reached_start):
