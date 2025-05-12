@@ -65,6 +65,7 @@ def motor_init():
             # print("ODrive's configuration:", odrv)
 
             # Motor configuration
+            # dump_errors(odrv, clear=True) # Clear errors, need to be done before setting the motor parameters
             odrv.config.dc_bus_undervoltage_trip_level = config.MIN_VOLTAGE
             odrv.config.dc_bus_overvoltage_trip_level = config.MAX_VOLTAGE
             odrv.axis0.requested_state = 8                 # Closed-loop control

@@ -189,6 +189,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
+    #print(odrv)
     # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
     # print("Waiting for LI550 to be ready...")
     # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
@@ -205,6 +206,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     cnt_moving_blindly = 0
     calib_values = []
     calib_zipline_length = 0
+    obstacle_forward = False
+    obstacle_backward = False
 
     if config.CALIBRATING:
         x_ref = config.INITAL_MOTOR_POS_CALIB
@@ -221,12 +224,29 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
 
+    print(odrv.axis0.config.watchdog_timeout)
+    print(odrv.axis0.controller)
+    time_start_abs = time.time()
+    print("Watchdog Enabled:", odrv.axis0.config.enable_watchdog)
+    print("Watchdog Timeout:", odrv.axis0.config.watchdog_timeout)
+    odrv.axis0.config.startup_closed_loop_control = True
+    #odrv.save_configuration()
+    #odrv.reboot()
+    print("Startup Closed Loop Control:", odrv.axis0.config.startup_closed_loop_control)
+    print("Firmware Version:", odrv.fw_version_major, odrv.fw_version_minor, odrv.fw_version_revision)
+    odrv.axis0.controller.config.vel_limit = np.inf
+
+    print("Velocity Limit:", odrv.axis0.controller.config.vel_limit)
+    print("Velocity Limit Tolerance:", odrv.axis0.controller.config.vel_limit_tolerance)
+
+    #dump_errors(odrv, clear=True)
+
     try:
         try:
             while True:
-                if (odrv.axis0.active_errors != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
-                    print("Error detected in ODrive or zipline length/start is negative. Stopping the motor.")
-                    print(f"ODrive errors: {odrv.axis0.active_errors}", "Zipline start:", config.ZIPLINE_START, "Zipline length:", config.ZIPLINE_LENGTH)
+                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
+                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline start:", config.ZIPLINE_START, "Zipline length:", config.ZIPLINE_LENGTH)
+                    
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
                     time.sleep(config.DT)
@@ -283,12 +303,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         last_tracking_error = None
 
                         if state == config.STATE["STOP"]:
-                            if reached_end:
-                                x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
-                            elif reached_start:
-                                x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
-                            else:
-                                x_ref = linear_position # Stay in the same position, thus max deceleration
+                            x_ref = 1000
+                            print(odrv.axis0.current_state)
+                            print(odrv.axis0.disarm_reason) 
+                            if odrv.axis0.current_state == 1:
+                                print(time.time() - time_start_abs, "s")
+                            # if reached_end:
+                            #     x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
+                            # elif reached_start:
+                            #     x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
+                            # else:
+                            #     x_ref = linear_position # Stay in the same position, thus max deceleration
 
                         elif state == config.STATE["FORWARD"]:
                             x_ref = linear_position + target_speed * config.DT * config.BANG_BANG_GAIN # Move forward
