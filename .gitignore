@@ -29,3 +29,4 @@ src/.DS_Store
 src/data/
 
 src/camera_calib/calib_images
+src/Figures/frame*
