@@ -215,13 +215,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
             offset_from_center = tvec[1]
 
             # Draw the marker and the center line on the frame
-            annotated_frame = frame_bgr.copy()
-            height, width = annotated_frame.shape[:2]
-            center_y = height // 2
-            cv.line(annotated_frame, (0, center_y), (width, center_y), (147, 20, 255), 5) # draw center line
-            cv.circle(annotated_frame, projected_point, 5, (255, 0, 0), -1)  # draw dot
-            cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]),
-            cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2) # draw text
+            annotated_frame = draw_on_frame(frame_bgr, projected_point)
 
             # Save annotated image
             cv.imwrite(filename, annotated_frame)
@@ -239,6 +233,18 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
         cv.imwrite(filename, frame_bgr)
 
     return offset_from_center    
+
+
+def draw_on_frame(frame, projected_point):
+    annotated_frame = frame.copy()
+    height, width = annotated_frame.shape[:2]
+    center_y = height // 2
+
+    cv.line(annotated_frame, (0, center_y), (width, center_y), (147, 20, 255), 5)                                                               # draw center line
+    cv.circle(annotated_frame, projected_point, 5, (255, 0, 0), -1)                                                                             # draw dot
+    cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]), cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)   # draw text
+
+    return annotated_frame
 
 
 def take_video():

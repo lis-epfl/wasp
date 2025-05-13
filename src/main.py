@@ -208,6 +208,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     calib_zipline_length = 0
     obstacle_forward = False
     obstacle_backward = False
+    decelerating_to_full_stop = False
 
     if config.CALIBRATING:
         x_ref = config.INITAL_MOTOR_POS_CALIB
@@ -223,23 +224,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
-
-    print(odrv.axis0.config.watchdog_timeout)
-    print(odrv.axis0.controller)
-    time_start_abs = time.time()
-    print("Watchdog Enabled:", odrv.axis0.config.enable_watchdog)
-    print("Watchdog Timeout:", odrv.axis0.config.watchdog_timeout)
-    odrv.axis0.config.startup_closed_loop_control = True
-    #odrv.save_configuration()
-    #odrv.reboot()
-    print("Startup Closed Loop Control:", odrv.axis0.config.startup_closed_loop_control)
-    print("Firmware Version:", odrv.fw_version_major, odrv.fw_version_minor, odrv.fw_version_revision)
-    odrv.axis0.controller.config.vel_limit = np.inf
-
-    print("Velocity Limit:", odrv.axis0.controller.config.vel_limit)
-    print("Velocity Limit Tolerance:", odrv.axis0.controller.config.vel_limit_tolerance)
-
-    #dump_errors(odrv, clear=True)
 
     try:
         try:
@@ -269,8 +253,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
-                    last_state = state
+                    if not decelerating_to_full_stop:
+                        state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
+                        last_state = state
+                    else:
+                        state = last_state
                     
                     if state == config.STATE["TRACKING"]:
                         # Start camera recording and get ArUco marker position
@@ -298,22 +285,22 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                         last_tracking_error = tracking_error
                     else:
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0    # saves frames from camera (should be 0)     !!FIXME!!
+                            shared_detect_flag.value = 1    # saves frames from camera (should be 0)     !!FIXME!!
                         tracking_error = None
                         last_tracking_error = None
 
                         if state == config.STATE["STOP"]:
-                            x_ref = 1000
-                            print(odrv.axis0.current_state)
-                            print(odrv.axis0.disarm_reason) 
-                            if odrv.axis0.current_state == 1:
-                                print(time.time() - time_start_abs, "s")
-                            # if reached_end:
-                            #     x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
-                            # elif reached_start:
-                            #     x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
-                            # else:
-                            #     x_ref = linear_position # Stay in the same position, thus max deceleration
+                            decelerating_to_full_stop = True
+
+                            if linear_velocity < config.STOP_SPEED_THRESHOLD:
+                                decelerating_to_full_stop = False
+
+                            if reached_end:
+                                x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
+                            elif reached_start:
+                                x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
+                            else:
+                                x_ref = linear_position # Stay in the same position, thus max deceleration
 
                         elif state == config.STATE["FORWARD"]:
                             x_ref = linear_position + target_speed * config.DT * config.BANG_BANG_GAIN # Move forward
