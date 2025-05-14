@@ -70,11 +70,6 @@ def motor_init():
             odrv.axis0.requested_state = 8                 # Closed-loop control
             odrv.axis0.controller.config.control_mode = 3  # 0: voltage control, 1: torque control, 2: velocity control, 3: position control
 
-            if config.CALIBRATING:
-                odrv.axis0.pos_estimate = compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)  
-            else:
-                odrv.axis0.pos_estimate = compute_angular_position(-config.INITAL_MOTOR_POS)
-
             # For position control
             odrv.axis0.controller.config.input_mode = 5  # POS_FILTER = 3, TRAP_TRAJ = 5
             odrv.axis0.controller.config.vel_limit = np.inf # to avoid maximum speed limit

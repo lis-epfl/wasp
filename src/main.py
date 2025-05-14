@@ -23,16 +23,18 @@ import plot_motor_data
 import plot_li550_data
 
 
-def rc_receiver_reading(shared_remote_command, shared_target_speed):
+def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints):
     try:
         with gpiod.Chip('gpiochip0') as chip:
             throttle_line = chip.get_line(config.TROTTLE_PIN)
             button_line = chip.get_line(config.BUTTON_PIN)
+            steering_line = chip.get_line(config.STEERING_PIN)
 
             throttle_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             button_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            steering_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
 
-            # Initialize variables for both pins
+            # Initialize variables
             last_rising_throttle = None
             throttle_timeout = False
             throttle_pulse = 0.0
@@ -40,9 +42,14 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
             last_rising_button = None
             button_timeout = False
             button_pulse = 0.0
+
+            last_rising_steering = None
+            steering_timeout = False
+            steering_pulse = 0.0
             
             remote_command = 0
             last_remote_command = 0
+            calibration_setpoints = 0
             target_speed = 0.0
             initial_button_pulse = 0.0
             button_in_default_position = True
@@ -51,7 +58,9 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
             while True:
                 throttle_event = throttle_line.event_wait(sec=1)
                 button_event = button_line.event_wait(sec=1)
+                steering_event = steering_line.event_wait(sec=1)
 
+                # Reading throttle event
                 if throttle_event:
                     ev_throttle = throttle_line.event_read()
                     timestamp_throttle = ev_throttle.sec + ev_throttle.nsec / 1e9
@@ -65,6 +74,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                     throttle_pulse = 0.0
                     throttle_timeout = True
 
+                # Reading button event
                 if button_event:
                     ev_button = button_line.event_read()
                     timestamp_button = ev_button.sec + ev_button.nsec / 1e9
@@ -77,14 +87,31 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                 else:
                     button_pulse = 0.0
                     button_timeout = True
-
-                if throttle_timeout or button_timeout or (throttle_pulse == 0.0) or (button_pulse == 0.0):
+                
+                # Reading steering event
+                if steering_event:
+                    ev_steering = steering_line.event_read()
+                    timestamp_steering = ev_steering.sec + ev_steering.nsec / 1e9
+                    if ev_steering.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising_steering = timestamp_steering
+                    elif ev_steering.type == gpiod.LineEvent.FALLING_EDGE and last_rising_steering is not None:
+                        steering_pulse = (timestamp_steering - last_rising_steering) * 1_000_000  # in µs
+                        last_rising_steering = None
+                    steering_timeout = False
+                else:
+                    steering_pulse = 0.0
+                    steering_timeout = True
+                
+                # Logic to determine remote command, target speed, and calibration setpoints
+                if throttle_timeout or (throttle_pulse == 0.0) or button_timeout or (button_pulse == 0.0) or steering_timeout or (steering_pulse == 0.0):
                     if last_remote_command == 3:
                         remote_command = 3  # stay in "GO_TRACKING" if deconnection and was in tracking mode
                         target_speed = 0.0
+                        calibration_setpoints = 0  # no setpoint
                     else:
-                        remote_command = 0 # chang to "GO_STOP" if deconnection and was in manual mode
+                        remote_command = 0 # change to "GO_STOP" if deconnection and was in manual mode
                         target_speed = 0.0
+                        calibration_setpoints = 0  # no setpoint
                 else:                                                      
                     # If this is the first button pulse read, use it as the reference
                     if not button_initialized:
@@ -96,7 +123,8 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                         button_in_default_position = True # button is in the same position as initial
                     else:
                         button_in_default_position = False # button is in the opposite position as initial
-                
+
+                    # Logic for remote command and target speed
                     if remote_command == 3:
                         # Tracking mode
                         if (button_in_default_position) or abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.STAY_TRACKING_THRESHOLD:
@@ -120,27 +148,26 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
                                 target_speed = 0.0
                             elif throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD):
                                 remote_command = 1  # corresponding to "GO_BACKWARD"
-
-                                if config.CALIBRATING:
-                                    target_speed = config.MAX_MANUAL_SPEED_CALIB - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
-                                else:
-                                    target_speed = config.MAX_MANUAL_SPEED - np.interp(throttle_pulse, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
-
+                                target_speed = throttle_pulse
                             elif throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD):
                                 remote_command = 2  # corresponding to "GO_FORWARD"
+                                target_speed = throttle_pulse
+                    
+                    # Logic for calibration setpoints
+                    if abs(steering_pulse - config.PWM_MIN_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
+                        calibration_setpoints = 1 # setpoints for zipline start
+                    elif abs(steering_pulse - config.PWM_MAX_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
+                        calibration_setpoints = 2 # setpoints for zipline length
+                    else:
+                        calibration_setpoints = 0 # no setpoint
 
-                                if config.CALIBRATING:
-                                    target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
-                                else:
-                                    target_speed = np.interp(throttle_pulse, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
-                            
                 last_remote_command = remote_command
 
                 # Update shared values between processes
-                with shared_remote_command.get_lock():
+                with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
                     shared_remote_command.value = remote_command
-                with shared_target_speed.get_lock():
                     shared_target_speed.value = target_speed
+                    shared_calibration_setpoints.value = calibration_setpoints
 
                 time.sleep(0.01)
     except KeyboardInterrupt:
@@ -148,7 +175,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed):
     finally:
         throttle_line.release()
         button_line.release()
-        chip.close()
+        steering_line.release()
 
 
 def camera_process(save_path, shared_offset, shared_detect_flag):
@@ -185,7 +212,7 @@ def camera_process(save_path, shared_offset, shared_detect_flag):
         camera.stop()
 
 
-def main(save_path, shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag):
+def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_detect_flag):
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
@@ -204,18 +231,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     tracking_error = None
     last_tracking_error = None
     cnt_moving_blindly = 0
-    calib_values = []
-    calib_zipline_length = 0
     obstacle_forward = False
     obstacle_backward = False
     decelerating_to_full_stop = False
-
-    if config.CALIBRATING:
-        x_ref = config.INITAL_MOTOR_POS_CALIB
-        last_x_ref = config.INITAL_MOTOR_POS_CALIB
-    else:
-        x_ref = config.INITAL_MOTOR_POS
-        last_x_ref = config.INITAL_MOTOR_POS
+    calibration_mode = True
+    first_time_calibration_mode = True
+    first_time_normal_mode = True
+    zipline_length = 0
+    zipline_start = 0
+    zipline_end = 0
+    zipline_start_set = False
+    zipline_end_set = False
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -228,8 +254,59 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
     try:
         try:
             while True:
-                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (config.ZIPLINE_LENGTH < 0) or (config.ZIPLINE_START < 0):
-                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline start:", config.ZIPLINE_START, "Zipline length:", config.ZIPLINE_LENGTH)
+                # Get remote control commands
+                with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
+                    remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking
+                    target_speed = shared_target_speed.value                    # in µs
+                    calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
+
+                    # Mapping target_speed in µs to target_speed_m_s in m/s
+                    if remote_command == 1:
+                        if calibration_mode:
+                            target_speed_m_s = config.MAX_MANUAL_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                        else:
+                            target_speed_m_s = config.MAX_MANUAL_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+                    elif remote_command == 2:
+                        if calibration_mode:
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                        else:
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+                    else:
+                        target_speed_m_s = 0.0
+                
+                # Get motor data                    
+                angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+                    
+                # Calibration logic
+                if calibration_mode:
+                    if first_time_calibration_mode:
+                        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)
+                        x_ref = config.INITAL_MOTOR_POS_CALIB
+                        last_x_ref = config.INITAL_MOTOR_POS_CALIB
+                        first_time_calibration_mode = False
+
+                    if calibration_setpoints == 2:
+                        # Set the zipline length
+                        zipline_end = linear_position
+                        zipline_end_set = True
+                        
+                    if (calibration_setpoints == 1) and zipline_end_set:
+                        # Set the zipline start
+                        zipline_start = linear_position
+                        zipline_start_set = True
+                        zipline_length = zipline_end - zipline_start
+                        calibration_mode = False
+                        print(f"Calibration done: zipline length = {zipline_length:.2f} m")                        
+                else:
+                    if first_time_normal_mode:
+                        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
+                        x_ref = 0
+                        last_x_ref = 0
+                        first_time_normal_mode = False
+                    
+                    
+                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0) or (zipline_start < 0):
+                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline start:", zipline_start, "Zipline length:", zipline_length)
                     
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
@@ -241,24 +318,13 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
                     li550_data = {}
 
-                    # Read and save data from the ODrive motor
-                    angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
-                    
-                    # Get remote control commands
-                    with shared_remote_command.get_lock(), shared_target_speed.get_lock():
-                        remote_command = shared_remote_command.value
-                        target_speed = shared_target_speed.value # in m/s
-
                     # Get distance sensor readings
                     obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
 
                     # Update state
-                    if not decelerating_to_full_stop:
-                        state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity)
-                        last_state = state
-                    else:
-                        state = last_state
-                    
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
+                    last_state = state
+
                     if state == config.STATE["TRACKING"]:
                         # Start camera recording and get ArUco marker position
                         with shared_detect_flag.get_lock():
@@ -296,17 +362,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                                 decelerating_to_full_stop = False
 
                             if reached_end:
-                                x_ref = config.ZIPLINE_LENGTH_CALIB if config.CALIBRATING else config.ZIPLINE_LENGTH
+                                x_ref = config.ZIPLINE_LENGTH_CALIB if calibration_mode else zipline_length
                             elif reached_start:
-                                x_ref = config.ZIPLINE_START_CALIB if config.CALIBRATING else config.ZIPLINE_START
+                                x_ref = config.ZIPLINE_START_CALIB if calibration_mode else 0
                             else:
                                 x_ref = linear_position # Stay in the same position, thus max deceleration
 
                         elif state == config.STATE["FORWARD"]:
-                            x_ref = linear_position + target_speed * config.DT * config.BANG_BANG_GAIN # Move forward
+                            x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN # Move forward
 
                         elif state == config.STATE["BACKWARD"]:
-                            x_ref = linear_position - target_speed * config.DT * config.BANG_BANG_GAIN # Move backward
+                            x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN # Move backward
 
                         else:
                             x_ref = linear_position # Stay in the same position, thus max deceleration
@@ -315,31 +381,23 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_offset, s
                     last_x_ref = x_ref
 
                     # Display current state with LEDs
-                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
+                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, calibration_mode)
 
-                    # Save data to CSV
-                    motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
-                    row = {**motor_data, **li550_data}
-                    writer.writerow(row)
-                    csv_file.flush()
+                    if not calibration_mode:
+                        # Save data to CSV
+                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
+                        row = {**motor_data, **li550_data}
+                        writer.writerow(row)
+                        csv_file.flush()
 
-                    # Print current state
-                    if config.CALIBRATING:
-                        calib_values.append(linear_position)
-                        calib_zipline_length = max(calib_values) - min(calib_values)
-
-                        print(f"CALIBRATING    State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |  "
-                              f"Position: {linear_position:.2f} m  |  "
-                              f"Velocity: {linear_velocity:.2f} m/s  |  "
-                              f"Zipline length: {calib_zipline_length:.2f} m")
-                    else:
+                        # Print current state
                         offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
                         log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
                                     f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
                                     f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
                                     f"Position: {linear_position:.2f} m  |  "
                                     f"Velocity: {linear_velocity:.2f} m/s\n"
-                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed:.2f} m/s")
+                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed_m_s:.2f} m/s")
                         print(log_message)
 
                     # Sleep to respect the desired loop time
@@ -376,13 +434,14 @@ if __name__ == "__main__":
     # Shared variables for inter-process communication
     shared_remote_command = Value('i', 0)  # remote_command
     shared_target_speed = Value('d', 0.0)  # target_speed
+    shared_calibration_setpoints = Value('d', 0.0)  # calibration_setpoints
 
     shared_offset = Value('d', float('nan'))  # ArUco detection result
     shared_detect_flag = Value('i', 0)        # flag to compute detection
 
-    p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed))
+    p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
     p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_detect_flag))
-    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_offset, shared_detect_flag))
+    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_detect_flag))
 
     p1.start()
     p2.start()

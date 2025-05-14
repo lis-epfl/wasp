@@ -34,15 +34,11 @@ MAX_ACCELERATION = 30.0        # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in m/s
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 
+MAX_MANUAL_SPEED = 14            # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_MANUAL_SPEED_CALIB = 1.5     # in m/s (for calibration purposes)
 INITAL_MOTOR_POS_CALIB = 1000    # in meters
 ZIPLINE_START_CALIB = 500        # in meters
 ZIPLINE_LENGTH_CALIB = 1500      # in meters
-
-MAX_MANUAL_SPEED = 14            # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
-INITAL_MOTOR_POS = 0.0           # in meters
-ZIPLINE_START = 0.0              # in meters
-ZIPLINE_LENGTH = 70              # in meters
 
 
 # Ultrasonic sensors
@@ -63,14 +59,16 @@ YELLOW = (255, 255, 0)         # RGB colors for yellow
 
 
 # RC communication
-BUTTON_PIN = 24                # GPIO24 (PIN 18)
-TROTTLE_PIN = 25               # GPIO25 (PIN 22)
-PWM_MIN_PULSE_WIDTH = 1000     # in µs
-PWM_DEFAULT_PULSE_WIDTH = 1500 # in µs
-PWM_MAX_PULSE_WIDTH = 2000     # in µs
-GO_STOP_THRESHOLD = 30         # in µs
-STAY_TRACKING_THRESHOLD = 75   # in µs
-BUTTON_TOGGLE_THRESHOLD = 200  # in µs
+BUTTON_PIN = 24                 # GPIO24 (PIN 18)
+TROTTLE_PIN = 25                # GPIO25 (PIN 22)
+STEERING_PIN = 22               # GPIO22 (PIN 15)
+PWM_MIN_PULSE_WIDTH = 1000      # in µs
+PWM_DEFAULT_PULSE_WIDTH = 1500  # in µs
+PWM_MAX_PULSE_WIDTH = 2000      # in µs
+GO_STOP_THRESHOLD = 30          # in µs
+STAY_TRACKING_THRESHOLD = 75    # in µs
+BUTTON_TOGGLE_THRESHOLD = 200   # in µs
+CALIB_SETPOINTS_THRESHOLD = 100 # in µs
 REMOTE_COMMAND = {
     'GO_STOP': 0,
     'GO_BACKWARD': 1,
