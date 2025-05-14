@@ -3,7 +3,7 @@ import csv
 import os
 
 
-def save_calibration_data(zipline_start, zipline_end, zipline_length):
+def save_calibration_data(zipline_length):
     """
     Save the calibration data to a file named with the current date
     """
@@ -17,8 +17,8 @@ def save_calibration_data(zipline_start, zipline_end, zipline_length):
     # Save the calibration data
     with open(filename, 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['zipline_start', 'zipline_end', 'zipline_length'])
-        writer.writerow([zipline_start, zipline_end, zipline_length])
+        writer.writerow(['zipline_length'])
+        writer.writerow([zipline_length])
     
     print(f"Calibration data saved to {filename}")
 
@@ -42,9 +42,7 @@ def load_calibration_data():
             reader = csv.reader(file)
             next(reader)  # Skip header
             row = next(reader)
-            zipline_start = float(row[0])
-            zipline_end = float(row[1])
-            zipline_length = float(row[2])
+            zipline_length = float(row[0])
             
             # Validate the data
             if zipline_length <= 0:
@@ -52,7 +50,7 @@ def load_calibration_data():
                 return None
                 
             print(f"Calibration data loaded from {filename}")
-            return zipline_start, zipline_end, zipline_length
+            return zipline_length
     except Exception as e:
         print(f"Error loading calibration data: {e}")
         return None
