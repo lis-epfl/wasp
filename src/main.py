@@ -235,8 +235,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     obstacle_backward = False
     decelerating_to_full_stop = False
     calibration_mode = True
-    first_time_calibration_mode = True
-    first_time_normal_mode = True
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
@@ -285,14 +283,24 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                 # Calibration logic
                 if calibration_mode:
                     print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
-                    if calibration_setpoints == 2:
+                    
+                    # Setting the length of the zipline
+                    if il exist une calibration 
+                        zipline_end # FIXME
+
+                    
+                    elif calibration_setpoints == 2:
                         # Set the zipline length
                         zipline_end = linear_position
+
+                        # save the zipline length FIXME
+
                         zipline_end_set = True
                         print(f"Zipline end set: {zipline_end:.2f} m")
                         leds_ctrl.leds_show_setpoint_calibration(leds)
-                        time.sleep(5) # wait for 5 seconds to show that we've set the zipline end
-                        
+                        time.sleep(5) # wait for 5 seconds to show that we've just set the zipline end
+                    
+                    # Setting the start of the zipline
                     if (calibration_setpoints == 1) and zipline_end_set:
                         # Set the zipline start
                         zipline_start = linear_position
@@ -301,17 +309,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         print(f"Zipline start set: {zipline_start:.2f} m")
                         print(f"Calibration done: zipline length = {zipline_length:.2f} m")
                         leds_ctrl.leds_show_setpoint_calibration(leds)
-                        time.sleep(5) # wait for 5 seconds to show that we've set the zipline start
+                        time.sleep(5) # wait for 5 seconds to show that we've just set the zipline start
 
                         # Set motor in new position frame
                         odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
                         linear_position = 0
                         x_ref = 0
-                        last_x_ref = 0
-                        first_time_normal_mode = False 
-
-                        # Calibration done
-                        calibration_mode = False                   
+                        last_x_ref = 0                        
+                        calibration_mode = False # Calibration done                
                                         
                 if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline length:", zipline_length)
