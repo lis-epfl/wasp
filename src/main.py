@@ -276,6 +276,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                 
                 # Get motor data                    
                 angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+                print(linear_position)
                     
                 # Calibration logic
                 if calibration_mode:
@@ -289,22 +290,27 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Set the zipline length
                         zipline_end = linear_position
                         zipline_end_set = True
+                        print(f"Zipline end set: {zipline_end:.2f} m")
                         
                     if (calibration_setpoints == 1) and zipline_end_set:
                         # Set the zipline start
                         zipline_start = linear_position
                         zipline_start_set = True
                         zipline_length = zipline_end - zipline_start
-                        calibration_mode = False
-                        print(f"Calibration done: zipline length = {zipline_length:.2f} m")                        
-                else:
-                    if first_time_normal_mode:
+                        print(f"Zipline start set: {zipline_start:.2f} m")
+                        print(f"Calibration done: zipline length = {zipline_length:.2f} m")
+
+                        # Set motor in new position frame
                         odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
+                        linear_position = 0
                         x_ref = 0
                         last_x_ref = 0
-                        first_time_normal_mode = False
-                    
-                    
+                        print("here", odrv.axis0.pos_estimate)
+                        first_time_normal_mode = False 
+
+                        # Calibration done
+                        calibration_mode = False                   
+                                        
                 if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0) or (zipline_start < 0):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline start:", zipline_start, "Zipline length:", zipline_length)
                     
@@ -357,6 +363,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         if state == config.STATE["STOP"]:
                             decelerating_to_full_stop = True
+                            print(reached_end, reached_start)
 
                             if linear_velocity < config.STOP_SPEED_THRESHOLD:
                                 decelerating_to_full_stop = False
@@ -410,8 +417,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
-            motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
-            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before)
+            odrv.axis0.requested_state = 1  # Set ODrive to idle state
+            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before, calibration_mode)
 
     finally:
         csv_file.close()
