@@ -243,6 +243,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     zipline_start_set = False
     zipline_end_set = False
 
+    # Calibration initialization
+    odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)
+    x_ref = config.INITAL_MOTOR_POS_CALIB
+    last_x_ref = config.INITAL_MOTOR_POS_CALIB
+
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     csv_path = Path(save_path) / f"data_{timestamp}.csv"
@@ -276,21 +281,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                 
                 # Get motor data                    
                 angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
-                print(linear_position)
                     
                 # Calibration logic
                 if calibration_mode:
-                    if first_time_calibration_mode:
-                        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)
-                        x_ref = config.INITAL_MOTOR_POS_CALIB
-                        last_x_ref = config.INITAL_MOTOR_POS_CALIB
-                        first_time_calibration_mode = False
-
+                    print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
                     if calibration_setpoints == 2:
                         # Set the zipline length
                         zipline_end = linear_position
                         zipline_end_set = True
                         print(f"Zipline end set: {zipline_end:.2f} m")
+                        leds_ctrl.leds_show_setpoint_calibration(leds)
+                        time.sleep(5) # wait for 5 seconds to show that we've set the zipline end
                         
                     if (calibration_setpoints == 1) and zipline_end_set:
                         # Set the zipline start
@@ -299,20 +300,21 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         zipline_length = zipline_end - zipline_start
                         print(f"Zipline start set: {zipline_start:.2f} m")
                         print(f"Calibration done: zipline length = {zipline_length:.2f} m")
+                        leds_ctrl.leds_show_setpoint_calibration(leds)
+                        time.sleep(5) # wait for 5 seconds to show that we've set the zipline start
 
                         # Set motor in new position frame
                         odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
                         linear_position = 0
                         x_ref = 0
                         last_x_ref = 0
-                        print("here", odrv.axis0.pos_estimate)
                         first_time_normal_mode = False 
 
                         # Calibration done
                         calibration_mode = False                   
                                         
-                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0) or (zipline_start < 0):
-                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline start:", zipline_start, "Zipline length:", zipline_length)
+                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0):
+                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline length:", zipline_length)
                     
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
@@ -363,7 +365,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         if state == config.STATE["STOP"]:
                             decelerating_to_full_stop = True
-                            print(reached_end, reached_start)
 
                             if linear_velocity < config.STOP_SPEED_THRESHOLD:
                                 decelerating_to_full_stop = False
@@ -400,11 +401,11 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Print current state
                         offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
                         log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                                    f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
-                                    f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                    f"Position: {linear_position:.2f} m  |  "
-                                    f"Velocity: {linear_velocity:.2f} m/s\n"
-                                    f"ArUco position: {offset_str} m  |  Target velocity: {target_speed_m_s:.2f} m/s")
+                                       f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                                       f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                                       f"Position: {linear_position:.2f} m  |  "
+                                       f"Velocity: {linear_velocity:.2f} m/s\n"
+                                       f"ArUco position: {offset_str} m  |  Target velocity: {target_speed_m_s:.2f} m/s")
                         print(log_message)
 
                     # Sleep to respect the desired loop time
@@ -418,7 +419,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
         except KeyboardInterrupt:
             print("\nMain process stopped.")
             odrv.axis0.requested_state = 1  # Set ODrive to idle state
-            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before, calibration_mode)
+            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before, False)
 
     finally:
         csv_file.close()

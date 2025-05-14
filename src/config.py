@@ -10,11 +10,10 @@ STATE = {
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT = 0.12                      # execution period in seconds
 DT_VISION = 0.10               # execution period for vision in seconds
-CALIBRATING = False            # set to True to calibrate the line distance
 
 
 # Motor
-NB_CELLS = 6                                          # Number of cells in the battery
+NB_CELLS = 4                                          # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                            # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                            # Maximum voltage (fully charged), in V
 SOFT_MAX_CURRENT = 40.0                               # in A
@@ -56,6 +55,7 @@ RED = (255, 0, 0)              # RGB colors for red
 BLUE = (0, 0, 255)             # RGB colors for blue    
 GREEN = (0, 255, 0)            # RGB colors for green
 YELLOW = (255, 255, 0)         # RGB colors for yellow
+PURPLE = (102, 51, 153)        # RGB colors for purple
 
 
 # RC communication
