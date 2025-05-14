@@ -6,7 +6,7 @@ from collections import deque
 import gpiod
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
-from datetime import datetime
+from datetime import datetime, date
 import numpy as np
 from simple_pid import PID
 import os
@@ -21,6 +21,7 @@ import camera_ctrl
 import airspeed_sensor_ctrl
 import plot_motor_data
 import plot_li550_data
+import calibration_file_handling
 
 
 def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints):
@@ -238,13 +239,28 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
-    zipline_start_set = False
     zipline_end_set = False
 
-    # Calibration initialization
-    odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITAL_MOTOR_POS_CALIB)
-    x_ref = config.INITAL_MOTOR_POS_CALIB
-    last_x_ref = config.INITAL_MOTOR_POS_CALIB
+    # Try to load calibration data from today's file
+    calibration_data = calibration_file_handling.load_calibration_data()
+    if calibration_data is not None:
+        zipline_start, zipline_end, zipline_length = calibration_data
+        zipline_end_set = True
+        calibration_mode = False  # Skip calibration mode if we have valid data
+        print(f"Using saved calibration: zipline start={zipline_start:.2f}m, end={zipline_end:.2f}m, length={zipline_length:.2f}m")
+        leds_ctrl.leds_show_setpoint_calibration(leds) 
+        time.sleep(5)  # Signal that we've loaded calibration
+        
+        # Set motor position to start at 0
+        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0)
+        x_ref = 0
+        last_x_ref = 0
+    else:
+        # No calibration file found, initialize for calibration
+        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITIAL_MOTOR_POS_CALIB)
+        x_ref = config.INITIAL_MOTOR_POS_CALIB
+        last_x_ref = config.INITIAL_MOTOR_POS_CALIB
+        print("No calibration data found. Starting calibration mode.")
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -279,45 +295,47 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                 
                 # Get motor data                    
                 angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
-                    
+
                 # Calibration logic
                 if calibration_mode:
                     print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
                     
-                    # Setting the length of the zipline
-                    if il exist une calibration 
-                        zipline_end # FIXME
-
-                    
-                    elif calibration_setpoints == 2:
-                        # Set the zipline length
+                    # Setting the end of the zipline
+                    if calibration_setpoints == 2:
                         zipline_end = linear_position
-
-                        # save the zipline length FIXME
-
                         zipline_end_set = True
                         print(f"Zipline end set: {zipline_end:.2f} m")
                         leds_ctrl.leds_show_setpoint_calibration(leds)
-                        time.sleep(5) # wait for 5 seconds to show that we've just set the zipline end
+                        time.sleep(5)  # Signal that we've set the end of the line
                     
                     # Setting the start of the zipline
                     if (calibration_setpoints == 1) and zipline_end_set:
-                        # Set the zipline start
                         zipline_start = linear_position
-                        zipline_start_set = True
                         zipline_length = zipline_end - zipline_start
-                        print(f"Zipline start set: {zipline_start:.2f} m")
-                        print(f"Calibration done: zipline length = {zipline_length:.2f} m")
-                        leds_ctrl.leds_show_setpoint_calibration(leds)
-                        time.sleep(5) # wait for 5 seconds to show that we've just set the zipline start
+                        
+                        # Validate the calibration
+                        if zipline_length <= 0:
+                            print(f"ERROR: Invalid zipline length: {zipline_length:.2f} m. Start position must be less than end position.")
+                            # Flash error pattern on LEDs
+                            leds_ctrl.leds_error_warning(leds, False)
+                            time.sleep(5)
+                            # Reset calibration
+                            zipline_end_set = False
+                        else:
+                            # Save calibration data to file
+                            calibration_file_handling.save_calibration_data(zipline_start, zipline_end, zipline_length)
+                            print(f"Zipline start: {zipline_start:.2f} m")
+                            print(f"Calibration done: zipline length: {zipline_length:.2f} m")
+                            leds_ctrl.leds_show_setpoint_calibration(leds)
+                            time.sleep(5)  # Reduced wait time
 
-                        # Set motor in new position frame
-                        odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
-                        linear_position = 0
-                        x_ref = 0
-                        last_x_ref = 0                        
-                        calibration_mode = False # Calibration done                
-                                        
+                            # Set motor in new position frame
+                            odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
+                            linear_position = 0
+                            x_ref = 0
+                            last_x_ref = 0                        
+                            calibration_mode = False # Calibration done    
+                                            
                 if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline length:", zipline_length)
                     
@@ -364,7 +382,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         last_tracking_error = tracking_error
                     else:
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1    # saves frames from camera (should be 0)     !!FIXME!!
+                            shared_detect_flag.value = 1    # saves frames from camera (should be 0)     FIXME
                         tracking_error = None
                         last_tracking_error = None
 
@@ -390,6 +408,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         else:
                             x_ref = linear_position # Stay in the same position, thus max deceleration
 
+                    # Set the target position of the motor
                     motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                     last_x_ref = x_ref
 
@@ -400,7 +419,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
                         row = {**motor_data, **li550_data}
-                        writer.writerow(row)
+                        writer.writerow(row)   
                         csv_file.flush()
 
                         # Print current state
@@ -445,12 +464,12 @@ if __name__ == "__main__":
     os.makedirs(save_path, exist_ok=True)
 
     # Shared variables for inter-process communication
-    shared_remote_command = Value('i', 0)  # remote_command
-    shared_target_speed = Value('d', 0.0)  # target_speed
-    shared_calibration_setpoints = Value('d', 0.0)  # calibration_setpoints
+    shared_remote_command = Value('i', 0)           # remote_command to set the state
+    shared_target_speed = Value('d', 0.0)           # target_speed to set the speed
+    shared_calibration_setpoints = Value('d', 0.0)  # calibration_setpoints to define calibration setpoints
 
-    shared_offset = Value('d', float('nan'))  # ArUco detection result
-    shared_detect_flag = Value('i', 0)        # flag to compute detection
+    shared_offset = Value('d', float('nan'))        # ArUco detection result
+    shared_detect_flag = Value('i', 0)              # flag to compute detection
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
     p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_detect_flag))
