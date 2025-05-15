@@ -72,10 +72,11 @@ def motor_init():
 
             # For position control
             odrv.axis0.controller.config.input_mode = 5  # POS_FILTER = 3, TRAP_TRAJ = 5
-            odrv.axis0.controller.config.vel_limit = np.inf # to avoid maximum speed limit
-            odrv.axis0.trap_traj.config.vel_limit = compute_angular_speed(max(config.MAX_TRACKING_SPEED, config.MAX_MANUAL_SPEED))  
+            odrv.axis0.controller.config.vel_limit = np.inf # to avoid maximum speed limit (does not correspond to the maximum speed of the profile)
             odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION                        
-            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION                                                  
+            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION
+            # maximum speed of the profile is set in the main loop because it depends on the mode (calibration or not)                                                  
+                                                  
 
             odrv.axis0.config.motor.current_soft_max = config.SOFT_MAX_CURRENT
             odrv.axis0.config.motor.current_hard_max = config.HARD_MAX_CURRENT

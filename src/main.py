@@ -252,8 +252,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
         print(f"Using saved calibration: length={zipline_length:.2f}m")
         leds_ctrl.leds_show_setpoint_calibration(leds) 
         time.sleep(10)  # Signal that we've loaded calibration
-        
+
+    # Motor settings for calibration
     odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITIAL_MOTOR_POS_CALIB)
+    odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED_CALIB)  
     x_ref = config.INITIAL_MOTOR_POS_CALIB
     last_x_ref = config.INITIAL_MOTOR_POS_CALIB
 
@@ -277,14 +279,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     # Mapping target_speed in µs to target_speed_m_s in m/s
                     if remote_command == 1:
                         if calibration_mode:
-                            target_speed_m_s = config.MAX_MANUAL_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                            target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
                         else:
-                            target_speed_m_s = config.MAX_MANUAL_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+                            target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_SPEED])
                     elif remote_command == 2:
                         if calibration_mode:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED_CALIB])
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
                         else:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_MANUAL_SPEED])
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
                     else:
                         target_speed_m_s = 0.0
                 
@@ -319,18 +321,19 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             # Reset calibration
                             zipline_end_set = False
                         else:
+                            # Motor settings for normal operation
+                            odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0)
+                            odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED)
+                            linear_position = 0
+                            x_ref = 0
+                            last_x_ref = 0                        
+                            calibration_mode = False # Calibration done   
+
                             # Save calibration data to file
                             calibration_file_handling.save_calibration_data(zipline_length)
                             print(f"Calibration done: zipline length: {zipline_length:.2f} m")
                             leds_ctrl.leds_show_setpoint_calibration(leds)
-                            time.sleep(3)  # Reduced wait time
-
-                            # Set motor in new position frame
-                            odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0) # Start at 0 m 
-                            linear_position = 0
-                            x_ref = 0
-                            last_x_ref = 0                        
-                            calibration_mode = False # Calibration done    
+                            time.sleep(3)  # Reduced wait time 
                                             
                 if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
@@ -424,8 +427,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
                                        f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
                                        f"Position: {linear_position:.2f} m  |  "
-                                       f"Velocity: {linear_velocity:.2f} m/s\n"
-                                       f"ArUco position: {offset_str} m  |  Target velocity: {target_speed_m_s:.2f} m/s")
+                                       f"Velocity: {linear_velocity:.2f} m/s  |  "
+                                       f"ArUco position: {offset_str} m ")
                         print(log_message)
 
                     # Sleep to respect the desired loop time

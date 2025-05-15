@@ -28,13 +28,12 @@ POS_GAIN = 20.0                # Proportional gain for position loop [(rev/s) / 
 VEL_GAIN = 0.10                # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.33         # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 15            # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
-MAX_TRACKING_SPEED = 14        # in m/s (max speed for tracking)
 MAX_ACCELERATION = 30.0        # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01    # in m/s
 PULLEY_RADIUS = 0.025          # in meters (tacking into acount cable radius)
 
-MAX_MANUAL_SPEED = 14            # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
-MAX_MANUAL_SPEED_CALIB = 1.0     # in m/s (for calibration purposes)
+MAX_SPEED = 8                    # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED_CALIB = 1.0            # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000   # in meters
 ZIPLINE_START_CALIB = 500        # in meters
 ZIPLINE_LENGTH_CALIB = 1500      # in meters
