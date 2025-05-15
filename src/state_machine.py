@@ -9,7 +9,7 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, line
     state = last_state
 
     # Estimate how far we need to stop safely from current speed
-    deceleration_distance = motor_ctrl.compute_linear_position((angular_velocity ** 2) / (2 * config.MAX_ACCELERATION))
+    deceleration_distance = motor_ctrl.compute_linear_position((angular_velocity ** 2) / (2 * config.MAX_ACCELERATION)) + config.DECELERATION_OFFSET
 
     # Check if we're approaching physical limits
     if calibration_mode:

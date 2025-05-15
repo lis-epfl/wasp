@@ -352,7 +352,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, x_ref, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
                     last_state = state
 
                     if state == config.STATE["TRACKING"]:
