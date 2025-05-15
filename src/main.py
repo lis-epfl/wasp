@@ -237,6 +237,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     decelerating_to_full_stop = False
     calibration_mode = True
     zipline_end_set = False
+    zipline_length_loaded = False
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
@@ -247,6 +248,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     if calibration_data is not None:
         zipline_length = calibration_data
         zipline_end_set = True # Skip setting the end of the zipline in the calibration mode
+        zipline_length_loaded = True
         print(f"Using saved calibration: length={zipline_length:.2f}m")
         leds_ctrl.leds_show_setpoint_calibration(leds) 
         time.sleep(10)  # Signal that we've loaded calibration
@@ -303,7 +305,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     
                     # Setting the start of the zipline
                     if (calibration_setpoints == 1) and zipline_end_set:
-                        if (zipline_length == 0) and (zipline_start != zipline_end):
+                        if (not zipline_length_loaded) and (zipline_start != zipline_end):
                             # If there is no calibration data, compute the zipline length from the start and end positions
                             zipline_start = linear_position
                             zipline_length = zipline_end - zipline_start
@@ -312,7 +314,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         if zipline_length <= 0:
                             print(f"ERROR: Invalid zipline length: {zipline_length:.2f} m. Start position must be less than end position.")
                             # Flash error pattern on LEDs
-                            leds_ctrl.leds_error_warning(leds, False)
+                            leds_ctrl.leds_error_warning(leds, True)
                             time.sleep(3)
                             # Reset calibration
                             zipline_end_set = False
@@ -330,8 +332,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_x_ref = 0                        
                             calibration_mode = False # Calibration done    
                                             
-                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0) or (zipline_length < 0):
-                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}", "Zipline length:", zipline_length)
+                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0):
+                    print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
                     
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
