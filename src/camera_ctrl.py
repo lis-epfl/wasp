@@ -148,6 +148,7 @@ def camera_init():
         "ExposureTime": config.EXPOSURE_TIME,  # Exposure time in microseconds
         "AnalogueGain": config.ANALOGUE_GAIN   # Fix gain for brightness
     })
+    # picam2.set_controls({ "AeEnable": True})
 
     picam2.start()
     return picam2
@@ -215,9 +216,11 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
             offset_from_center = tvec[1]
 
             # Draw the marker and the center line on the frame
-            annotated_frame = draw_on_frame(frame_bgr, projected_point)
+            #annotated_frame = draw_on_frame(frame_bgr, projected_point)
+            annotated_frame = frame_bgr.copy()
 
             # Save annotated image
+            filename = f"{save_path}/frame_{frame_counter:04d}_found.png"
             cv.imwrite(filename, annotated_frame)
         else:
             # SolvePnP failed

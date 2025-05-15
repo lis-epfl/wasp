@@ -202,7 +202,7 @@ def camera_process(save_path, shared_offset, shared_detect_flag):
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            # print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
+            #print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
             else:
@@ -251,7 +251,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
         zipline_length_loaded = True
         print(f"Using saved calibration: length={zipline_length:.2f}m")
         leds_ctrl.leds_show_setpoint_calibration(leds) 
-        time.sleep(10)  # Signal that we've loaded calibration
+        time.sleep(5)  # Signal that we've loaded calibration
 
     # Motor settings for calibration
     odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITIAL_MOTOR_POS_CALIB)
@@ -266,6 +266,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
+
+    print("voltage:", odrv.vbus_voltage)
 
     try:
         try:
@@ -295,7 +297,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                 # Calibration logic
                 if calibration_mode:
-                    print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                    #print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
                     
                     # Setting the end of the zipline
                     if (calibration_setpoints == 2) and not zipline_end_set:
@@ -335,7 +337,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             leds_ctrl.leds_show_setpoint_calibration(leds)
                             time.sleep(3)  # Reduced wait time 
                                             
-                if (odrv.axis0.active_errors != 0) or (odrv.axis0.disarm_reason != 0):
+                if (odrv.axis0.active_errors != 0):
+                    #  or (odrv.axis0.disarm_reason != 0)
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
                     
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
@@ -349,7 +352,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     li550_data = {}
 
                     # Get distance sensor readings
-                    obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
+                    # obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
+                    obstacle_forward = False
+                    obstacle_backward = False
 
                     # Update state
                     state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
@@ -366,17 +371,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         if tracking_error is not None:
                             # ArUco marker detected: compute target speed using PID controller
-                            x_ref = last_x_ref + tracking_error
+                            x_ref = linear_position - tracking_error
                             cnt_moving_blindly = 0
                         else:
-                            # ArUco marker not detected: keep the last target speed for a while
-                            if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                tracking_error = last_tracking_error
-                                x_ref = last_x_ref + tracking_error
-                                cnt_moving_blindly += 1
-                            else:
-                                # No ArUco marker detected and no previous offset: stop the motor
-                                x_ref = linear_position
+                            # # ArUco marker not detected: keep the last target speed for a while
+                            # if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                            #     tracking_error = last_tracking_error
+                            #     x_ref = linear_position - tracking_error
+                            #     cnt_moving_blindly += 1
+                            # else:
+                            # No ArUco marker detected and no previous offset: stop the motor
+                            x_ref = last_x_ref
                         
                         last_tracking_error = tracking_error
                     else:
