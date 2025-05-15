@@ -268,6 +268,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     writer.writeheader()
 
     print("voltage:", odrv.vbus_voltage)
+    print(odrv.axis0.disarm_reason)
+    print(odrv.config)
 
     try:
         try:
@@ -281,14 +283,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     # Mapping target_speed in µs to target_speed_m_s in m/s
                     if remote_command == 1:
                         if calibration_mode:
-                            target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
+                            target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED_CALIB])
                         else:
-                            target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH], [0.0, config.MAX_SPEED])
+                            target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED])
                     elif remote_command == 2:
                         if calibration_mode:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
                         else:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
+                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH +  config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
                     else:
                         target_speed_m_s = 0.0
                 
@@ -297,7 +299,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                 # Calibration logic
                 if calibration_mode:
-                    #print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                    print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
                     
                     # Setting the end of the zipline
                     if (calibration_setpoints == 2) and not zipline_end_set:
@@ -352,9 +354,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     li550_data = {}
 
                     # Get distance sensor readings
-                    # obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
-                    obstacle_forward = False
-                    obstacle_backward = False
+                    obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
+                    # obstacle_forward = False
+                    # obstacle_backward = False
 
                     # Update state
                     state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
@@ -386,7 +388,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         last_tracking_error = tracking_error
                     else:
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1    # saves frames from camera (should be 0)     FIXME
+                            shared_detect_flag.value = 0    # saves frames from camera (should be 0)     FIXME
                         tracking_error = None
                         last_tracking_error = None
 
