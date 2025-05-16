@@ -163,9 +163,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
 
     # Capture a frame
     frame_rgb = picam2.capture_array("main")  # Non-blocking read of latest frame (rgb format)
-    
-    # metadata = picam2.capture_metadata()
-    # print("Exposure:", metadata.get("ExposureTime"), "µs")  # originally 34308 µs = 34 ms = 0.034 s
+    time_frame_captured = time.time()
 
     frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR) # (bgr format)
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY) # (gray scale format)
@@ -235,7 +233,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
         # Save annotated image
         cv.imwrite(filename, frame_bgr)
 
-    return offset_from_center    
+    return offset_from_center, time_frame_captured    
 
 
 def draw_on_frame(frame, projected_point):
@@ -312,18 +310,3 @@ if __name__ == "__main__":
         take_picture()
     else:
         print(f"Unknown function: {sys.argv[1]}")
-
-# if __name__ == "__main__":
-#     picam2 = camera_init()
-#     try:
-#         while True:
-#             time_start = time.time()
-#             offset_from_center = detect_aruco_pose(picam2)
-#             print(f"Offset from center: {offset_from_center}")
-#             time_end = time.time()
-#             elapsed_time = time_end - time_start
-#             print(f"Elapsed time: {elapsed_time:.2f} seconds") # this takes about 0.3 seconds
-#     except KeyboardInterrupt:
-#         print("Exiting...")
-#     finally:
-#         picam2.stop()

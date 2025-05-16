@@ -179,7 +179,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
         steering_line.release()
 
 
-def camera_process(save_path, shared_offset, shared_detect_flag):
+def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_detect_flag):
     camera = camera_ctrl.camera_init()
     mtx, dist = camera_ctrl.load_calibration()
     frame_counter = 1
@@ -194,15 +194,16 @@ def camera_process(save_path, shared_offset, shared_detect_flag):
 
             # Only compute if tracking is on
             if shared_detect_flag.value == 1:
-                offset = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
+                offset, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
                 frame_counter += 1
-                with shared_offset.get_lock():
-                    shared_offset.value = offset if offset is not None else float('nan')
+                with shared_offset.get_lock(), shared_time_frame_captured.get_lock():
+                    shared_offset.value = - offset if offset is not None else float('nan') # minus sign to match the motor direction
+                    shared_time_frame_captured.value = time_frame_captured
             else:
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            #print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
+            # print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
             else:
@@ -213,18 +214,11 @@ def camera_process(save_path, shared_offset, shared_detect_flag):
         camera.stop()
 
 
-def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_detect_flag):
-    # Initialize peripherals
-    leds = leds_ctrl.leds_init()
-    odrv = motor_ctrl.motor_init()
-    # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
-    # print("Waiting for LI550 to be ready...")
-    # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
-
-    # Variable initialization
+def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_time_frame_captured, shared_detect_flag):
+    # Initialize variable
+    time_start_abs = time.time()
     time_start_while = 0
     time_end_while = 0
-    time_start_abs = time.time()
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
@@ -242,6 +236,13 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
+
+    # Initialize peripherals
+    leds = leds_ctrl.leds_init()
+    odrv = motor_ctrl.motor_init()
+    # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
+    # print("Waiting for LI550 to be ready...")
+    # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
@@ -284,22 +285,29 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         target_speed = shared_target_speed.value                    # in µs
                         calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
 
-                        # Mapping target_speed in µs to target_speed_m_s in m/s
+                        # Map target_speed (µs) to target_speed_m_s (m/s)
+                        speed_max = config.MAX_SPEED_CALIB if in_calibration_mode else config.MAX_SPEED
                         if remote_command == 1:
-                            if in_calibration_mode:
-                                target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED_CALIB])
-                            else:
-                                target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED])
+                            target_speed_m_s = speed_max - np.interp(
+                                target_speed,
+                                [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD],
+                                [0.0, speed_max])
                         elif remote_command == 2:
-                            if in_calibration_mode:
-                                target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
-                            else:
-                                target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH +  config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
+                            target_speed_m_s = np.interp(
+                                target_speed,
+                                [config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH],
+                                [0.0, speed_max])
                         else:
                             target_speed_m_s = 0.0
                     
+                    # Get the ArUco marker position and the time at which the frame was captured
+                    with shared_offset.get_lock(), shared_time_frame_captured.get_lock():
+                        tracking_error = shared_offset.value
+                        time_frame_captured = shared_time_frame_captured.value
+                    
                     # Get motor data                    
                     angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+                    time_position_measured = time.time()
 
                     # Get LI-5500 data
                     # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
@@ -318,7 +326,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                     # Calibrating the zipline length
                     if in_calibration_mode:
-                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                        # print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
@@ -363,7 +371,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Don't capture frames from the camera in this mode
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0   
+                            shared_detect_flag.value = 1        # FIXME   
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
@@ -384,9 +392,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             x_ref = linear_position
                         
                         # Set the target position of the motor
-                        # motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
-                        odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(15)  
-                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(10000)) # FIXME
+                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
 
                     # Normal operation
                     else:
@@ -394,14 +400,18 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             # Start camera recording and get ArUco marker position
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
-                            with shared_offset.get_lock():
-                                tracking_error = shared_offset.value
 
                             tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
                             if tracking_error is not None:
+                                print(f"Difference from frame taken: {time.time() - time_frame_captured:.6f} s")
+                                print(f"Difference from position measured: {time.time() - time_position_measured:.6f} s")
+
                                 # ArUco marker detected: compute target speed using PID controller
-                                x_ref = linear_position - tracking_error
+                                # x_ref = linear_position + tracking_error
+
+                                x_ref = linear_position + tracking_error + linear_velocity*(time.time() - time_frame_captured)
+
                                 cnt_moving_blindly = 0
                             else:
                                 # # ArUco marker not detected: keep the last target speed for a while
@@ -416,7 +426,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_tracking_error = tracking_error
                         else:
                             with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 0    # saves frames from camera (should be 0)     FIXME
+                                shared_detect_flag.value = 0
                             tracking_error = None
                             last_tracking_error = None
 
@@ -458,7 +468,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                         f"Position: {linear_position:.2f} m  |  "
                                         f"Velocity: {linear_velocity:.2f} m/s  |  "
                                         f"ArUco position: {offset_str} m ")
-                        print(log_message)
+                        # print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
@@ -497,12 +507,13 @@ if __name__ == "__main__":
     shared_target_speed = Value('d', 0.0)           # target_speed to set the speed
     shared_calibration_setpoints = Value('d', 0.0)  # calibration_setpoints to define calibration setpoints
 
-    shared_offset = Value('d', float('nan'))        # ArUco detection result
+    shared_offset = Value('d', float('nan'))        # arUco detection result
+    shared_time_frame_captured = Value('d', 0.0)    # exact time at which the frame was captured
     shared_detect_flag = Value('i', 0)              # flag to compute detection
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
-    p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_detect_flag))
-    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_detect_flag))
+    p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_time_frame_captured, shared_detect_flag))
+    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_time_frame_captured, shared_detect_flag))
 
     p1.start()
     p2.start()

@@ -91,6 +91,20 @@ def motor_init():
         return None
 
 
+def low_pass(curr_val, prev_val, cutoff_freq, dt):
+    """
+    Low pass filter to smooth the data
+    :param curr_val: Current value
+    :param prev_val: Previous value
+    :param cutoff_freq: Cutoff frequency
+    :param dt: Time step
+    :return: Smoothed value
+    """
+    a = curr_val - prev_val # Amplitude or error
+    output = prev_val + a*(1.0 - np.e**(-dt*cutoff_freq))
+    return output
+
+
 def set_position(odrv, position):
     """
     Set the position of the motor
@@ -98,6 +112,7 @@ def set_position(odrv, position):
     :param position: Position in turns
     """
     odrv.axis0.controller.input_pos = - position  # in turns (minus sign because of the motor direction)
+
 
 def get_data(odrv):
     """

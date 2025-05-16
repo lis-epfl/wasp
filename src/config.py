@@ -8,8 +8,8 @@ STATE = {
     'TRACKING': 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.12                           # execution period in seconds
-DT_VISION = 0.16                    # execution period for vision in seconds
+DT = 0.12          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
+DT_VISION = 0.10   # execution period for vision in seconds
 
 
 # Motor
@@ -80,7 +80,7 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 # Camera
 CAM_HEIGHT = 4608                                   # camera default resolution (maximum), in pixels
 CAM_WIDTH = 2592                                    # camera default resolution (maximum), in pixels
-RES_DROP = 3.5                                        # resolution drop factor
+RES_DROP = 4                                        # resolution drop factor
 CAM_HEIGHT_LOW = int(CAM_HEIGHT/RES_DROP)           # lower resolution settings, in pixels
 CAM_WIDTH_LOW = int((CAM_HEIGHT_LOW / 16) * 9)      # lower resolution settings, in pixels
 FRAME_RATE = 60                                     # in frames/sec
@@ -90,9 +90,9 @@ NB_IMAGES_CALIBRATION = 20                          # number of images to captur
 ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 unique markers
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
-ARUCO_REAL_SIZE = 0.1355                            # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 100                                 # in microseconds
-ANALOGUE_GAIN = 10.0                                # in dB
+ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
+EXPOSURE_TIME = 1000                                # in microseconds (100 outside worked well)
+ANALOGUE_GAIN = 20.0                                # in dB (10.0 outside worked well)
 
 
 # Tracking
