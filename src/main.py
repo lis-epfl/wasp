@@ -217,7 +217,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    #print(odrv)
     # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
     # print("Waiting for LI550 to be ready...")
     # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
@@ -267,10 +266,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
-
-    print("voltage:", odrv.vbus_voltage)
-    print(odrv.axis0.disarm_reason)
-    print(odrv.config)
 
     try:
         try:
@@ -389,7 +384,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             x_ref = linear_position
                         
                         # Set the target position of the motor
-                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                        # motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                        odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(15)  
+                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(10000)) # FIXME
 
                     # Normal operation
                     else:

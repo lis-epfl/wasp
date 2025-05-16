@@ -64,7 +64,7 @@ def motor_init():
             print("Maximum achievable speed:", compute_linear_speed(odrv.vbus_voltage*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
 
             # Motor configuration
-            # dump_errors(odrv, clear=True) # Clear errors and disarm reason, needs to restart the ODrive after that
+            odrv.clear_errors() # clear potential errors/disarm reason from last run
             odrv.config.dc_bus_undervoltage_trip_level = config.MIN_VOLTAGE
             odrv.config.dc_bus_overvoltage_trip_level = config.MAX_VOLTAGE
             odrv.axis0.requested_state = 8                 # Closed-loop control
