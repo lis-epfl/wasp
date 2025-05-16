@@ -232,10 +232,12 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     tracking_error = None
     last_tracking_error = None
     cnt_moving_blindly = 0
-    obstacle_forward = False
-    obstacle_backward = False
+    curr_obstacle_forward = False
+    curr_obstacle_backward = False
+    prev_obstacle_forward = False
+    prev_obstacle_backward = False
     decelerating_to_full_stop = False
-    calibration_mode = True
+    in_calibration_mode = True
     zipline_end_set = False
     zipline_length_loaded = False
     zipline_length = 0
@@ -244,7 +246,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
-
     if calibration_data is not None:
         zipline_length = calibration_data
         zipline_end_set = True # Skip setting the end of the zipline in the calibration mode
@@ -274,154 +275,178 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     try:
         try:
             while True:
-                # Get remote control commands
-                with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
-                    remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking
-                    target_speed = shared_target_speed.value                    # in µs
-                    calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
+                time_start_while = time.time()
 
-                    # Mapping target_speed in µs to target_speed_m_s in m/s
-                    if remote_command == 1:
-                        if calibration_mode:
-                            target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED_CALIB])
-                        else:
-                            target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED])
-                    elif remote_command == 2:
-                        if calibration_mode:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
-                        else:
-                            target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH +  config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
-                    else:
-                        target_speed_m_s = 0.0
-                
-                # Get motor data                    
-                angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
-
-                # Calibration logic
-                if calibration_mode:
-                    print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
-                    
-                    # Setting the end of the zipline
-                    if (calibration_setpoints == 2) and not zipline_end_set:
-                        zipline_end = linear_position
-                        zipline_end_set = True
-                        print(f"Zipline end set: {zipline_end:.2f} m")
-                        leds_ctrl.leds_show_setpoint_calibration(leds)
-                        time.sleep(3)  # Signal that we've set the end of the line
-                    
-                    # Setting the start of the zipline
-                    if (calibration_setpoints == 1) and zipline_end_set:
-                        if (not zipline_length_loaded) and (zipline_start != zipline_end):
-                            # If there is no calibration data, compute the zipline length from the start and end positions
-                            zipline_start = linear_position
-                            zipline_length = zipline_end - zipline_start
-
-                        # Validate the calibration
-                        if zipline_length <= 0:
-                            print(f"ERROR: Invalid zipline length: {zipline_length:.2f} m. Start position must be less than end position.")
-                            # Flash error pattern on LEDs
-                            leds_ctrl.leds_error_warning(leds, True)
-                            time.sleep(3)
-                            # Reset calibration
-                            zipline_end_set = False
-                        else:
-                            # Motor settings for normal operation
-                            odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0)
-                            odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED)
-                            linear_position = 0
-                            x_ref = 0
-                            last_x_ref = 0                        
-                            calibration_mode = False # Calibration done   
-
-                            # Save calibration data to file
-                            calibration_file_handling.save_calibration_data(zipline_length)
-                            print(f"Calibration done: zipline length: {zipline_length:.2f} m")
-                            leds_ctrl.leds_show_setpoint_calibration(leds)
-                            time.sleep(3)  # Reduced wait time 
-                                            
-                if (odrv.axis0.active_errors != 0):
-                    #  or (odrv.axis0.disarm_reason != 0)
+                # Check if there is an error on the ODrive
+                if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
-                    
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
-                    time.sleep(config.DT)
                 else:
-                    time_start_while = time.time()
-                
-                    # Read data from the LI-5500 sensor
+                    # Get remote control commands
+                    with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
+                        remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking
+                        target_speed = shared_target_speed.value                    # in µs
+                        calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
+
+                        # Mapping target_speed in µs to target_speed_m_s in m/s
+                        if remote_command == 1:
+                            if in_calibration_mode:
+                                target_speed_m_s = config.MAX_SPEED_CALIB - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED_CALIB])
+                            else:
+                                target_speed_m_s = config.MAX_SPEED - np.interp(target_speed, [config.PWM_MIN_PULSE_WIDTH, config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD], [0.0, config.MAX_SPEED])
+                        elif remote_command == 2:
+                            if in_calibration_mode:
+                                target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED_CALIB])
+                            else:
+                                target_speed_m_s = np.interp(target_speed, [config.PWM_DEFAULT_PULSE_WIDTH +  config.GO_STOP_THRESHOLD, config.PWM_MAX_PULSE_WIDTH], [0.0, config.MAX_SPEED])
+                        else:
+                            target_speed_m_s = 0.0
+                    
+                    # Get motor data                    
+                    angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+
+                    # Get LI-5500 data
                     # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
                     li550_data = {}
 
                     # Get distance sensor readings
-                    obstacle_forward, obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
-                    # obstacle_forward = False
-                    # obstacle_backward = False
+                    curr_obstacle_forward, curr_obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
+                    obstacle_forward = prev_obstacle_forward and curr_obstacle_forward
+                    obstacle_backward = prev_obstacle_backward and curr_obstacle_backward
+                    prev_obstacle_forward = curr_obstacle_forward
+                    prev_obstacle_backward = curr_obstacle_backward
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, calibration_mode, zipline_length)
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
                     last_state = state
 
-                    if state == config.STATE["TRACKING"]:
-                        # Start camera recording and get ArUco marker position
-                        with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1
-                        with shared_offset.get_lock():
-                            tracking_error = shared_offset.value
+                    # Calibrating the zipline length
+                    if in_calibration_mode:
+                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
 
-                        tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
-
-                        if tracking_error is not None:
-                            # ArUco marker detected: compute target speed using PID controller
-                            x_ref = linear_position - tracking_error
-                            cnt_moving_blindly = 0
-                        else:
-                            # # ArUco marker not detected: keep the last target speed for a while
-                            # if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                            #     tracking_error = last_tracking_error
-                            #     x_ref = linear_position - tracking_error
-                            #     cnt_moving_blindly += 1
-                            # else:
-                            # No ArUco marker detected and no previous offset: stop the motor
-                            x_ref = last_x_ref
+                        # Display the calibration mode with LEDs
+                        leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
                         
-                        last_tracking_error = tracking_error
-                    else:
-                        with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0    # saves frames from camera (should be 0)     FIXME
-                        tracking_error = None
-                        last_tracking_error = None
+                        # Setting the end of the zipline
+                        if (calibration_setpoints == 2) and not zipline_end_set:
+                            zipline_end = linear_position
+                            zipline_end_set = True
+                            print(f"Zipline end set: {zipline_end:.2f} m")
+                            leds_ctrl.leds_show_setpoint_calibration(leds)
+                            time.sleep(3)  # Signal that we've set the end of the line
+                        
+                        # Setting the start of the zipline
+                        if (calibration_setpoints == 1) and zipline_end_set:
+                            if (not zipline_length_loaded) and (zipline_start != zipline_end):
+                                # If there is no calibration data, compute the zipline length from the start and end positions
+                                zipline_start = linear_position
+                                zipline_length = zipline_end - zipline_start
 
+                            # Validate the calibration
+                            if zipline_length <= 0:
+                                print(f"ERROR: Invalid zipline length: {zipline_length:.2f} m. Start position must be less than end position.")
+                                # Flash error pattern on LEDs
+                                leds_ctrl.leds_error_warning(leds, True)
+                                time.sleep(3)
+                                # Reset calibration
+                                zipline_end_set = False
+                            else:
+                                # Motor settings for normal operation
+                                odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0)
+                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED)
+                                linear_position = 0
+                                x_ref = 0
+                                last_x_ref = 0                        
+                                in_calibration_mode = False # Calibration done   
+
+                                # Save calibration data to file
+                                calibration_file_handling.save_calibration_data(zipline_length)
+                                print(f"Calibration done: zipline length: {zipline_length:.2f} m")
+                                leds_ctrl.leds_show_setpoint_calibration(leds)
+                                time.sleep(3)  # Reduced wait time 
+
+                        # Don't capture frames from the camera in this mode
+                        with shared_detect_flag.get_lock():
+                            shared_detect_flag.value = 0   
+                        
+                        # Update the target position of the motor
                         if state == config.STATE["STOP"]:
                             decelerating_to_full_stop = True
-
                             if linear_velocity < config.STOP_SPEED_THRESHOLD:
                                 decelerating_to_full_stop = False
-
                             if reached_end:
-                                x_ref = config.ZIPLINE_LENGTH_CALIB if calibration_mode else zipline_length
+                                x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
                             elif reached_start:
-                                x_ref = config.ZIPLINE_START_CALIB if calibration_mode else 0
+                                x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
                             else:
-                                x_ref = linear_position # Stay in the same position, thus max deceleration
-
+                                x_ref = linear_position
                         elif state == config.STATE["FORWARD"]:
-                            x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN # Move forward
-
+                            x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
                         elif state == config.STATE["BACKWARD"]:
-                            x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN # Move backward
-
+                            x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
                         else:
-                            x_ref = linear_position # Stay in the same position, thus max deceleration
+                            x_ref = linear_position
+                        
+                        # Set the target position of the motor
+                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
 
-                    # Set the target position of the motor
-                    motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
-                    last_x_ref = x_ref
+                    # Normal operation
+                    else:
+                        if state == config.STATE["TRACKING"]:
+                            # Start camera recording and get ArUco marker position
+                            with shared_detect_flag.get_lock():
+                                shared_detect_flag.value = 1
+                            with shared_offset.get_lock():
+                                tracking_error = shared_offset.value
 
-                    # Display current state with LEDs
-                    leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, calibration_mode)
+                            tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
-                    if not calibration_mode:
+                            if tracking_error is not None:
+                                # ArUco marker detected: compute target speed using PID controller
+                                x_ref = linear_position - tracking_error
+                                cnt_moving_blindly = 0
+                            else:
+                                # # ArUco marker not detected: keep the last target speed for a while
+                                # if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                #     tracking_error = last_tracking_error
+                                #     x_ref = linear_position - tracking_error
+                                #     cnt_moving_blindly += 1
+                                # else:
+                                # No ArUco marker detected and no previous offset: stop the motor
+                                x_ref = last_x_ref
+                            
+                            last_tracking_error = tracking_error
+                        else:
+                            with shared_detect_flag.get_lock():
+                                shared_detect_flag.value = 0    # saves frames from camera (should be 0)     FIXME
+                            tracking_error = None
+                            last_tracking_error = None
+
+                            if state == config.STATE["STOP"]:
+                                decelerating_to_full_stop = True
+                                if linear_velocity < config.STOP_SPEED_THRESHOLD:
+                                    decelerating_to_full_stop = False
+                                if reached_end:
+                                    x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
+                                elif reached_start:
+                                    x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
+                                else:
+                                    x_ref = linear_position
+                            elif state == config.STATE["FORWARD"]:
+                                x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                            elif state == config.STATE["BACKWARD"]:
+                                x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                            else:
+                                x_ref = linear_position 
+
+                        # Set the target position of the motor
+                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                        last_x_ref = x_ref
+
+                        # Display current state with LEDs
+                        leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, in_calibration_mode)
+
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
                         row = {**motor_data, **li550_data}
@@ -431,25 +456,26 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Print current state
                         offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
                         log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                                       f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
-                                       f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                       f"Position: {linear_position:.2f} m  |  "
-                                       f"Velocity: {linear_velocity:.2f} m/s  |  "
-                                       f"ArUco position: {offset_str} m ")
+                                        f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                                        f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                                        f"Position: {linear_position:.2f} m  |  "
+                                        f"Velocity: {linear_velocity:.2f} m/s  |  "
+                                        f"ArUco position: {offset_str} m ")
                         print(log_message)
 
-                    # Sleep to respect the desired loop time
-                    time_end_while = time.time()
-                    # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
-                    if time_end_while - time_start_while < config.DT:
-                        time.sleep(config.DT - (time_end_while - time_start_while))
-                    else:
-                        print(f"Main process: Execution time exceeded {config.DT} seconds.")
+                # Sleep to respect the desired loop time
+                time_end_while = time.time()
+                # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
+                if time_end_while - time_start_while < config.DT:
+                    time.sleep(config.DT - (time_end_while - time_start_while))
+                else:
+                    print(f"Main process: Execution time exceeded {config.DT} seconds.")
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
             odrv.axis0.requested_state = 1  # Set ODrive to idle state
-            leds_off_before = leds_ctrl.leds_set_color(leds, config.STATE["STOP"], obstacle_forward, obstacle_backward, tracking_error, leds_off_before, False)
+            leds.fill((0, 0, 0)) # Turn off LEDs
+            leds.show()
 
     finally:
         csv_file.close()
