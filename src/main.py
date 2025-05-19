@@ -401,25 +401,19 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
 
-                            tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
+                            # Take into account the additional offset due to the time it takes to process the frame
+                            tracking_error = tracking_error - linear_velocity * abs(time_position_measured - time_frame_captured) if not np.isnan(tracking_error) else None # in m
 
                             if tracking_error is not None:
-                                # Compensating idea 
-                                # print(f"Difference from frame taken: {time.time() - time_frame_captured:.6f} s")
-                                # print(f"Difference from position measured: {time.time() - time_position_measured:.6f} s")
-                                # new_x_ref = linear_position + tracking_error + linear_velocity * abs(time_position_measured - time_frame_captured)
-
-                                # ArUco marker detected: compute target speed using PID controller
-                                new_x_ref = linear_position + tracking_error
-                                x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
-
+                                # ArUco marker detected: compute the new target position
+                                x_ref = linear_position + tracking_error 
+                                # x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # low pass filter necesary ? FIXME
                                 cnt_moving_blindly = 0
                                 last_tracking_error = tracking_error
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    new_x_ref = linear_position + last_tracking_error
-                                    x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
+                                    x_ref = linear_position + last_tracking_error
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
