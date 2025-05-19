@@ -456,12 +456,12 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Print current state
                         offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
-                        log_message = (f"Command: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                                        f"Backward obst.: {obstacle_backward}  |  Forward obst.: {obstacle_forward}  |  "
+                        log_message = (f"Cmd: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
+                                        f"Obst. B: {obstacle_backward}  |  Obst. F: {obstacle_forward}  |  "
                                         f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                        f"Position: {linear_position:.2f} m  |  "
-                                        f"Velocity: {linear_velocity:.2f} m/s  |  "
-                                        f"ArUco position: {offset_str} m ")
+                                        f"Pos: {linear_position:.2f} m  |  "
+                                        f"Vel: {linear_velocity:.2f} m/s  |  "
+                                        f"ArUco pos: {offset_str} m ")
                         print(log_message)
 
                 # Sleep to respect the desired loop time
