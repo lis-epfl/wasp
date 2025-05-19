@@ -120,6 +120,15 @@ def plot_data(csv_path):
     axs[0, 2].legend(loc='upper right')
     axs[0, 2].set_title("diff_ref_vals vs Time")
 
+    # Plot 7: x_ref over Time
+    axs[1, 2].plot(time_vals, tracking_error, label="Tracking error", color="tab:red")
+    axs[1, 2].set_xlabel("Time [s]")
+    axs[1, 2].set_ylabel("Position [m]")
+    axs[1, 2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[1, 2].grid(True)
+    axs[1, 2].legend(loc='upper right')
+    axs[1, 2].set_title("Tracking error vs Time")
+
     plt.suptitle(f"System Overview - {timestamp}", fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(csv_path.parent / f"plot_motor_data_{timestamp}.png", dpi=300)

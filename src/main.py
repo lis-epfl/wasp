@@ -222,8 +222,16 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
+
     tracking_error = None
     last_tracking_error = None
+
+    last_velocity = 0
+
+
+
+
+
     cnt_moving_blindly = 0
     curr_obstacle_forward = False
     curr_obstacle_backward = False
@@ -326,7 +334,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                     # Calibrating the zipline length
                     if in_calibration_mode:
-                        # print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
@@ -371,7 +379,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Don't capture frames from the camera in this mode
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1        # FIXME   
+                            shared_detect_flag.value = 0
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
@@ -404,13 +412,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
                             if tracking_error is not None:
-                                print(f"Difference from frame taken: {time.time() - time_frame_captured:.6f} s")
-                                print(f"Difference from position measured: {time.time() - time_position_measured:.6f} s")
+                                # print(f"Difference from frame taken: {time.time() - time_frame_captured:.6f} s")
+                                # print(f"Difference from position measured: {time.time() - time_position_measured:.6f} s")
 
                                 # ArUco marker detected: compute target speed using PID controller
-                                # x_ref = linear_position + tracking_error
 
-                                x_ref = linear_position + tracking_error + linear_velocity*(time.time() - time_frame_captured)
+                                filtered_velocity = motor_ctrl.low_pass(linear_velocity, last_velocity, cutoff_freq=3.0, dt=config.DT)
+                                x_ref = linear_position + tracking_error + filtered_velocity * abs(time_position_measured - time_frame_captured)
+
+
+                                #new_x_ref = linear_position + tracking_error + linear_velocity * abs(time_position_measured - time_frame_captured)
+                                #x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, cutoff_freq=3.0, dt=config.DT)
 
                                 cnt_moving_blindly = 0
                             else:
@@ -450,6 +462,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Set the target position of the motor
                         motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                         last_x_ref = x_ref
+                        last_velocity = linear_velocity
 
                         # Display current state with LEDs
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, in_calibration_mode)
@@ -468,7 +481,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                         f"Position: {linear_position:.2f} m  |  "
                                         f"Velocity: {linear_velocity:.2f} m/s  |  "
                                         f"ArUco position: {offset_str} m ")
-                        # print(log_message)
+                        #print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
