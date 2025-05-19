@@ -222,16 +222,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
-
     tracking_error = None
     last_tracking_error = None
-
-    last_velocity = 0
-
-
-
-
-
     cnt_moving_blindly = 0
     curr_obstacle_forward = False
     curr_obstacle_backward = False
@@ -412,30 +404,26 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             tracking_error = tracking_error if not np.isnan(tracking_error) else None # in m
 
                             if tracking_error is not None:
+                                # Compensating idea 
                                 # print(f"Difference from frame taken: {time.time() - time_frame_captured:.6f} s")
                                 # print(f"Difference from position measured: {time.time() - time_position_measured:.6f} s")
+                                # new_x_ref = linear_position + tracking_error + linear_velocity * abs(time_position_measured - time_frame_captured)
 
                                 # ArUco marker detected: compute target speed using PID controller
-
-                                filtered_velocity = motor_ctrl.low_pass(linear_velocity, last_velocity, cutoff_freq=3.0, dt=config.DT)
-                                x_ref = linear_position + tracking_error + filtered_velocity * abs(time_position_measured - time_frame_captured)
-
-
-                                #new_x_ref = linear_position + tracking_error + linear_velocity * abs(time_position_measured - time_frame_captured)
-                                #x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, cutoff_freq=3.0, dt=config.DT)
+                                new_x_ref = linear_position + tracking_error
+                                x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
 
                                 cnt_moving_blindly = 0
+                                last_tracking_error = tracking_error
                             else:
-                                # # ArUco marker not detected: keep the last target speed for a while
-                                # if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                #     tracking_error = last_tracking_error
-                                #     x_ref = linear_position - tracking_error
-                                #     cnt_moving_blindly += 1
-                                # else:
-                                # No ArUco marker detected and no previous offset: stop the motor
-                                x_ref = last_x_ref
-                            
-                            last_tracking_error = tracking_error
+                                # ArUco marker not detected: keep the last tracking_error for a while
+                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                    new_x_ref = linear_position + last_tracking_error
+                                    x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
+                                    cnt_moving_blindly += 1
+                                else:
+                                    # No ArUco marker detected and no previous offset: stop the motor
+                                    x_ref = linear_position
                         else:
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 0
@@ -462,7 +450,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Set the target position of the motor
                         motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
                         last_x_ref = x_ref
-                        last_velocity = linear_velocity
 
                         # Display current state with LEDs
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, in_calibration_mode)
@@ -481,7 +468,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                         f"Position: {linear_position:.2f} m  |  "
                                         f"Velocity: {linear_velocity:.2f} m/s  |  "
                                         f"ArUco position: {offset_str} m ")
-                        #print(log_message)
+                        print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
