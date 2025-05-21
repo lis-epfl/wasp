@@ -32,7 +32,7 @@ MAX_ACCELERATION = 20.0                                 # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 1.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 4                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
@@ -45,7 +45,7 @@ PIN_BACK = 16                       # GPIO16 (PIN 36)
 TIMEOUT1 = 1000                     # in microseconds
 TIMEOUT2 = 10000                    # in microseconds
 MAX_DIST = 6.0                      # maximum detection distance, in meters
-OBST_THRESHOLD = 0.1                # distance under which an object is considered an obstacle, in meters
+OBST_THRESHOLD = 5.0                # distance under which an object is considered an obstacle, in meters
 
 
 # LEDs
@@ -80,7 +80,7 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 # Camera
 CAM_HEIGHT = 4608                                   # camera default resolution (maximum), in pixels
 CAM_WIDTH = 2592                                    # camera default resolution (maximum), in pixels
-RES_DROP = 4                                        # resolution drop factor
+RES_DROP = 6                                        # resolution drop factor
 CAM_HEIGHT_LOW = int(CAM_HEIGHT/RES_DROP)           # lower resolution settings, in pixels
 CAM_WIDTH_LOW = int((CAM_HEIGHT_LOW / 16) * 9)      # lower resolution settings, in pixels
 FRAME_RATE = 60                                     # in frames/sec
@@ -91,8 +91,8 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 1000                                # in microseconds (100 outside worked well)
-ANALOGUE_GAIN = 20.0                                # in dB (10.0 outside worked well)
+EXPOSURE_TIME = 210                                 # in microseconds(minimum of the camear is 210 µs)
+ANALOGUE_GAIN = 5.0                                 # in dB (10.0 outside worked well)
 
 
 # Tracking

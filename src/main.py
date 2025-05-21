@@ -320,6 +320,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     prev_obstacle_forward = curr_obstacle_forward
                     prev_obstacle_backward = curr_obstacle_backward
 
+                    obstacle_forward = False
+                    obstacle_backward = False # FIXME: remove these lines to use the ultrasonic sensors
+
                     # Update state
                     state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
                     last_state = state
@@ -420,7 +423,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                     x_ref = linear_position
                         else:
                             with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 0
+                                shared_detect_flag.value = 1        # FIXME
                             tracking_error = None
                             last_tracking_error = None
 
@@ -493,7 +496,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 if __name__ == "__main__":
     # Create a folder to save the data
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path("data") / f"run_{timestamp_folder}"
+    save_path = Path("data") / f"run_{timestamp_folder}_new_auto_3m_1_5m_s"
     os.makedirs(save_path, exist_ok=True)
 
     # Shared variables for inter-process communication

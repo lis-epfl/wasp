@@ -134,7 +134,7 @@ def load_calibration():
 
 def camera_init():
     """
-    Initialize the Picamera2.
+    Initialize the obstacle_forward.
     """
     picam2 = Picamera2()
     # Lower resolution for faster processing
@@ -144,13 +144,22 @@ def camera_init():
 
     # Lower exposure time to mitigate motion blur
     picam2.set_controls({
+        "AfMode": controls.AfModeEnum.Continuous,                           # Enable auto-focus
+        "AwbEnable": False,                    # Disabling auto white balance
         "AeEnable": False,                     # Auto-exposure off
         "ExposureTime": config.EXPOSURE_TIME,  # Exposure time in microseconds
         "AnalogueGain": config.ANALOGUE_GAIN   # Fix gain for brightness
     })
-    # picam2.set_controls({ "AeEnable": True})
+    # picam2.autofocus_cycle()
 
     picam2.start()
+
+    # picam2.set_controls({ "AeEnable": True})
+    # metadata = picam2.capture_metadata()
+    # print("Exposure time (µs):", metadata["ExposureTime"])
+    metadata = picam2.capture_metadata()
+    print("Focus state:", metadata.get("AfState"))
+
     return picam2
 
 
@@ -205,9 +214,9 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
             )
 
         # Project the 3D center of the marker to the image
-        marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
-        projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
-        projected_point = tuple(projected_center[0][0].astype(int))
+        # marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
+        # projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
+        # projected_point = tuple(projected_center[0][0].astype(int))
 
         if success:
             # SolvePnP succeeded
