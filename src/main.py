@@ -496,7 +496,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 if __name__ == "__main__":
     # Create a folder to save the data
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path("data") / f"run_{timestamp_folder}_new_auto_3m_1_5m_s"
+    save_path = Path("data") / f"run_{timestamp_folder}"
     os.makedirs(save_path, exist_ok=True)
 
     # Shared variables for inter-process communication

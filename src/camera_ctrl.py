@@ -142,23 +142,20 @@ def camera_init():
                                                    raw={"size": (config.CAM_HEIGHT, config.CAM_WIDTH)})
     picam2.configure(config_cam)
 
-    # Lower exposure time to mitigate motion blur
     picam2.set_controls({
-        "AfMode": controls.AfModeEnum.Continuous,                           # Enable auto-focus
-        "AwbEnable": False,                    # Disabling auto white balance
-        "AeEnable": False,                     # Auto-exposure off
-        "ExposureTime": config.EXPOSURE_TIME,  # Exposure time in microseconds
-        "AnalogueGain": config.ANALOGUE_GAIN   # Fix gain for brightness
+        "AfMode": controls.AfModeEnum.Continuous,   # Enable auto-focus
+        "AwbEnable": False,                         # Disabling auto white balance
+        "AeEnable": False,                          # Auto-exposure off
+        "ExposureTime": config.EXPOSURE_TIME,       # Exposure time in microseconds
+        "AnalogueGain": config.ANALOGUE_GAIN        # Fix gain for brightness
     })
-    # picam2.autofocus_cycle()
 
     picam2.start()
 
     # picam2.set_controls({ "AeEnable": True})
     # metadata = picam2.capture_metadata()
     # print("Exposure time (µs):", metadata["ExposureTime"])
-    metadata = picam2.capture_metadata()
-    print("Focus state:", metadata.get("AfState"))
+    # print("Focus state:", metadata.get("AfState"))
 
     return picam2
 
