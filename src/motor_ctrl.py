@@ -7,44 +7,25 @@ import os
 
 import config
 
-def compute_angular_speed(linear_speed):
+
+def linear_to_angular(linear_value):
     """
-    Compute angular speed from linear speed  
-    :param linear_speed: Linear speed in m/s
-    :return: angular speed in turns/s
+    Convert linear value to angular value.
+    :param linear_value: Linear value in m
+    :return: Angular value in turns
     """
-    angular_speed = linear_speed/(config.PULLEY_RADIUS * 2 * np.pi)
-    return angular_speed
+    angular_value = linear_value / (config.PULLEY_RADIUS * 2 * np.pi)  # radius * angle
+    return angular_value
 
 
-def compute_linear_speed(angular_speed):
+def angular_to_linear(angular_value):
     """
-    Compute linear speed from angular speed
-    :param angular_speed: Angular speed in turns/s
-    :return: Linear speed in m/s
+    Convert angular value to linear value.
+    :param angular_value: Angular value in turns
+    :return: Linear value in m
     """
-    linear_speed = config.PULLEY_RADIUS * (2 * np.pi * angular_speed) # radius * angular speed
-    return linear_speed
-
-
-def compute_angular_position(linear_position):
-    """
-    Compute angular position from linear position
-    :param linear_position: Linear position in m
-    :return: Angular position in turns
-    """
-    angular_position = linear_position/(config.PULLEY_RADIUS * 2 * np.pi) # radius * angle
-    return angular_position
-
-
-def compute_linear_position(angular_position):
-    """
-    Compute linear position from angular position
-    :param angular_position: Angular position in turns
-    :return: Linear position in m
-    """
-    linear_position = config.PULLEY_RADIUS * (2 * np.pi * angular_position) # radius * angle
-    return linear_position
+    linear_value = config.PULLEY_RADIUS * (2 * np.pi * angular_value)  # radius * angle
+    return linear_value
 
 
 def motor_init():
@@ -61,7 +42,7 @@ def motor_init():
 
         else:
             print("ODrive found!")
-            print("Maximum achievable speed:", compute_linear_speed(odrv.vbus_voltage*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
+            print("Maximum achievable speed:", angular_to_linear(odrv.vbus_voltage*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
 
             # Motor configuration
             odrv.clear_errors() # clear potential errors/disarm reason from last run
@@ -73,8 +54,8 @@ def motor_init():
             # For position control
             odrv.axis0.controller.config.input_mode = 5  # POS_FILTER = 3, TRAP_TRAJ = 5
             odrv.axis0.controller.config.vel_limit = np.inf # to avoid maximum speed limit (does not correspond to the maximum speed of the profile)
-            odrv.axis0.trap_traj.config.accel_limit = config.MAX_ACCELERATION                        
-            odrv.axis0.trap_traj.config.decel_limit = config.MAX_ACCELERATION
+            odrv.axis0.trap_traj.config.accel_limit = linear_to_angular(config.MAX_ACCELERATION)                        
+            odrv.axis0.trap_traj.config.decel_limit = linear_to_angular(config.MAX_ACCELERATION)
             # maximum speed of the profile is set in the main loop because it depends on the mode (calibration or not)                                                  
                                                   
 
@@ -123,8 +104,8 @@ def get_data(odrv):
     angular_position = - odrv.axis0.pos_estimate                    # in turns    (minus sign because of the motor direction)
     angular_velocity = - odrv.axis0.vel_estimate                    # in turns/s  (minus sign because of the motor direction)
     torque = odrv.axis0.motor.torque_estimate                       # in Nm
-    linear_position = compute_linear_position(angular_position)     # in m
-    linear_velocity = compute_linear_speed(angular_velocity)        # in m/s
+    linear_position = angular_to_linear(angular_position)           # in m
+    linear_velocity = angular_to_linear(angular_velocity)           # in m/s
     voltage = odrv.vbus_voltage                                     # in V
     current = odrv.axis0.motor.foc.Iq_measured                      # in A
 

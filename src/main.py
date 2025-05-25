@@ -260,8 +260,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
         time.sleep(5)  # Signal that we've loaded calibration
 
     # Motor settings for calibration
-    odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(-config.INITIAL_MOTOR_POS_CALIB)
-    odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED_CALIB)  
+    odrv.axis0.pos_estimate = motor_ctrl.linear_to_angular(-config.INITIAL_MOTOR_POS_CALIB)
+    odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED_CALIB)  
     x_ref = config.INITIAL_MOTOR_POS_CALIB
     last_x_ref = config.INITIAL_MOTOR_POS_CALIB
 
@@ -329,7 +329,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     obstacle_backward = False # FIXME: remove these lines to use the ultrasonic sensors
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
                     last_state = state
 
                     # Calibrating the zipline length
@@ -364,8 +364,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                 zipline_end_set = False
                             else:
                                 # Motor settings for normal operation
-                                odrv.axis0.pos_estimate = motor_ctrl.compute_angular_position(0)
-                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.compute_angular_speed(config.MAX_SPEED)
+                                odrv.axis0.pos_estimate = motor_ctrl.linear_to_angular(0)
+                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED)
                                 linear_position = 0
                                 x_ref = 0
                                 last_x_ref = 0                        
@@ -400,7 +400,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             x_ref = linear_position
                         
                         # Set the target position of the motor
-                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                        motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
 
                     # Normal operation
                     else:
@@ -467,7 +467,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                 x_ref = linear_position 
 
                         # Set the target position of the motor
-                        motor_ctrl.set_position(odrv, motor_ctrl.compute_angular_position(x_ref))
+                        motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
                         last_x_ref = x_ref
 
                         # Display current state with LEDs

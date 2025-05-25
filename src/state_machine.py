@@ -1,7 +1,7 @@
 import config
 import motor_ctrl
 
-def update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, angular_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length):
+def update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length):
     """
     Update the state of the cart based on the button pressed, obstacle detection, and position.
     Adapted for position control: safety relies on anticipating deceleration distance.
@@ -9,8 +9,8 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, line
     state = last_state
 
     # Estimate how far we need to stop safely from current speed
-    deceleration_distance = motor_ctrl.compute_linear_position((angular_velocity ** 2) / (2 * config.MAX_ACCELERATION)) + config.DECELERATION_OFFSET
-
+    deceleration_distance = ((linear_velocity ** 2) / (2 * config.MAX_ACCELERATION)) + config.DECELERATION_OFFSET
+    
     # Check if we're approaching physical limits
     if in_calibration_mode:
         reached_end = linear_position >= (config.ZIPLINE_LENGTH_CALIB - deceleration_distance)

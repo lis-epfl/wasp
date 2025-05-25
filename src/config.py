@@ -28,11 +28,11 @@ VEL_GAIN = 0.10                                         # Proportional gain for 
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 5                                # Same but for the calibration mode, where the motor is turning much slower
-MAX_ACCELERATION = 20.0                                 # in turns/sec^2
+MAX_ACCELERATION = 3.14                                 # in m/s^2 (20 turns/sec^2 = 3.14 m/s^2, 40 turns/sec^2 = 6.28 m/s^2)
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 11.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 11.0                                        # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
