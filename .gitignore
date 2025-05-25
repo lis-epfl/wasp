@@ -27,6 +27,8 @@ src/.DS_Store
 **/*.mp4
 
 src/data/
+src/Figures/
+src/zipline_calib/
 
 src/camera_calib/calib_images
 src/Figures/frame*
