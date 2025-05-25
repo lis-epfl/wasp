@@ -13,11 +13,11 @@ DT_VISION = 0.10   # execution period for vision in seconds
 
 
 # Motor
-NB_CELLS = 4                                            # Number of cells in the battery
+NB_CELLS = 6                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
-SOFT_MAX_CURRENT = 65.0                                 # in A
-HARD_MAX_CURRENT = 65.0                                 # in A
+SOFT_MAX_CURRENT = 70.0                                 # in A
+HARD_MAX_CURRENT = 70.0                                 # in A
 SPEED_CONSTANT = 330                                    # in RMP/V
 TORQUE_CONSTANT = 0.025                                 # in Nm/A
 LOSS_CONSTANT = 0.68                                    # to account for voltage drops and control overhead
@@ -32,7 +32,7 @@ MAX_ACCELERATION = 20.0                                 # in turns/sec^2
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 5.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 11.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
@@ -64,7 +64,7 @@ STEERING_PIN = 22                   # GPIO22 (PIN 15)
 PWM_MIN_PULSE_WIDTH = 1000          # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500      # in µs
 PWM_MAX_PULSE_WIDTH = 2000          # in µs
-GO_STOP_THRESHOLD = 50              # in µs
+GO_STOP_THRESHOLD = 150             # in µs
 STAY_TRACKING_THRESHOLD = 75        # in µs
 BUTTON_TOGGLE_THRESHOLD = 200       # in µs
 CALIB_SETPOINTS_THRESHOLD = 100     # in µs
@@ -91,13 +91,14 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 210                                 # in microseconds (minimum of the camear is 210 µs)
-ANALOGUE_GAIN = 5.0                                 # in dB 
+EXPOSURE_TIME = 1250                                 # in microseconds (minimum of the camera is 210 µs)
+ANALOGUE_GAIN = 10.0                                 # in dB (5 in suning conditions)
 
 
 # Tracking
-MAX_CNT_MOVING_BLINDLY = 5              # number of iterations applying last detected position without any new detection
-CUT_OFF_FREQUENCY_TRACKING = 8          # in Hz
+MAX_CNT_MOVING_BLINDLY = 40              # number of iterations applying last detected position without any new detection
+CUT_OFF_FREQUENCY_TRACKING = 5          # in Hz
+BANG_BANG_GAIN_TRACKING = 3 
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
@@ -138,4 +139,6 @@ CSV_COLUMNS = [
     'Voltage [V]',
     'Current [A]',
     'x_ref [m]',
+    'Estimated plane plosition [m]',
+    'Estimated plane velocity [m/s]'
 ] + list(LI550_MAPPING.values())

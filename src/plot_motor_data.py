@@ -19,6 +19,8 @@ def plot_data(csv_path):
     voltage_vals = []
     current_vals = []
     x_ref_vals = []
+    estimated_position = []
+    estimated_velocity = []
 
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -31,6 +33,8 @@ def plot_data(csv_path):
             voltage_vals.append(float(row['Voltage [V]']))
             current_vals.append(float(row['Current [A]']))
             x_ref_vals.append(float(row['x_ref [m]']))
+            estimated_position.append(float(row['Estimated plane plosition [m]']))
+            estimated_velocity.append(float(row['Estimated plane velocity [m/s]']))
 
     t_max = max(time_vals)
 
@@ -49,8 +53,9 @@ def plot_data(csv_path):
     fig, axs = plt.subplots(3, 3, figsize=(14, 10))
 
     # Plot 1: Cart and Plane Position over Time
-    axs[0, 0].plot(time_vals, position_vals, label="Cart position", color="tab:red")
-    axs[0, 0].plot(time_vals, plane_position_vals, label="Plane position", color="tab:blue")
+    axs[0, 0].plot(time_vals, position_vals, label="Platform position", color="tab:red")
+    axs[0, 0].plot(time_vals, estimated_position, label="Estimated plane position", color="lightblue")
+    axs[0, 0].plot(time_vals, plane_position_vals, label="Vision based plane position", color="tab:blue")
     axs[0, 0].set_xlabel("Time [s]")
     axs[0, 0].set_ylabel("Position [m]")
     axs[0, 0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
@@ -59,7 +64,8 @@ def plot_data(csv_path):
     axs[0, 0].set_title("Position vs Time")
 
     # Plot 2: Velocity over Time
-    axs[0, 1].plot(time_vals, velocity_vals, label="Linear velocity", color="tab:purple")
+    axs[0, 1].plot(time_vals, velocity_vals, label="PLatform velocity", color="blue")
+    axs[0, 1].plot(time_vals, estimated_velocity, label="Estimated plane velocity", color="lightblue")
     axs[0, 1].set_xlabel("Time [s]")
     axs[0, 1].set_ylabel("Velocity [m/s]")
     axs[0, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))

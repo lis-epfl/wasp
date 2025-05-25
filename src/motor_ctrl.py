@@ -131,7 +131,7 @@ def get_data(odrv):
     return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current
 
 
-def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref):
+def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity):
     return {
         "Timestamp [s]": timestamp,
         "Angular position [turns]": angular_position,
@@ -143,4 +143,6 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
         "Voltage [V]": voltage,
         "Current [A]": current,
         "x_ref [m]": x_ref,
+        "Estimated plane plosition [m]": estimated_position,
+        "Estimated plane velocity [m/s]": estimated_velocity if estimated_velocity is not None else float('nan'),
     } 

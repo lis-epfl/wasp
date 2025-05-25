@@ -222,8 +222,13 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
-    tracking_error = None
-    last_tracking_error = None
+    tracking_error_corrected = None
+    last_tracking_error_corrected = None
+    last_target_position = None
+    last_time_frame_captured = None
+    estimated_velocity = 0.0
+    last_estimated_velocity = 0.0
+    estimated_position = 0.0
     cnt_moving_blindly = 0
     curr_obstacle_forward = False
     curr_obstacle_backward = False
@@ -405,27 +410,44 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                 shared_detect_flag.value = 1
 
                             # Take into account the additional offset due to the time it takes to process the frame
-                            tracking_error = tracking_error - linear_velocity * abs(time_position_measured - time_frame_captured) if not np.isnan(tracking_error) else None # in m
+                            tracking_error_corrected = tracking_error - linear_velocity * abs(time_position_measured - time_frame_captured) if not np.isnan(tracking_error) else None # in m
+                            target_position = linear_position + tracking_error_corrected if tracking_error_corrected is not None else linear_position
 
-                            if tracking_error is not None:
+                            estimated_velocity = last_estimated_velocity # will be overwritten after if least two frames are detected
+
+                            if tracking_error_corrected is not None:
                                 # ArUco marker detected: compute the new target position
-                                x_ref = linear_position + tracking_error 
+                                x_ref = target_position
                                 # x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # low pass filter necesary ? FIXME
                                 cnt_moving_blindly = 0
-                                last_tracking_error = tracking_error
+        
+                                if last_time_frame_captured is not None:
+                                    time_diff = time_position_measured - last_time_frame_captured
+
+                                    estimated_velocity = (target_position - last_target_position) / time_diff if time_diff > 0 else 0
+                                    estimated_velocity = motor_ctrl.low_pass(estimated_velocity, last_estimated_velocity, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # low pass filter
+                                    
+                                    last_estimated_velocity = estimated_velocity
+
+                                    print("time_diff", time_diff, "estimated_velocity", estimated_velocity)
+                                last_time_frame_captured = time_frame_captured
+                                last_tracking_error_corrected = tracking_error_corrected
+                                last_target_position = target_position
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
-                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    x_ref = linear_position + last_tracking_error
+                                if (last_tracking_error_corrected is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                    x_ref = last_x_ref + np.clip(estimated_velocity* config.DT * config.BANG_BANG_GAIN_TRACKING, -config.MAX_SPEED, config.MAX_SPEED)
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
-                                    x_ref = linear_position
+                                    x_ref = last_x_ref
+                            estimated_position = last_x_ref + estimated_velocity * config.DT
+                        
                         else:
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1        # FIXME
-                            tracking_error = None
-                            last_tracking_error = None
+                            tracking_error_corrected = None
+                            last_tracking_error_corrected = None
 
                             if state == config.STATE["STOP"]:
                                 decelerating_to_full_stop = True
@@ -449,16 +471,16 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         last_x_ref = x_ref
 
                         # Display current state with LEDs
-                        leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, in_calibration_mode)
+                        leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error_corrected, leds_off_before, in_calibration_mode)
 
                         # Save data to CSV
-                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref)
+                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error_corrected, voltage, current, x_ref, estimated_position, estimated_velocity)
                         row = {**motor_data, **li550_data}
                         writer.writerow(row)   
                         csv_file.flush()
 
                         # Print current state
-                        offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
+                        offset_str = "N/A" if tracking_error_corrected is None else f"{tracking_error_corrected:.2f} m"
                         log_message = (f"Cmd: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
                                         f"Obst. B: {obstacle_backward}  |  Obst. F: {obstacle_forward}  |  "
                                         f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
