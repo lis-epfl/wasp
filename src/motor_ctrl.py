@@ -42,7 +42,7 @@ def motor_init():
 
         else:
             print("ODrive found!")
-            print("Maximum achievable speed:", angular_to_linear(odrv.vbus_voltage*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
+            print("Maximum achievable speed:", angular_to_linear(17*config.SPEED_CONSTANT*config.LOSS_CONSTANT)/60)
 
             # Motor configuration
             odrv.clear_errors() # clear potential errors/disarm reason from last run

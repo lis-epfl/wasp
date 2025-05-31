@@ -418,7 +418,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             if tracking_error_corrected is not None:
                                 # ArUco marker detected: compute the new target position
                                 x_ref = target_position
-                                # x_ref = motor_ctrl.low_pass(new_x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # low pass filter necesary ? FIXME
                                 cnt_moving_blindly = 0
         
                                 if last_time_frame_captured is not None:
@@ -429,20 +428,25 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                     
                                     last_estimated_velocity = estimated_velocity
 
-                                    print("time_diff", time_diff, "estimated_velocity", estimated_velocity)
+                                    # print("time_diff", time_diff, "estimated_velocity", estimated_velocity)
                                 last_time_frame_captured = time_frame_captured
                                 last_tracking_error_corrected = tracking_error_corrected
                                 last_target_position = target_position
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
-                                if (last_tracking_error_corrected is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                # if (last_tracking_error_corrected is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                if cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
                                     x_ref = last_x_ref + np.clip(estimated_velocity* config.DT * config.BANG_BANG_GAIN_TRACKING, -config.MAX_SPEED, config.MAX_SPEED)
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
-                                    x_ref = last_x_ref
+                                    x_ref = linear_position
+
                             estimated_position = last_x_ref + estimated_velocity * config.DT
-                        
+
+                           # Smoothing the target position between detected and estimated tag position 
+                           # x_ref = motor_ctrl.low_pass(x_ref, last_x_ref, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # FIXME
+
                         else:
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1        # FIXME
@@ -450,9 +454,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_tracking_error_corrected = None
 
                             if state == config.STATE["STOP"]:
-                                decelerating_to_full_stop = True
-                                if linear_velocity < config.STOP_SPEED_THRESHOLD:
-                                    decelerating_to_full_stop = False
+                                # decelerating_to_full_stop = True
+                                # if linear_velocity < config.STOP_SPEED_THRESHOLD:
+                                #     decelerating_to_full_stop = False
                                 if reached_end:
                                     x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
                                 elif reached_start:
@@ -465,6 +469,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                 x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN
                             else:
                                 x_ref = linear_position 
+                            
+                            # For tracking, going from forward to traking smoothly
+                            last_estimated_velocity = linear_velocity
 
                         # Set the target position of the motor
                         motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
