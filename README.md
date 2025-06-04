@@ -1,13 +1,13 @@
-# Safe Outdoor flight
+# Safe outdoor flight with air speed sensor
 
-Winged uncrewed aerial vehicles (UAVs) can not easily return to a safe state like rotary-winged drones can, hence drastically increasing their risk of crashing [[1](https://www.nature.com/articles/nature14542)].
-Current solutions that enable safe testing can be split into two groups: Static indoor tests allow winged UAVs to fly against constant airflow from a wind tunnel whilst being tethered.
-This ensures safety but constrains movement to a small flight envelope the size of the wind tunnel [[2](http://arxiv.org/abs/2403.08598)]. Existing Outdoor safety mechanisms involve parachutes or blow-up pads which are too heavy for small UAVs, weighing at least 80g [[3](https://fruitychutes.com/uav_rpv_drone_recovery_parachutes)].
-To address this gap, we propose a novel cable-guided mobile safety system (CGMSS) that detects and moves in tandem with the UAV, allowing tethered outdoor flight. It tracks the UAV using a camera, detects the end of the line using distance sensors and communicates via LEDs with the user.
-![CGMSS](/docs/concept.png)
+Fixed-wing Uncrewed Aerial Vehicles (UAVs) cannot hover or return to a stationary state, making outdoor testing inherently risky. 
+Existing approaches often rely on indoor tethered setups in front of wind tunnels, which constrain manoeuvrability and fail to replicate realistic environmental conditions. 
+This paper presents the Winged Aircraft Safety Platform (WASP): a motorized, cable-guided system that enables safe, tethered outdoor flight of fixed-wing UAVs. 
+The WASP autonomously tracks the UAV using onboard vision and logs local wind conditions using a 3D wind sensor. In the event of a malfunction during
+testing, a safety tether prevents the UAV from crashing.
 
 
-# SSH onnection
+<!-- # SSH onnection
 
 1. Connect the Raspberry Pi to a wifi network (preferably a smartphone's hotspot if planning on using the device outside)
 
@@ -67,4 +67,4 @@ python main.py --forward
 
 ```
 python main.py --backward
-```
+``` -->
