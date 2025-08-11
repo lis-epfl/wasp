@@ -13,23 +13,14 @@ def leds_init():
     return leds
 
 
-def leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error, leds_off_before, in_calibration_mode):
+def leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode):
     """
     Set the color of the LEDs based on the state
     :param leds: NeoPixel object
     :param state: Current state of the cart
     """
     if state == config.STATE["STOP"]:
-        if obstacle_forward or obstacle_backward:
-            # if stopped because of an obstacle, then blinking red
-            if leds_off_before:
-                leds.fill(config.RED)
-            else:
-                leds.fill((0, 0, 0))
-            leds_off_before = not leds_off_before  # Toggle the state for the next call
-        else:
-            # if stoped because end of line or manual stop, then constant red
-            leds.fill(config.RED)
+        leds.fill(config.RED)
         leds.show()
 
     elif (state == config.STATE["FORWARD"]) or (state == config.STATE["BACKWARD"]):

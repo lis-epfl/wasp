@@ -15,7 +15,6 @@ import serial
 import config
 import state_machine
 import leds_ctrl
-import ultrasonic_ctrl
 import motor_ctrl
 import camera_ctrl
 import airspeed_sensor_ctrl
@@ -230,10 +229,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     last_estimated_velocity = 0.0
     estimated_position = 0.0
     cnt_moving_blindly = 0
-    curr_obstacle_forward = False
-    curr_obstacle_backward = False
-    prev_obstacle_forward = False
-    prev_obstacle_backward = False
     decelerating_to_full_stop = False
     in_calibration_mode = True
     zipline_end_set = False
@@ -318,18 +313,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
                     li550_data = {}
 
-                    # Get distance sensor readings
-                    curr_obstacle_forward, curr_obstacle_backward = ultrasonic_ctrl.is_there_an_obstacle()
-                    obstacle_forward = prev_obstacle_forward and curr_obstacle_forward
-                    obstacle_backward = prev_obstacle_backward and curr_obstacle_backward
-                    prev_obstacle_forward = curr_obstacle_forward
-                    prev_obstacle_backward = curr_obstacle_backward
-
-                    obstacle_forward = False
-                    obstacle_backward = False # FIXME: remove these lines to use the ultrasonic sensors
-
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
                     last_state = state
 
                     # Calibrating the zipline length
@@ -478,7 +463,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         last_x_ref = x_ref
 
                         # Display current state with LEDs
-                        leds_off_before = leds_ctrl.leds_set_color(leds, state, obstacle_forward, obstacle_backward, tracking_error_corrected, leds_off_before, in_calibration_mode)
+                        leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error_corrected, leds_off_before, in_calibration_mode)
 
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error_corrected, voltage, current, x_ref, estimated_position, estimated_velocity)
@@ -489,11 +474,10 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         # Print current state
                         offset_str = "N/A" if tracking_error_corrected is None else f"{tracking_error_corrected:.2f} m"
                         log_message = (f"Cmd: {config.COMMAND_LOOKUP.get(remote_command, 'UNKNOWN')}  |  "
-                                        f"Obst. B: {obstacle_backward}  |  Obst. F: {obstacle_forward}  |  "
-                                        f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
-                                        f"Pos: {linear_position:.2f} m  |  "
-                                        f"Vel: {linear_velocity:.2f} m/s  |  "
-                                        f"ArUco pos: {offset_str} m ")
+                                       f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
+                                       f"Pos: {linear_position:.2f} m  |  "
+                                       f"Vel: {linear_velocity:.2f} m/s  |  "
+                                       f"ArUco pos: {offset_str} m ")
                         print(log_message)
 
                 # Sleep to respect the desired loop time

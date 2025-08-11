@@ -1,9 +1,9 @@
 import config
 import motor_ctrl
 
-def update(last_state, remote_command, obstacle_forward, obstacle_backward, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length):
+def update(last_state, remote_command, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length):
     """
-    Update the state of the cart based on the button pressed, obstacle detection, and position.
+    Update the state of the cart based on the button pressed and position.
     Adapted for position control: safety relies on anticipating deceleration distance.
     """
     state = last_state
@@ -21,17 +21,17 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, line
     
     if not decelerating_to_full_stop:
         if last_state == config.STATE["STOP"]:
-            if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (obstacle_forward or obstacle_backward or reached_end or reached_start or in_calibration_mode):
+            if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (reached_end or reached_start or in_calibration_mode):
                 state = config.STATE["TRACKING"]
-            elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] and not obstacle_backward and not reached_start:
+            elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] and not reached_start:
                 state = config.STATE["BACKWARD"]
-            elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not obstacle_forward and not reached_end:
+            elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"] and not reached_end:
                 state = config.STATE["FORWARD"]
             else:
                 state = config.STATE["STOP"]
 
         elif last_state == config.STATE["FORWARD"]:
-            if obstacle_forward or reached_end:
+            if reached_end:
                 state = config.STATE["STOP"]
             elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (reached_end or in_calibration_mode):
                 state = config.STATE["TRACKING"]
@@ -43,7 +43,7 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, line
                 state = config.STATE["FORWARD"]
 
         elif last_state == config.STATE["BACKWARD"]:
-            if obstacle_backward or reached_start:
+            if reached_start:
                 state = config.STATE["STOP"]
             elif remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not (reached_start or in_calibration_mode):
                 state = config.STATE["TRACKING"]
@@ -55,7 +55,7 @@ def update(last_state, remote_command, obstacle_forward, obstacle_backward, line
                 state = config.STATE["BACKWARD"]
 
         elif last_state == config.STATE["TRACKING"]:
-            if obstacle_forward or obstacle_backward or reached_end or reached_start or in_calibration_mode:
+            if reached_end or reached_start or in_calibration_mode:
                 state = config.STATE["STOP"]
             elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] or remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
                 state = config.STATE["STOP"]
