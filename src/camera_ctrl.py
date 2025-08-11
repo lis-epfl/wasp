@@ -303,9 +303,90 @@ def take_picture():
     print(f"Image saved as {filename}")
 
 
+def annotate_aruco_in_folder(folder_path, mtx, dist):
+    """
+    Process all images in a folder, detect the specified ArUco marker,
+    draw the marker boundary if detected, and save annotated images
+    in an automatically created subfolder called 'annotated_output'.
+    """
+    # Load ArUco dictionary and detector
+    dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
+    parameters = cv.aruco.DetectorParameters()
+    detector = cv.aruco.ArucoDetector(dictionary, parameters)
+
+    # Create output folder
+    output_folder = os.path.join(folder_path, "annotated_output")
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Get all image files in the folder
+    image_files = sorted(glob(os.path.join(folder_path, "*.png")) +
+                         glob(os.path.join(folder_path, "*.jpg")) +
+                         glob(os.path.join(folder_path, "*.jpeg")))
+    
+    frame_counter = 1
+
+    for image_path in image_files:
+         
+        frame_counter += 1
+
+        image = cv.imread(image_path)
+        if image is None:
+            print(f"Skipping unreadable file: {image_path}")
+            continue
+
+        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        corners, ids, _ = detector.detectMarkers(gray)
+
+        if ids is not None and config.ARUCO_ID in ids:
+            idx = np.where(ids == config.ARUCO_ID)[0][0]
+            image_points = corners[idx][0]  # shape (4,2), corner points in image
+
+            # Define 3D object points for the marker (centered at origin, Z=0)
+            s = config.ARUCO_REAL_SIZE
+            object_points = np.array([
+                [-s/2,  s/2, 0],  # top-left
+                [ s/2,  s/2, 0],  # top-right
+                [ s/2, -s/2, 0],  # bottom-right
+                [-s/2, -s/2, 0]   # bottom-left
+            ], dtype=np.float32)
+
+            # Adjust camera matrix to center the image (origin at the center of the image)
+            img_center_x = image.shape[1] / 2
+            img_center_y = image.shape[0] / 2
+            adjusted_mtx = mtx.copy()
+            adjusted_mtx[0, 2] = img_center_x
+            adjusted_mtx[1, 2] = img_center_y
+
+            # Solve PnP to find the rotation and translation vectors
+            success, rvec, tvec = cv.solvePnP(
+                object_points,
+                image_points,
+                adjusted_mtx,
+                dist,
+                flags=cv.SOLVEPNP_ITERATIVE
+                )
+
+            # Project the 3D center of the marker to the image
+            marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
+            projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
+            projected_point = tuple(projected_center[0][0].astype(int))
+
+            if success:
+                annotated_image = draw_on_frame(image, projected_point)
+        else:
+            print(f"No marker found in: {image_path}")
+            annotated_image = image.copy()
+
+        # Save to annotated_output
+        filename = os.path.basename(image_path)
+        filename = f"{output_folder}/frame_{frame_counter:04d}.png"
+        cv.imwrite(filename, annotated_image)
+        print(f"Annotated and saved: {filename}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', or 'take_picture'")
+        print("Choose either 'calibrate_camera', 'generate_markers', 'take_video', 'take_picture', or 'annotate_aruco'")
     elif sys.argv[1] == "calibrate_camera":
         calibrate_camera()
     elif sys.argv[1] == "generate_markers":
@@ -314,5 +395,12 @@ if __name__ == "__main__":
         take_video()
     elif sys.argv[1] == "take_picture":
         take_picture()
+    elif sys.argv[1] == "annotate_aruco":
+        if len(sys.argv) >= 3:
+            folder_path = sys.argv[2]
+            mtx, dist = load_calibration()
+            annotate_aruco_in_folder(folder_path, mtx, dist)
+        else:
+            print("Please provide the path to the folder containing images.")
     else:
         print(f"Unknown function: {sys.argv[1]}")

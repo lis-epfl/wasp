@@ -9,6 +9,12 @@ import matplotlib.animation as animation
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 import sys
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
+from matplotlib.lines import Line2D
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
 
 import config
 
@@ -131,19 +137,28 @@ def create_video_from_data(csv_path):
     ax.set_xlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
     ax.set_ylim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
     ax.set_zlim([-config.WIND_AXIS_LENGTH, config.WIND_AXIS_LENGTH])
-    ax.set_xlabel('U [m/s]')
-    ax.set_ylabel('V [m/s]')
-    ax.set_zlabel('W [m/s]')
-    ax.set_title('3D wind vectors animation')
+    ax.set_xlabel('Y [m/s]')
+    ax.set_ylabel('X [m/s]')
+    ax.set_zlabel('Z [m/s]')
+    # ax.set_title('3D wind vectors animation')
 
     # Create ScalarMappable for the colorbar
-    norm = Normalize(vmin=min(norms_3D), vmax=max(norms_3D))
-    sm = ScalarMappable(cmap='viridis', norm=norm)
-    sm.set_array([])
+    # max_norm = int(max(norms_3D))
+    max_norm = 12
+    step = 2
+    ticks = list(range(0, max_norm, step))
+    if ticks[-1] != max_norm:
+        ticks.append(max_norm)
 
-    # Add the colorbar
-    cbar = plt.colorbar(sm, ax=ax, pad=0.1)
-    cbar.set_label('Wind magnitude [m/s]')
+    norm = mcolors.Normalize(vmin=0, vmax=max_norm)
+    sm = cm.ScalarMappable(cmap='viridis', norm=norm)
+    sm.set_array([])  # required for colorbar
+
+    # Create colorbar
+    cbar = plt.colorbar(sm, ax=ax, ticks=ticks)
+    cbar.ax.set_yticklabels([str(t) for t in ticks])  # Optional
+    cbar.set_label('Wind magnitude [m/s]', fontsize=11)
+    cbar.ax.tick_params(labelsize=9)
 
     # Initialize empty list for quivers
     quivers = []
@@ -177,7 +192,7 @@ def create_video_from_data(csv_path):
 
     # Create animation and save it
     ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT * 1000, blit=False)
-    ani.save(csv_path.parent / f"wind_animation_{timestamp}.mp4", writer='ffmpeg', fps=1 / config.DT, dpi=200)
+    ani.save(csv_path.parent / f"wind_animation_better_{timestamp}.mp4", writer='ffmpeg', fps=1 / config.DT, dpi=200)
 
     
 if __name__ == "__main__":
