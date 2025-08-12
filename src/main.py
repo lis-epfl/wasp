@@ -186,6 +186,7 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    
     save_path = Path(save_path) / f"frames_{timestamp_folder}"
     save_path.mkdir(parents=True, exist_ok=True)
     try:
@@ -203,10 +204,10 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            if offset is not None:
-                print("Offset from camera center:", np.round(offset, 2), "m")
-            else:
-                print(offset)
+            # if offset is not None:
+            #     print("Offset from camera center:", np.round(offset, 2), "m")
+            # else:
+            #     print(offset)
             # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))

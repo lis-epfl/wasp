@@ -28,24 +28,15 @@ VEL_GAIN = 0.10                                         # Proportional gain for 
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 5                                # Same but for the calibration mode, where the motor is turning much slower
-MAX_ACCELERATION = 1 # 4 works with fully chareged 8S                         # in m/s^2 (20 turns/sec^2 = 3.14 m/s^2, 40 turns/sec^2 = 6.28 m/s^2)
+MAX_ACCELERATION = 1                                    # 4 works with fully chareged 8S
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 4.0                                        # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 4.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
 ZIPLINE_LENGTH_CALIB = 1500                             # in meters
-
-
-# Ultrasonic sensors
-PIN_FRONT = 5                       # GPIO5 (PIN 29)
-PIN_BACK = 16                       # GPIO16 (PIN 36)
-TIMEOUT1 = 1000                     # in microseconds
-TIMEOUT2 = 10000                    # in microseconds
-MAX_DIST = 6.0                      # maximum detection distance, in meters
-OBST_THRESHOLD = 5.0                # distance under which an object is considered an obstacle, in meters
 
 
 # LEDs
@@ -97,9 +88,10 @@ ANALOGUE_GAIN = 5.0                                 # in dB (5 in suning conditi
 
 
 # Tracking
-MAX_CNT_MOVING_BLINDLY = 40              # number of iterations applying last detected position without any new detection
-CUT_OFF_FREQUENCY_TRACKING = 5          # in Hz
-BANG_BANG_GAIN_TRACKING = 3 # before 3 working well with acc of 3 and max speed of 11
+MAX_CNT_MOVING_BLINDLY = 40         # number of iterations applying last detected position without any new detection
+CUT_OFF_FREQUENCY_TRACKING = 5      # in Hz
+BANG_BANG_GAIN_TRACKING = 3         # 3 working well with acc of 3 and max speed of 11
+
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
