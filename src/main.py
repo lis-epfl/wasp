@@ -241,8 +241,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
     # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
-    # print("Waiting for LI550 to be ready...")
-    # time.sleep(config.INIT_TIME_LI550) # wait for the LI550 to be ready
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
