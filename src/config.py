@@ -8,12 +8,12 @@ STATE = {
     'TRACKING': 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.12          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
-DT_VISION = 0.10   # execution period for vision in seconds
+DT = 0.14          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
+DT_VISION = 0.14   # execution period for vision in seconds (7Hz)
 
 
 # Motor
-NB_CELLS = 3                                            # Number of cells in the battery
+NB_CELLS = 4                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
 SOFT_MAX_CURRENT = 70.0                                 # in A
@@ -78,11 +78,12 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 
 
 # Camera
-CAM_HEIGHT = 4608                                   # camera default resolution (maximum), in pixels
-CAM_WIDTH = 2592                                    # camera default resolution (maximum), in pixels
-RES_DROP = 6                                        # resolution drop factor
-CAM_HEIGHT_LOW = int(CAM_HEIGHT/RES_DROP)           # lower resolution settings, in pixels
-CAM_WIDTH_LOW = int((CAM_HEIGHT_LOW / 16) * 9)      # lower resolution settings, in pixels
+CAM_HEIGHT = 1456                                   # camera default resolution (maximum), in pixels
+CAM_WIDTH = 1088                                    # camera default resolution (maximum), in pixels
+RES_DROP = 1                                        # resolution drop factor
+ASPECT_RATIO = CAM_HEIGHT / CAM_WIDTH               # aspect ratio (4/3)
+CAM_HEIGHT_LOW = int(CAM_HEIGHT / RES_DROP)         # lower resolution settings, in pixels
+CAM_WIDTH_LOW = int(CAM_HEIGHT_LOW / ASPECT_RATIO)  # lower resolution settings, in pixels
 FRAME_RATE = 60                                     # in frames/sec
 CALIBRATION_SQUARE = 0.0323                         # size of the squares in the checkerboard, in meters
 CHECKERBOARD_SHAPE = (4, 7)                         # number of inner corners per row and column !!nb of squares - 1!!
@@ -91,7 +92,7 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 210                                 # in microseconds (minimum of the camera is 210 µs)
+EXPOSURE_TIME = 3000                                # in microseconds (minimum of the camera is 29 µs)
 ANALOGUE_GAIN = 5.0                                 # in dB (5 in suning conditions)
 
 

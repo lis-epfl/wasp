@@ -182,6 +182,7 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
     camera = camera_ctrl.camera_init()
     mtx, dist = camera_ctrl.load_calibration()
     frame_counter = 1
+    offset = None
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -202,7 +203,11 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            # print("Camera process:", time_end_while - time_start_while, "s") # 0.01s without ArUco, 0.03s with ArUco
+            if offset is not None:
+                print("Offset from camera center:", np.round(offset, 2), "m")
+            else:
+                print(offset)
+            # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
             else:
@@ -317,7 +322,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                     # Calibrating the zipline length
                     if in_calibration_mode:
-                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                        # print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
@@ -362,7 +367,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Don't capture frames from the camera in this mode
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0
+                            shared_detect_flag.value = 1 # FIXME
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
@@ -476,7 +481,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Pos: {linear_position:.2f} m  |  "
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco pos: {offset_str} m ")
-                        print(log_message)
+                        # print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
