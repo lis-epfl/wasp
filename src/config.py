@@ -28,11 +28,11 @@ VEL_GAIN = 0.10                                         # Proportional gain for 
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 5                                # Same but for the calibration mode, where the motor is turning much slower
-MAX_ACCELERATION = 1                                    # 4 works with fully chareged 8S
+MAX_ACCELERATION = 5                                    # in m/s^2 (4 works with fully chareged 8S)
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 4.0                                         # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 10.0                                        # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
@@ -40,7 +40,7 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 
 
 # LEDs
-NUM_LEDS = 3                        # number of LEDs
+NUM_LEDS = 2                        # number of LEDs
 RED = (255, 0, 0)                   # RGB colors for red
 BLUE = (0, 0, 255)                  # RGB colors for blue    
 GREEN = (0, 255, 0)                 # RGB colors for green

@@ -156,6 +156,16 @@ def load_calibration():
     return mtx, dist
 
 
+def undistort_image(img, mtx, dist):
+    """
+    Undistort an image using the camera matrix and distortion coefficients.
+    """
+    h, w = img.shape[:2]
+    undistorted_img = cv.undistort(img, mtx, dist, None)
+
+    return undistorted_img
+
+
 def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
     """
     Capture a frame and detect the specified ArUco marker.
@@ -226,13 +236,13 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
             # SolvePnP failed
             offset_from_center = None
 
-            # Save annotated image
+            # Save image
             cv.imwrite(filename, frame_bgr)
     else:
         # ArUco not found
         offset_from_center = None
 
-        # Save annotated image
+        # Save image
         cv.imwrite(filename, frame_bgr)
 
     return offset_from_center, time_frame_captured    
@@ -247,7 +257,7 @@ def draw_on_frame(frame, projected_point):
     center_x = width // 2
 
     cv.line(annotated_frame, (center_x, 0), (center_x, height), (147, 20, 255), 5)                                                              # draw center line
-    cv.circle(annotated_frame, projected_point, 10, (255, 0, 0), -1)                                                                             # draw dot
+    cv.circle(annotated_frame, projected_point, 10, (255, 0, 0), -1)                                                                            # draw dot
     cv.putText(annotated_frame, "Marker center", (projected_point[0] + 10, projected_point[1]), cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)   # draw text
 
     return annotated_frame
@@ -255,17 +265,24 @@ def draw_on_frame(frame, projected_point):
 
 def take_picture():
     """
-    Capture a still image and save it to a file.
+    Capture a still image, undistort it, and save it to a file.
     """
+    mtx, dist = load_calibration()
     picam2 = camera_init()
-    time.sleep(0.1)                       # Give some time for the camera to adjust
-    frame = picam2.capture_array("main")  # Non-blocking read of latest frame
+    time.sleep(0.1)  # Give some time for the camera to adjust
+
+    frame = picam2.capture_array("main")
+    frame_bgr = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+
+    undistorted = undistort_image(frame_bgr, mtx, dist)
+    # undistorted = frame_bgr.copy() # No undistortion = original image 
 
     save_path = "data"
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{save_path}/cam_view{timestamp}.jpg"
-    picam2.capture_file(filename)
-    print(f"Image saved as {filename}")
+    filename = f"{save_path}/cam_view_{timestamp}.jpg"
+    cv.imwrite(filename, undistorted)
+
+    print(f"Undistorted image saved as {filename}")
 
 
 def annotate_aruco_in_folder(folder_path, mtx, dist):

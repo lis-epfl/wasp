@@ -482,7 +482,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Pos: {linear_position:.2f} m  |  "
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco pos: {offset_str} m ")
-                        # print(log_message)
+                        print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
