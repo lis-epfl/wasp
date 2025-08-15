@@ -13,11 +13,11 @@ DT_VISION = 0.14   # execution period for vision in seconds (7Hz)
 
 
 # Motor
-NB_CELLS = 4                                            # Number of cells in the battery
+NB_CELLS = 6                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
-SOFT_MAX_CURRENT = 70.0                                 # in A
-HARD_MAX_CURRENT = 70.0                                 # in A
+SOFT_MAX_CURRENT = 30.0                                 # in A
+HARD_MAX_CURRENT = 60.0                                 # in A
 SPEED_CONSTANT = 330                                    # in RMP/V
 TORQUE_CONSTANT = 0.025                                 # in Nm/A
 LOSS_CONSTANT = 0.68                                    # to account for voltage drops and control overhead
@@ -27,12 +27,12 @@ POS_GAIN = 20.0                                         # Proportional gain for 
 VEL_GAIN = 0.10                                         # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
-BANG_BANG_GAIN_CALIB = 5                                # Same but for the calibration mode, where the motor is turning much slower
-MAX_ACCELERATION = 5                                    # in m/s^2 (4 works with fully chareged 8S)
+BANG_BANG_GAIN_CALIB = 15                               # Same but for the calibration mode, where the motor is turning much slower
+MAX_ACCELERATION = 10                                    # in m/s^2 (4 works with fully chareged 8S)
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
 PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
-MAX_SPEED = 10.0                                        # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
+MAX_SPEED = 12.0                                        # in m/s (with 4S battery, max theoretical speed: 81 turns/sec = 12.7 m/s, max practical speed: 60 turns/sec = 9.4 m/s)
 MAX_SPEED_CALIB = 1.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
@@ -83,8 +83,8 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 3000                                # in microseconds (minimum of the camera is 29 µs)
-ANALOGUE_GAIN = 5.0                                 # in dB (5 in suning conditions)
+EXPOSURE_TIME = 200                                # in microseconds (minimum of the camera is 29 µs)
+ANALOGUE_GAIN = 2.0                                 # in dB (5 in suning conditions)
 
 
 # Tracking

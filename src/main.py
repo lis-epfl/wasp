@@ -323,7 +323,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                     # Calibrating the zipline length
                     if in_calibration_mode:
-                        # print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
