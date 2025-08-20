@@ -2,13 +2,11 @@ import time
 import csv
 from pathlib import Path
 from multiprocessing import Process, Value
-from collections import deque
 import gpiod
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from datetime import datetime, date
 import numpy as np
-from simple_pid import PID
 import os
 import serial
 

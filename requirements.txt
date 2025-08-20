@@ -6,7 +6,6 @@ opencv-python==4.11.0.86
 python-csv==0.0.10
 multiprocess==0.70.17
 matplotlib==3.10.1
-simple_pid==1.0.1
 pathlib==1.0.1
 
 # Camera
@@ -15,7 +14,6 @@ picamera2==0.3.25
 rpi-kms==0.1a1
 
 # Motor
-simple-pid==1.0.1
 odrive==0.6.9.post0
 
 # GPIO
@@ -29,7 +27,3 @@ adafruit-circuitpython-neopixel==6.3.15
 Adafruit-Blinka==8.55.0
 Adafruit-Blinka-Raspberry-Pi5-Neopixel==1.0.0rc2
 rpi_ws281x==5.0.0
-
-# RF
-spidev==3.6
-wiringpi==2.60.1

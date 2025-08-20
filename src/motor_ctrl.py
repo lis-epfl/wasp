@@ -1,7 +1,5 @@
-import simple_pid as pid
 import numpy as np
 import odrive
-import curses
 import time
 import os
 
