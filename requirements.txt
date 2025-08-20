@@ -22,7 +22,7 @@ gpiozero==2.0.1
 rpi-lgpio==0.6
 
 # LEDs
-adafruit-circuitpython-neopixel==6.3.15
-Adafruit-Blinka==8.55.0
+adafruit-circuitpython-neopixel==6.3.17
+Adafruit-Blinka==8.64.0
 Adafruit-Blinka-Raspberry-Pi5-Neopixel==1.0.0rc2
 rpi_ws281x==5.0.0

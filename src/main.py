@@ -366,7 +366,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Don't capture frames from the camera in this mode
                         with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 1 # FIXME
+                            shared_detect_flag.value = 0
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
