@@ -10,8 +10,7 @@ pathlib==1.0.1
 
 # Camera
 wheel==0.45.1
-picamera2==0.3.25
-rpi-kms==0.1a1
+picamera2==0.3.30
 
 # Motor
 odrive==0.6.9.post0
