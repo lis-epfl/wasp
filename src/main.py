@@ -398,6 +398,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
 
+                            if np.isnan(tracking_error):
+                                tracking_error = None
                             if tracking_error is not None:
                                 # ArUco marker detected: compute the new target position
                                 target_position = linear_position + tracking_error
@@ -419,8 +421,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                 last_target_position = target_position
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
-                                # if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                if cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                # if cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
                                     x_ref = (linear_position + last_tracking_error) + last_estimated_velocity * config.DT * config.prediction_step # where we think we are
                                     estimated_position = x_ref
                                     x_ref += np.clip(last_estimated_velocity * config.BANG_BANG_GAIN_TRACKING, -config.MAX_SPEED, config.MAX_SPEED) * config.DT # to catch up
@@ -474,7 +476,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
                                        f"Pos: {linear_position:.2f} m  |  "
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
-                                       f"ArUco pos: {offset_str} m ")
+                                       f"ArUco pos: {offset_str} m "
+                                       f"x_ref: {x_ref} m" )
                         print(log_message)
 
                 # Sleep to respect the desired loop time

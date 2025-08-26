@@ -28,9 +28,9 @@ VEL_GAIN = 0.10                                         # Proportional gain for 
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 15                               # Same but for the calibration mode, where the motor is turning much slower
-MAX_ACCELERATION = 10                                    # in m/s^2 (4 works with fully chareged 8S)
+MAX_ACCELERATION = 10                                   # in m/s^2 (4 works with fully chareged 8S)
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
-PULLEY_RADIUS = 0.025                                   # in meters (tacking into acount cable radius)
+PULLEY_RADIUS = 0.02025                                 # in meters (tacking into acount cable radius)
 DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
 MAX_SPEED = 14.0                                        # in m/s (with 6S battery, max 14 m/s)
 MAX_SPEED_CALIB = 2.0                                   # in m/s (for calibration purposes)
@@ -90,8 +90,8 @@ ANALOGUE_GAIN = 2.0                                 # in dB (5 in suning conditi
 # Tracking
 MAX_CNT_MOVING_BLINDLY = 7         # number of iterations applying last detected position without any new detection
 CUT_OFF_FREQUENCY_TRACKING = 5      # in Hz
-BANG_BANG_GAIN_TRACKING = 2         # 3 working well with acc of 3 and max speed of 11
-prediction_step = 1
+BANG_BANG_GAIN_TRACKING = 1.5       # 3 working well with acc of 3 and max speed of 11
+prediction_step = 0
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
