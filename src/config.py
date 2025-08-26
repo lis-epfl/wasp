@@ -88,10 +88,10 @@ ANALOGUE_GAIN = 2.0                                 # in dB (5 in suning conditi
 
 
 # Tracking
-MAX_CNT_MOVING_BLINDLY = 40         # number of iterations applying last detected position without any new detection
+MAX_CNT_MOVING_BLINDLY = 7         # number of iterations applying last detected position without any new detection
 CUT_OFF_FREQUENCY_TRACKING = 5      # in Hz
-BANG_BANG_GAIN_TRACKING = 3         # 3 working well with acc of 3 and max speed of 11
-
+BANG_BANG_GAIN_TRACKING = 2         # 3 working well with acc of 3 and max speed of 11
+prediction_step = 1
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
