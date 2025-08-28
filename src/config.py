@@ -15,7 +15,7 @@ DT_VISION = 0.14   # execution period for vision in seconds (7Hz)
 # Motor
 NB_CELLS = 6                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
-MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
+MAX_VOLTAGE = NB_CELLS*4.4                              # Maximum voltage (fully charged), in V
 SOFT_MAX_CURRENT = 30.0                                 # in A
 HARD_MAX_CURRENT = 60.0                                 # in A
 SPEED_CONSTANT = 330                                    # in RMP/V
@@ -83,7 +83,7 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 29                                # in microseconds (set 29 µs for outside, and 2000 µs for inside)
+EXPOSURE_TIME = 4000                                # in microseconds (set 29 µs for outside, and 2000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB (5 in suning conditions)
 
 
@@ -128,10 +128,15 @@ CSV_COLUMNS = [
     'Torque [Nm]',
     'Linear position [m]',
     'Linear speed [m/s]',
-    'Tracking error [m]',
     'Voltage [V]',
     'Current [A]',
-    'x_ref [m]',
-    'Estimated plane plosition [m]',
-    'Estimated plane velocity [m/s]'
+    'Reference x_ref [m]',
+    'Estimated plane position [m]',
+    'Estimated plane velocity [m/s]',
+    'x ArUco [m]',
+    'y ArUco [m]',
+    'z ArUco [m]',
+    'roll ArUco [deg]',
+    'pitch ArUco [deg]',
+    'yaw ArUco [deg]'
 ] + list(LI550_MAPPING.values())

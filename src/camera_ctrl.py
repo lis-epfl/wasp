@@ -18,12 +18,12 @@ import config
 def camera_init():
     """
     Initialize the camera settings.
+    :return picam2: Picamera2 object
     """
     picam2 = Picamera2()
     
     # Lower resolution for faster processing
-    config_cam = picam2.create_video_configuration(main={"size": (config.CAM_HEIGHT_LOW, config.CAM_WIDTH_LOW)},
-                                                   raw={"size": (config.CAM_HEIGHT, config.CAM_WIDTH)})
+    config_cam = picam2.create_video_configuration(main={"size": (config.CAM_HEIGHT_LOW, config.CAM_WIDTH_LOW)}, raw={"size": (config.CAM_HEIGHT, config.CAM_WIDTH)})
     picam2.configure(config_cam)
 
     # Manually set exposure
@@ -44,6 +44,7 @@ def calibrate_camera():
     """
     Calibrate the camera using a checkerboard pattern.
     This function captures images of the checkerboard pattern and computes the camera matrix and distortion coefficients.
+    The calibration data is saved in 'camera_calib/calib_data.npz'.
     """
     print('Starting camera calibration...')
 
@@ -126,7 +127,7 @@ def calibrate_camera():
 
 def generate_markers():
     """
-    Generate an ArUco tag and save it as an image
+    Generate an ArUco tag and save it as an image in the camera_calib directory.
     """
     os.makedirs("camera_calib", exist_ok=True)
     
@@ -159,6 +160,10 @@ def load_calibration():
 def undistort_image(img, mtx, dist):
     """
     Undistort an image using the camera matrix and distortion coefficients.
+    :param img: Input distorted image
+    :param mtx: Camera matrix
+    :param dist: Distortion coefficients
+    :return undistorted_img: Undistorted image
     """
     h, w = img.shape[:2]
     undistorted_img = cv.undistort(img, mtx, dist, None)
@@ -169,17 +174,18 @@ def undistort_image(img, mtx, dist):
 def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
     """
     Capture a frame and detect the specified ArUco marker.
-    Returns rotation and translation vectors if found, else (None, None).
-    Saves an annotated image showing the pose if detected.
+    :param picam2: Picamera2 object
+    :param mtx: Camera matrix
+    :param dist: Distortion coefficients
+    :param save_path: Path to save the captured frame
+    :param frame_counter: Frame counter for naming the saved file
+    :return: Pose information (position and orientation) if found, else None and time when frame captured.
     """
-
     # Capture a frame
-    frame_rgb = picam2.capture_array("main")  # Non-blocking read of latest frame (rgb format)
+    frame_rgb = picam2.capture_array("main")              
     time_frame_captured = time.time()
-
-    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR) # (bgr format)
-    gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY) # (gray scale format)
-    filename = f"{save_path}/frame_{frame_counter:04d}.png"
+    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
+    gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
@@ -188,10 +194,12 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
     corners, ids, _ = detector.detectMarkers(gray)
 
     if ids is not None and config.ARUCO_ID in ids:
-        idx = np.where(ids == config.ARUCO_ID)[0][0]
-        image_points = corners[idx][0]  # shape (4,2), corner points in image
+        # ArUco found
+        filename = f"{save_path}/frame_{frame_counter:04d}_found.png"
 
         # Define 3D object points for the marker (centered at origin, Z=0)
+        idx = np.where(ids == config.ARUCO_ID)[0][0]
+        image_points = corners[idx][0]
         s = config.ARUCO_REAL_SIZE
         object_points = np.array([
             [-s/2,  s/2, 0],  # top-left
@@ -208,49 +216,67 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
         adjusted_mtx[1, 2] = img_center_y
 
         # Solve PnP to find the rotation and translation vectors
-        success, rvec, tvec = cv.solvePnP(
-            object_points,
-            image_points,
-            adjusted_mtx,
-            dist,
-            flags=cv.SOLVEPNP_ITERATIVE
-            )
+        success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_ITERATIVE)
+
+        # Compute ArUco position and orientation
+        x_aruco = np.round(tvec[0], 2)
+        y_aruco = np.round(tvec[1], 2)
+        z_aruco = np.round(tvec[2], 2)
+
+        R, _ = cv.Rodrigues(rvec)  # rvec -> rotation matrix
+
+        # Check for gimbal lock
+        sy = np.sqrt(R[0,0]**2 + R[1,0]**2)
+
+        if sy > 1e-6:  # not singular
+            yaw_aruco   = np.degrees(np.arctan2(R[1,0], R[0,0]))
+            pitch_aruco = np.degrees(np.arctan2(-R[2,0], sy))
+            roll_aruco  = np.degrees(np.arctan2(R[2,1], R[2,2]))
+        else:  # singular (gimbal lock)
+            yaw_aruco   = np.degrees(np.arctan2(-R[0,1], R[1,1]))
+            pitch_aruco = np.degrees(np.arctan2(-R[2,0], sy))
+            roll_aruco  = 0
+
+        # Round to 1 decimal place
+        yaw_aruco   = np.round(yaw_aruco, 1)
+        pitch_aruco = np.round(pitch_aruco, 1)
+        roll_aruco  = np.round(roll_aruco, 1)
 
         # Project the 3D center of the marker to the image
         marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
         projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
         projected_point = tuple(projected_center[0][0].astype(int))
 
-        if success:
-            # SolvePnP succeeded
-            offset_from_center = tvec[0] # distance to center along x axis
-
-            # Draw the marker and the center line on the frame
-            annotated_frame = draw_on_frame(frame_bgr, projected_point)
-            # annotated_frame = frame_bgr.copy() # no annotation
-
-            # Save annotated image
-            filename = f"{save_path}/frame_{frame_counter:04d}_found.png"
-            cv.imwrite(filename, annotated_frame)
-        else:
-            # SolvePnP failed
-            offset_from_center = None
-
-            # Save image
-            cv.imwrite(filename, frame_bgr)
     else:
         # ArUco not found
-        offset_from_center = None
+        filename = f"{save_path}/frame_{frame_counter:04d}.png"
 
-        # Save image
-        cv.imwrite(filename, frame_bgr)
+        x_aruco = None
+        y_aruco = None
+        z_aruco = None
+        yaw_aruco = None
+        pitch_aruco = None
+        roll_aruco = None
 
-    return offset_from_center, time_frame_captured    
+    # Save image
+    cv.imwrite(filename, frame_bgr)
+
+    return {
+        'x ArUco [m]': x_aruco,
+        'y ArUco [m]': y_aruco,
+        'z ArUco [m]': z_aruco,
+        'roll ArUco [deg]': roll_aruco,
+        'pitch ArUco [deg]': pitch_aruco,
+        'yaw ArUco [deg]': yaw_aruco,
+    }, time_frame_captured
 
 
 def draw_on_frame(frame, projected_point):
     """
     Draw the center line and the projected point on the frame.
+    :param frame: The original frame.
+    :param projected_point: The 2D point to project.
+    :return annotated_frame: The annotated frame with the center line and projected point.
     """
     annotated_frame = frame.copy()
     height, width = annotated_frame.shape[:2]
@@ -282,7 +308,7 @@ def take_picture():
     filename = f"{save_path}/cam_view_{timestamp}.jpg"
     cv.imwrite(filename, undistorted)
 
-    print(f"Undistorted image saved as {filename}")
+    print(f"Image saved as {filename}")
 
 
 def annotate_aruco_in_folder(folder_path, mtx, dist):

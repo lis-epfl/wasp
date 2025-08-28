@@ -103,13 +103,13 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                 # Logic to determine remote command, target speed, and calibration setpoints
                 if throttle_timeout or (throttle_pulse == 0.0) or button_timeout or (button_pulse == 0.0) or steering_timeout or (steering_pulse == 0.0):
                     if last_remote_command == 3:
-                        remote_command = 3  # stay in "GO_TRACKING" if deconnection and was in tracking mode
+                        remote_command = 3          # stay in "GO_TRACKING" if deconnection and was in tracking mode
                         target_speed = 0.0
-                        calibration_setpoints = 0  # no setpoint
+                        calibration_setpoints = 0   # no setpoint
                     else:
-                        remote_command = 0 # change to "GO_STOP" if deconnection and was in manual mode
+                        remote_command = 0          # change to "GO_STOP" if deconnection and was in manual mode
                         target_speed = 0.0
-                        calibration_setpoints = 0  # no setpoint
+                        calibration_setpoints = 0   # no setpoint
                 else:                                                      
                     # If this is the first button pulse read, use it as the reference
                     if not button_initialized:
@@ -118,9 +118,9 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                         
                     # Determine if the button is in the same position as initial (GO_STOP) or toggled (GO_TRACKING)
                     if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initialized:
-                        button_in_default_position = True # button is in the same position as initial
+                        button_in_default_position = True   # button is in the same position as initial
                     else:
-                        button_in_default_position = False # button is in the opposite position as initial
+                        button_in_default_position = False  # button is in the opposite position as initial
 
                     # Logic for remote command and target speed
                     if remote_command == 3:
@@ -176,11 +176,19 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
         steering_line.release()
 
 
-def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_detect_flag):
+def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
     camera = camera_ctrl.camera_init()
     mtx, dist = camera_ctrl.load_calibration()
     frame_counter = 1
-    offset = None
+    time_frame_captured = 0
+    ArUco_pose = {
+        'x ArUco [m]': None,
+        'y ArUco [m]': None,
+        'z ArUco [m]': None,
+        'roll ArUco [deg]': None,
+        'pitch ArUco [deg]': None,
+        'yaw ArUco [deg]': None,
+    }
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -193,19 +201,26 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
 
             # Only compute if tracking is on
             if shared_detect_flag.value == 1:
-                offset, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
+
+                ArUco_pose, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
                 frame_counter += 1
-                with shared_offset.get_lock(), shared_time_frame_captured.get_lock():
-                    shared_offset.value = - offset if offset is not None else float('nan') # minus sign to match the motor direction
+
+                with shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(), shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(), shared_time_frame_captured.get_lock():
+                    shared_x_aruco.value = - ArUco_pose['x ArUco [m]'] if ArUco_pose['x ArUco [m]'] is not None else float('nan')
+                    shared_y_aruco.value = ArUco_pose['y ArUco [m]'] if ArUco_pose['y ArUco [m]'] is not None else float('nan')
+                    shared_z_aruco.value = ArUco_pose['z ArUco [m]'] if ArUco_pose['z ArUco [m]'] is not None else float('nan')
+                    shared_roll_aruco.value = ArUco_pose['roll ArUco [deg]'] if ArUco_pose['roll ArUco [deg]'] is not None else float('nan')
+                    shared_pitch_aruco.value = ArUco_pose['pitch ArUco [deg]'] if ArUco_pose['pitch ArUco [deg]'] is not None else float('nan')
+                    shared_yaw_aruco.value = ArUco_pose['yaw ArUco [deg]'] if ArUco_pose['yaw ArUco [deg]'] is not None else float('nan')
                     shared_time_frame_captured.value = time_frame_captured
             else:
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            # if offset is not None:
-            #     print("Offset from camera center:", np.round(offset, 2), "m")
-            # else:
-            #     print(offset)
+            if ArUco_pose['x ArUco [m]'] is not None:
+                print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
+                print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
+
             # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
@@ -217,7 +232,7 @@ def camera_process(save_path, shared_offset, shared_time_frame_captured, shared_
         camera.stop()
 
 
-def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_time_frame_captured, shared_detect_flag):
+def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
     # Initialize variable
     time_start_abs = time.time()
     time_start_while = 0
@@ -305,9 +320,17 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             target_speed_m_s = 0.0
                     
                     # Get the ArUco marker position and the time at which the frame was captured
-                    with shared_offset.get_lock(), shared_time_frame_captured.get_lock():
-                        tracking_error = shared_offset.value
-                        time_frame_captured = shared_time_frame_captured.value
+                    with shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(), shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(), shared_time_frame_captured.get_lock():
+                         tracking_error = shared_x_aruco.value
+                         ArUco_pose = {      
+                            'x ArUco [m]': tracking_error,
+                            'y ArUco [m]': shared_y_aruco.value,
+                            'z ArUco [m]': shared_z_aruco.value,
+                            'roll ArUco [deg]': shared_roll_aruco.value,
+                            'pitch ArUco [deg]': shared_pitch_aruco.value,
+                            'yaw ArUco [deg]': shared_yaw_aruco.value,
+                         }
+                         time_frame_captured = shared_time_frame_captured.value                        
                     
                     # Get motor data                    
                     angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
@@ -466,7 +489,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
 
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity)
-                        row = {**motor_data, **li550_data}
+                        row = {**motor_data, **ArUco_pose, **li550_data}
                         writer.writerow(row)   
                         csv_file.flush()
 
@@ -478,7 +501,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco pos: {offset_str} m "
                                        f"x_ref: {x_ref} m" )
-                        print(log_message)
+                        # print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
@@ -512,18 +535,23 @@ if __name__ == "__main__":
     save_path = Path("data") / f"run_{timestamp_folder}"
     os.makedirs(save_path, exist_ok=True)
 
-    # Shared variables for inter-process communication
-    shared_remote_command = Value('i', 0)           # remote_command to set the state
-    shared_target_speed = Value('d', 0.0)           # target_speed to set the speed
-    shared_calibration_setpoints = Value('d', 0.0)  # calibration_setpoints to define calibration setpoints
+    # Shared variables from RC process to main
+    shared_remote_command = Value('i', 0)               # remote_command to set the state
+    shared_target_speed = Value('d', 0.0)               # target_speed to set the speed
+    shared_calibration_setpoints = Value('d', 0.0)      # calibration_setpoints to define calibration setpoints
 
-    shared_offset = Value('d', float('nan'))        # arUco detection result
-    shared_time_frame_captured = Value('d', 0.0)    # exact time at which the frame was captured
-    shared_detect_flag = Value('i', 0)              # flag to compute detection
+    shared_x_aruco = Value('d', float('nan'))           # x_aruco the x position of the ArUco tag
+    shared_y_aruco = Value('d', float('nan'))           # y_aruco the y position of the ArUco tag
+    shared_z_aruco = Value('d', float('nan'))           # z_aruco the z position of the ArUco tag
+    shared_roll_aruco = Value('d', float('nan'))        # roll_aruco the roll angle of the ArUco tag
+    shared_pitch_aruco = Value('d', float('nan'))       # pitch_aruco the pitch angle of the ArUco tag
+    shared_yaw_aruco = Value('d', float('nan'))         # yaw_aruco the yaw angle of the ArUco tag
+    shared_time_frame_captured = Value('d', 0.0)        # time_frame_captured the time when the frame was captured
+    shared_detect_flag = Value('i', 0)                  # detect_flag indicates if the detection is on or not
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
-    p2 = Process(target=camera_process, args=(save_path, shared_offset, shared_time_frame_captured, shared_detect_flag))
-    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_offset, shared_time_frame_captured, shared_detect_flag))
+    p2 = Process(target=camera_process, args=(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
+    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
 
     p1.start()
     p2.start()
