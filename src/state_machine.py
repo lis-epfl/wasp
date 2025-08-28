@@ -9,7 +9,7 @@ def update(last_state, remote_command, linear_position, linear_velocity, deceler
     state = last_state
 
     # Estimate how far we need to stop safely from current speed
-    deceleration_distance = ((linear_velocity ** 2) / (2 * config.MAX_ACCELERATION)) + config.DECELERATION_OFFSET
+    deceleration_distance = ((linear_velocity ** 2) / (2 * config.DECELERATION)) + config.DECELERATION_OFFSET
     
     # Check if we're approaching physical limits
     if in_calibration_mode:

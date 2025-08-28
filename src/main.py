@@ -9,6 +9,7 @@ from datetime import datetime, date
 import numpy as np
 import os
 import serial
+# from loguru import logger
 
 import config
 import state_machine
@@ -217,10 +218,9 @@ def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, sh
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            if ArUco_pose['x ArUco [m]'] is not None:
-                print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
-                print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
-
+            # if ArUco_pose['x ArUco [m]'] is not None:
+            #     print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
+            #     print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
             # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
@@ -261,6 +261,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
+    print(odrv.axis0.controller.config)
+
     # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
 
     # Try to load calibration data from today's file
@@ -286,6 +288,13 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
+
+    # Logger settings
+    # log_dir.mkdir(exist_ok=True)
+    # log_file = csv_path / f"run_{timestamp}.log"
+    # logger.remove()
+    # logger.add(sys.stderr, level="DEBUG")       # show logs in console
+    # logger.add(log_file, level="DEBUG", rotation="10 MB", compression="zip")  
 
     try:
         try:
@@ -481,6 +490,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_estimated_velocity = linear_velocity
 
                         # Set the target position of the motor
+                        x_ref = np.clip(x_ref, 0, zipline_length)
                         motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
                         last_x_ref = x_ref
 
@@ -501,7 +511,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco pos: {offset_str} m "
                                        f"x_ref: {x_ref} m" )
-                        # print(log_message)
+                        print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()

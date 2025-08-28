@@ -49,8 +49,8 @@ def motor_init():
 
             odrv.axis0.controller.config.input_mode = 5                                             # Trapezoidal velocity profile
             odrv.axis0.controller.config.vel_limit = np.inf                                         # To avoid maximum speed limit (does not correspond to the maximum speed of the profile)
-            odrv.axis0.trap_traj.config.accel_limit = linear_to_angular(config.MAX_ACCELERATION)                        
-            odrv.axis0.trap_traj.config.decel_limit = linear_to_angular(config.MAX_ACCELERATION)
+            odrv.axis0.trap_traj.config.accel_limit = linear_to_angular(config.ACCELERATION)                        
+            odrv.axis0.trap_traj.config.decel_limit = linear_to_angular(config.DECELERATION)
                                                   
             odrv.axis0.config.motor.current_soft_max = config.SOFT_MAX_CURRENT
             odrv.axis0.config.motor.current_hard_max = config.HARD_MAX_CURRENT

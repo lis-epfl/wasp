@@ -99,7 +99,7 @@ def plot_data(csv_path):
     axs[0, 0].set_xlim(t_start, t_max)
     axs[0, 0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[0, 0].grid(True)
-    axs[0, 0].legend(loc='upper left', fontsize=9)
+    axs[0, 0].legend(loc='lower left', fontsize=9)
 
     shaded_patch = Patch(facecolor='blue', alpha=0.15, label='True UAV position through vision')
     axs[0, 0].legend(handles=[
@@ -116,7 +116,7 @@ def plot_data(csv_path):
     axs[0, 1].set_ylabel("Speed [m/s]", fontsize=11)
     axs[0, 1].set_xlim(t_start, t_max)
     axs[0, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    axs[0, 1].legend(loc='upper left', ncol=2, fontsize=9, columnspacing=1.0)
+    axs[0, 1].legend(loc='lower left', ncol=2, fontsize=9, columnspacing=1.0)
 
 
     # Plot 3: Reference over time
@@ -127,7 +127,7 @@ def plot_data(csv_path):
     axs[0, 2].set_xlim(t_start, t_max)
     axs[0, 2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[0, 2].grid(True)
-    axs[0, 2].legend(loc='upper right')
+    axs[0, 2].legend(loc='lower right')
 
 
     # Plot 4: Torque over time
