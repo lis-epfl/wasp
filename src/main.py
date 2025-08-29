@@ -250,7 +250,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     estimated_position = 0.0
     cnt_moving_blindly = 0
 
-    decelerating_to_full_stop = False
     in_calibration_mode = True
     zipline_end_set = False
     zipline_length_loaded = False
@@ -261,8 +260,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    print(odrv.axis0.controller.config)
-
     # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
 
     # Try to load calibration data from today's file
@@ -350,7 +347,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     li550_data = {}
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, linear_position, linear_velocity, decelerating_to_full_stop, in_calibration_mode, zipline_length)
+                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, linear_position, linear_velocity, in_calibration_mode, zipline_length)
                     last_state = state
 
                     # Calibrating the zipline length
@@ -404,17 +401,16 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
-                            decelerating_to_full_stop = True
-                            if linear_velocity < config.STOP_SPEED_THRESHOLD:
-                                decelerating_to_full_stop = False
                             if reached_end:
                                 x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
                             elif reached_start:
                                 x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
                             else:
                                 x_ref = linear_position
+                                
                         elif state == config.STATE["FORWARD"]:
                             x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
+
                         elif state == config.STATE["BACKWARD"]:
                             x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
                         else:
@@ -465,28 +461,27 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                     estimated_position = x_ref
                         else:
                             with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 1        # FIXME
+                                shared_detect_flag.value = 1
                             tracking_error = None
                             last_tracking_error = None
 
                             if state == config.STATE["STOP"]:
-                                # decelerating_to_full_stop = True
-                                # if linear_velocity < config.STOP_SPEED_THRESHOLD:
-                                #     decelerating_to_full_stop = False
                                 if reached_end:
                                     x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
                                 elif reached_start:
                                     x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
                                 else:
                                     x_ref = linear_position
+
                             elif state == config.STATE["FORWARD"]:
                                 x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+
                             elif state == config.STATE["BACKWARD"]:
                                 x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN
                             else:
                                 x_ref = linear_position 
                             
-                            # For tracking, going from forward to traking smoothly
+                            # To switch from FORWARD to TRACKING smoothly
                             last_estimated_velocity = linear_velocity
 
                         # Set the target position of the motor
@@ -509,8 +504,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"State: {config.STATE_LOOKUP.get(state, 'UNKNOWN')}  |   "
                                        f"Pos: {linear_position:.2f} m  |  "
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
-                                       f"ArUco pos: {offset_str} m "
-                                       f"x_ref: {x_ref} m" )
+                                       f"ArUco offset: {offset_str} m  |  "
+                                       f"x_ref: {x_ref} m  |  "
+                                       f"end/start: {reached_end}, {reached_start} m  |  ")
                         print(log_message)
 
                 # Sleep to respect the desired loop time
