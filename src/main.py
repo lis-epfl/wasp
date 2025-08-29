@@ -240,6 +240,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     leds_off_before = False
     state = config.STATE["STOP"]
     last_state = state
+    x_stop = 0
+    start_decelerating = True
+    decelerating = True
 
     tracking_error = None
     last_tracking_error = None
@@ -339,7 +342,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                          time_frame_captured = shared_time_frame_captured.value                        
                     
                     # Get motor data                    
-                    angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
+                    angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current, decel_dist = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
                     time_position_measured = time.time()
 
                     # Get LI-5500 data
@@ -347,7 +350,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                     li550_data = {}
 
                     # Update state
-                    state, reached_end, reached_start = state_machine.update(last_state, remote_command, linear_position, linear_velocity, in_calibration_mode, zipline_length)
+                    state = state_machine.update(last_state, remote_command, in_calibration_mode)
                     last_state = state
 
                     # Calibrating the zipline length
@@ -401,18 +404,14 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         
                         # Update the target position of the motor
                         if state == config.STATE["STOP"]:
-                            if reached_end:
-                                x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
-                            elif reached_start:
-                                x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
-                            else:
-                                x_ref = linear_position
-                                
+                            x_ref = linear_position
+                    
                         elif state == config.STATE["FORWARD"]:
                             x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
 
                         elif state == config.STATE["BACKWARD"]:
                             x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
+
                         else:
                             x_ref = linear_position
                         
@@ -459,6 +458,9 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                     # No ArUco marker detected and no previous offset: stop the motor
                                     x_ref = linear_position
                                     estimated_position = x_ref
+                            
+                            start_decelerating = True
+
                         else:
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
@@ -466,26 +468,40 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_tracking_error = None
 
                             if state == config.STATE["STOP"]:
-                                if reached_end:
-                                    x_ref = config.ZIPLINE_LENGTH_CALIB if in_calibration_mode else zipline_length
-                                elif reached_start:
-                                    x_ref = config.ZIPLINE_START_CALIB if in_calibration_mode else 0
+
+                                if start_decelerating:
+                                    if linear_velocity > 0:
+                                        x_stop = linear_position + decel_dist
+                                        print("here")
+                                    else:
+                                        x_stop = linear_position - decel_dist
+                                        print("there")
+                                    start_decelerating = False
+                                
+                                decelerating = True
+                                if abs(linear_velocity) < config.STOP_SPEED_THRESHOLD: decelerating = False
+                                if decelerating:
+                                    x_ref = x_stop
                                 else:
                                     x_ref = linear_position
-
+                                                            
                             elif state == config.STATE["FORWARD"]:
                                 x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                                start_decelerating = True
 
                             elif state == config.STATE["BACKWARD"]:
                                 x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                                start_decelerating = True
+
                             else:
-                                x_ref = linear_position 
-                            
+                                x_ref = linear_position
+                                start_decelerating = True
+
                             # To switch from FORWARD to TRACKING smoothly
                             last_estimated_velocity = linear_velocity
 
                         # Set the target position of the motor
-                        x_ref = np.clip(x_ref, 0, zipline_length)
+                        x_ref = np.clip(x_ref, 0, zipline_length) # !!VERY IMPORTANT, DO NOT REMOVE!!
                         motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
                         last_x_ref = x_ref
 
@@ -506,7 +522,8 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m  |  "
-                                       f"end/start: {reached_end}, {reached_start} m  |  ")
+                                       f"decel: {decel_dist} m  |  "
+                                       f"decel: {x_stop} m  |  ")
                         print(log_message)
 
                 # Sleep to respect the desired loop time

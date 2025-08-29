@@ -12,29 +12,32 @@ DT = 0.14          # execution period in seconds (0.04 without the wind sensor, 
 DT_VISION = 0.14   # execution period for vision in seconds (7Hz)
 
 
-# Motor
+# Battery
 NB_CELLS = 8                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
-MAX_VOLTAGE = NB_CELLS*4.4                              # Maximum voltage (fully charged), in V
+MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
+
+
+# Motor
 SOFT_MAX_CURRENT = 30.0                                 # in A
 HARD_MAX_CURRENT = 60.0                                 # in A
 SPEED_CONSTANT = 330                                    # in RMP/V
 TORQUE_CONSTANT = 0.025                                 # in Nm/A
-LOSS_CONSTANT = 0.68                                    # to account for voltage drops and control overhead
 SOFT_MAX_TORQUE = SOFT_MAX_CURRENT * TORQUE_CONSTANT    # in Nm
 HARD_MAX_TORQUE = HARD_MAX_CURRENT * TORQUE_CONSTANT    # in Nm
+PULLEY_RADIUS = 0.02025                                 # in meters (tacking into acount cable radius)
 
+
+# Controller
 POS_GAIN = 20.0                                         # Proportional gain for position loop [(rev/s) / rev]
 VEL_GAIN = 0.10                                         # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
-
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 10                               # Same but for the calibration mode, where the motor is turning much slower
 ACCELERATION = 10                                       # in m/s^2 (10 works with fully chareged 6S)
 DECELERATION = 5                                        # in m/s^2 (take ~20 m to decelerate from 14 m/s so the line must be at least 50)
+DECELERATION_MARGIN = 1.2 
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
-PULLEY_RADIUS = 0.02025                                 # in meters (tacking into acount cable radius)
-DECELERATION_OFFSET = 1.0                               # Offset to avoit going over the end of the zipline
 MAX_SPEED = 14.0                                        # in m/s (with 6S battery, max 14 m/s)
 MAX_SPEED_CALIB = 2.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
@@ -95,6 +98,7 @@ MAX_CNT_MOVING_BLINDLY = 7         # number of iterations applying last detected
 CUT_OFF_FREQUENCY_TRACKING = 5      # in Hz
 BANG_BANG_GAIN_TRACKING = 1.5       # 3 working well with acc of 3 and max speed of 11
 prediction_step = 0
+
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'

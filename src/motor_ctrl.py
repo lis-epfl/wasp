@@ -102,7 +102,10 @@ def get_data(odrv):
     voltage = odrv.vbus_voltage                                         # in V
     current = odrv.axis0.motor.foc.Iq_measured                          # in A
 
-    return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current
+    # Estimate decelerating distance relative to current velocity
+    decel_dist = ((linear_velocity ** 2) / (2 * config.DECELERATION)) * config.DECELERATION_MARGIN
+
+    return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current, decel_dist
 
 
 def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity):
@@ -113,14 +116,14 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
     """
     return {
         "Timestamp [s]": np.round(timestamp, 3),
-        "Angular position [turns]": angular_position,
-        "Angular velocity [turns/s]": angular_velocity,
-        "Torque [Nm]": torque,
-        "Linear position [m]": linear_position,
-        "Linear speed [m/s]": linear_velocity,
-        "Voltage [V]": voltage,
-        "Current [A]": current,
-        "Reference x_ref [m]": x_ref,
-        "Estimated plane position [m]": estimated_position,
-        "Estimated plane velocity [m/s]": estimated_velocity if estimated_velocity is not None else float('nan'),
-    } 
+        "Angular position [turns]": np.round(angular_position, 3),
+        "Angular velocity [turns/s]": np.round(angular_velocity, 3),
+        "Torque [Nm]": np.round(torque, 3),
+        "Linear position [m]": np.round(linear_position, 3),
+        "Linear speed [m/s]": np.round(linear_velocity, 3),
+        "Voltage [V]": np.round(voltage, 3),
+        "Current [A]": np.round(current, 3),
+        "Reference x_ref [m]": np.round(x_ref, 3),
+        "Estimated plane position [m]": np.round(estimated_position, 3),
+        "Estimated plane velocity [m/s]": np.round(estimated_velocity, 3) if estimated_velocity is not None else float('nan'),
+    }
