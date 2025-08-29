@@ -9,7 +9,6 @@ from datetime import datetime, date
 import numpy as np
 import os
 import serial
-# from loguru import logger
 
 import config
 import state_machine
@@ -289,13 +288,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
 
-    # Logger settings
-    # log_dir.mkdir(exist_ok=True)
-    # log_file = csv_path / f"run_{timestamp}.log"
-    # logger.remove()
-    # logger.add(sys.stderr, level="DEBUG")       # show logs in console
-    # logger.add(log_file, level="DEBUG", rotation="10 MB", compression="zip")  
-
     try:
         try:
             while True:
@@ -449,7 +441,6 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                # if cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
                                     x_ref = (linear_position + last_tracking_error) + last_estimated_velocity * config.DT * config.prediction_step # where we think we are
                                     estimated_position = x_ref
                                     x_ref += np.clip(last_estimated_velocity * config.BANG_BANG_GAIN_TRACKING, -config.MAX_SPEED, config.MAX_SPEED) * config.DT # to catch up
@@ -468,16 +459,15 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                             last_tracking_error = None
 
                             if state == config.STATE["STOP"]:
-
+                                # Define positon target to match desired deceleration with respect to current velocity
                                 if start_decelerating:
                                     if linear_velocity > 0:
                                         x_stop = linear_position + decel_dist
-                                        print("here")
                                     else:
                                         x_stop = linear_position - decel_dist
-                                        print("there")
                                     start_decelerating = False
-                                
+
+                                # Stay on spot when position target for deceleration reached   
                                 decelerating = True
                                 if abs(linear_velocity) < config.STOP_SPEED_THRESHOLD: decelerating = False
                                 if decelerating:
@@ -521,9 +511,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Pos: {linear_position:.2f} m  |  "
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
-                                       f"x_ref: {x_ref} m  |  "
-                                       f"decel: {decel_dist} m  |  "
-                                       f"decel: {x_stop} m  |  ")
+                                       f"x_ref: {x_ref} m")
                         print(log_message)
 
                 # Sleep to respect the desired loop time
@@ -558,19 +546,20 @@ if __name__ == "__main__":
     save_path = Path("data") / f"run_{timestamp_folder}"
     os.makedirs(save_path, exist_ok=True)
 
-    # Shared variables from RC process to main
-    shared_remote_command = Value('i', 0)               # remote_command to set the state
-    shared_target_speed = Value('d', 0.0)               # target_speed to set the speed
-    shared_calibration_setpoints = Value('d', 0.0)      # calibration_setpoints to define calibration setpoints
+    # Shared variables from RC process to main process
+    shared_remote_command = Value('i', 0)
+    shared_target_speed = Value('d', 0.0)
+    shared_calibration_setpoints = Value('d', 0.0)
 
-    shared_x_aruco = Value('d', float('nan'))           # x_aruco the x position of the ArUco tag
-    shared_y_aruco = Value('d', float('nan'))           # y_aruco the y position of the ArUco tag
-    shared_z_aruco = Value('d', float('nan'))           # z_aruco the z position of the ArUco tag
-    shared_roll_aruco = Value('d', float('nan'))        # roll_aruco the roll angle of the ArUco tag
-    shared_pitch_aruco = Value('d', float('nan'))       # pitch_aruco the pitch angle of the ArUco tag
-    shared_yaw_aruco = Value('d', float('nan'))         # yaw_aruco the yaw angle of the ArUco tag
-    shared_time_frame_captured = Value('d', 0.0)        # time_frame_captured the time when the frame was captured
-    shared_detect_flag = Value('i', 0)                  # detect_flag indicates if the detection is on or not
+    # Shared variables between camera process and main process
+    shared_x_aruco = Value('d', float('nan'))
+    shared_y_aruco = Value('d', float('nan'))
+    shared_z_aruco = Value('d', float('nan'))
+    shared_roll_aruco = Value('d', float('nan'))
+    shared_pitch_aruco = Value('d', float('nan'))
+    shared_yaw_aruco = Value('d', float('nan'))
+    shared_time_frame_captured = Value('d', 0.0)
+    shared_detect_flag = Value('i', 0)
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
     p2 = Process(target=camera_process, args=(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
