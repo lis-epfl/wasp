@@ -217,9 +217,9 @@ def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, sh
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            if ArUco_pose['x ArUco [m]'] is not None:
-                print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
-                print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
+            # if ArUco_pose['x ArUco [m]'] is not None:
+            #     print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
+            #     print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
             # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
@@ -511,7 +511,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m")
-                        # print(log_message)
+                        print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
