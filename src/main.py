@@ -176,7 +176,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
         steering_line.release()
 
 
-def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
+def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
     camera = camera_ctrl.camera_init()
     mtx, dist = camera_ctrl.load_calibration()
     frame_counter = 1
@@ -202,7 +202,7 @@ def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, sh
             # Only compute if tracking is on
             if shared_detect_flag.value == 1:
 
-                ArUco_pose, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter)
+                ArUco_pose, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter, time_start_ref)
                 frame_counter += 1
 
                 with shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(), shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(), shared_time_frame_captured.get_lock():
@@ -217,9 +217,9 @@ def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, sh
                 time.sleep(0.01)
             
             time_end_while = time.time()
-            # if ArUco_pose['x ArUco [m]'] is not None:
-            #     print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
-            #     print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
+            if ArUco_pose['x ArUco [m]'] is not None:
+                print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
+                print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
             # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
@@ -231,9 +231,8 @@ def camera_process(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, sh
         camera.stop()
 
 
-def main(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
+def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
     # Initialize variable
-    time_start_abs = time.time()
     time_start_while = 0
     time_end_while = 0
     leds_off_before = False
@@ -499,7 +498,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
 
                         # Save data to CSV
-                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_abs, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity)
+                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity)
                         row = {**motor_data, **ArUco_pose, **li550_data}
                         writer.writerow(row)   
                         csv_file.flush()
@@ -512,7 +511,7 @@ def main(save_path, shared_remote_command, shared_target_speed, shared_calibrati
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m")
-                        print(log_message)
+                        # print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
@@ -545,6 +544,7 @@ if __name__ == "__main__":
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     save_path = Path("data") / f"run_{timestamp_folder}"
     os.makedirs(save_path, exist_ok=True)
+    time_start_ref = time.time()
 
     # Shared variables from RC process to main process
     shared_remote_command = Value('i', 0)
@@ -562,8 +562,8 @@ if __name__ == "__main__":
     shared_detect_flag = Value('i', 0)
 
     p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
-    p2 = Process(target=camera_process, args=(save_path, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
-    p3 = Process(target=main, args=(save_path, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
+    p2 = Process(target=camera_process, args=(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
+    p3 = Process(target=main, args=(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
 
     p1.start()
     p2.start()

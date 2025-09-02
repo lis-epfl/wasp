@@ -171,7 +171,7 @@ def undistort_image(img, mtx, dist):
     return undistorted_img
 
 
-def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
+def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_ref):
     """
     Capture a frame and detect the specified ArUco marker.
     :param picam2: Picamera2 object
@@ -195,7 +195,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
 
     if ids is not None and config.ARUCO_ID in ids:
         # ArUco found
-        filename = f"{save_path}/frame_{frame_counter:04d}_found.png"
+        filename = f"{save_path}/frame_{frame_counter:04d}_found_{(time_frame_captured-time_start_ref):.3f}.png"
 
         # Define 3D object points for the marker (centered at origin, Z=0)
         idx = np.where(ids == config.ARUCO_ID)[0][0]
@@ -249,7 +249,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter):
 
     else:
         # ArUco not found
-        filename = f"{save_path}/frame_{frame_counter:04d}.png"
+        filename = f"{save_path}/frame_{frame_counter:04d}_{(time_frame_captured-time_start_ref):.3f}.png"
 
         x_aruco = None
         y_aruco = None
