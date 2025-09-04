@@ -32,13 +32,15 @@ PULLEY_RADIUS = 0.02025                                 # in meters
 POS_GAIN = 20.0                                         # Proportional gain for position loop [(rev/s) / rev]
 VEL_GAIN = 0.10                                         # Proportional gain for velocity loop  [Nm / (rev/s)]
 INTEGRATOR_GAIN = 0.07                                  # Integral gain for velocity loop [Nm / (rev/s^2)]
+INERTIA = 0
 BANG_BANG_GAIN = 40                                     # Gain for the semi-position control when using manual mode (replicate bang–bang controller)
 BANG_BANG_GAIN_CALIB = 10                               # Same but for the calibration mode, where the motor is turning much slower
-ACCELERATION = 10.0                                     # in m/s^2 (10 works with fully chareged 6S)
-DECELERATION = 5.0                                      # in m/s^2 (take ~20 m to decelerate from 14 m/s so the line must be at least 50)
+BANG_BANG_VISION = 1.5
+ACCELERATION = 8.0                                     # in m/s^2 (10 works with fully chareged 6S)
+DECELERATION = 4.0                                      # in m/s^2 (take ~20 m to decelerate from 14 m/s so the line must be at least 50)
 DECELERATION_MARGIN = 1.2                               # Gain to enable the controller to compute the deceleration curve
 STOP_SPEED_THRESHOLD = 0.01                             # in m/s
-MAX_SPEED = 14.0                                        # in m/s (with 6S battery, max 14 m/s)
+MAX_SPEED = 5.0                                        # in m/s (with 6S battery, max 14 m/s)
 MAX_SPEED_CALIB = 2.0                                   # in m/s (for calibration purposes)
 INITIAL_MOTOR_POS_CALIB = 1000                          # in meters
 ZIPLINE_START_CALIB = 500                               # in meters
@@ -89,14 +91,14 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 4000                                # in microseconds (set 29 µs for outside, and 2000 µs for inside)
-ANALOGUE_GAIN = 2.0                                 # in dB
+EXPOSURE_TIME = 29                                # in microseconds (set 29 µs for outside, and 2000 µs for inside)
+ANALOGUE_GAIN = 4.0                                 # in dB
 
 
 # Tracking
 MAX_CNT_MOVING_BLINDLY = 7          # number of iterations applying last detected position without any new detection
 CUT_OFF_FREQUENCY_TRACKING = 5      # in Hz
-BANG_BANG_GAIN_TRACKING = 1.5       # 3 working well with acc of 3 and max speed of 11
+BANG_BANG_GAIN_TRACKING = 1.2       # 3 working well with acc of 3 and max speed of 11
 prediction_step = 0                 # number of steps for the velocity estimation propagation
 
 

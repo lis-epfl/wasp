@@ -57,7 +57,8 @@ def motor_init():
 
             odrv.axis0.controller.config.pos_gain = config.POS_GAIN                                 # Proportional gain for position loop [(rev/s) / rev]
             odrv.axis0.controller.config.vel_gain = config.VEL_GAIN                                 # Proportional gain for velocity loop  [Nm / (rev/s)]
-            odrv.axis0.controller.config.vel_integrator_gain = config.INTEGRATOR_GAIN               # Integral gain for velocity loop [(Nm/s) / (rev/s)]                        
+            odrv.axis0.controller.config.vel_integrator_gain = config.INTEGRATOR_GAIN               # Integral gain for velocity loop [(Nm/s) / (rev/s)] 
+            odrv.axis0.controller.config.inertia = config.INERTIA                     
         return odrv
 
     except Exception as e:
