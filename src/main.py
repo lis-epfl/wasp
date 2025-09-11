@@ -395,23 +395,23 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         # Don't capture frames from the camera in this mode
                         with shared_detect_flag.get_lock():
                             shared_detect_flag.value = 0
-                        
-                        # Update the target position of the motor
+
+                        # Desired velocity based on the remote command
+                        vel_ref = target_speed_m_s
+
                         if state == config.STATE["STOP"]:
-                            x_ref = linear_position
-                    
+                            x_ref = linear_position                          
                         elif state == config.STATE["FORWARD"]:
-                            x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
-
+                            x_ref = zipline_length
                         elif state == config.STATE["BACKWARD"]:
-                            x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN_CALIB
-
+                            x_ref = 0
                         else:
                             x_ref = linear_position
-                        
-                        # Set the target position of the motor
-                        motor_ctrl.set_position(odrv, x_ref)
 
+                        # Set the target position and velocity of the motor
+                        motor_ctrl.set_velocity(odrv, vel_ref)
+                        motor_ctrl.set_position(odrv, x_ref)
+                        
                     # Normal operation
                     else:
                         if state == config.STATE["TRACKING"]:
