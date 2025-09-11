@@ -9,6 +9,7 @@ from datetime import datetime, date
 import numpy as np
 import os
 import serial
+import random
 
 import config
 import state_machine
@@ -278,6 +279,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED_CALIB)  
     x_ref = config.INITIAL_MOTOR_POS_CALIB
     last_x_ref = config.INITIAL_MOTOR_POS_CALIB
+    vel_ref = 0.0
+    last_vel_ref = 0.0
 
     # Data recording setings 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -296,7 +299,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
-                    motor_ctrl.set_position(odrv, - odrv.axis0.pos_estimate) # stay in the same position
+                    odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate # stay in the same position
                 else:
                     # Get remote control commands
                     with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
@@ -407,7 +410,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             x_ref = linear_position
                         
                         # Set the target position of the motor
-                        motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
+                        motor_ctrl.set_position(odrv, x_ref)
 
                     # Normal operation
                     else:
@@ -481,16 +484,13 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             start_decelerating = True
 
                         else:
-                            if (int(time.time()) % 2 == 0):
-                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED)
-                            else:
-                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED/2)
-                            # odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED)
-
                             with shared_detect_flag.get_lock():
                                 shared_detect_flag.value = 1
                             tracking_error = None
                             last_tracking_error = None
+
+                            # Desired velocity based on the remote command
+                            vel_ref = target_speed_m_s
 
                             if state == config.STATE["STOP"]:
                                 # Define positon target to match desired deceleration with respect to current velocity
@@ -510,11 +510,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     x_ref = linear_position
                                                             
                             elif state == config.STATE["FORWARD"]:
-                                x_ref = linear_position + target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                                x_ref = zipline_length
                                 start_decelerating = True
 
                             elif state == config.STATE["BACKWARD"]:
-                                x_ref = linear_position - target_speed_m_s * config.DT * config.BANG_BANG_GAIN
+                                x_ref = 0
                                 start_decelerating = True
 
                             else:
@@ -524,12 +524,13 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             # To switch from FORWARD to TRACKING smoothly
                             last_estimated_velocity = linear_velocity
 
-                        # Set the target position of the motor
-                        print(motor_ctrl.angular_to_linear(odrv.axis0.trap_traj.config.vel_limit), x_ref)
-                        x_ref = np.clip(x_ref, 0, zipline_length) # !!VERY IMPORTANT, DO NOT REMOVE!!
+                        # Set the target position and velocity of the motor
+                        x_ref = np.clip(x_ref, 0, zipline_length) # important safety
+                        motor_ctrl.set_velocity(odrv, vel_ref)
+                        motor_ctrl.set_position(odrv, x_ref)
 
-                        motor_ctrl.set_position(odrv, motor_ctrl.linear_to_angular(x_ref))
                         last_x_ref = x_ref
+                        last_vel_ref = vel_ref
 
                         # Display current state with LEDs
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
@@ -548,7 +549,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m")
-                        # print(log_message)
+                        print(log_message)
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()

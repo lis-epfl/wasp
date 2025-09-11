@@ -48,7 +48,7 @@ def motor_init():
             odrv.axis0.controller.config.control_mode = 3                                           # Position control
 
             odrv.axis0.controller.config.input_mode = 5                                             # Trapezoidal velocity profile
-            odrv.axis0.controller.config.vel_limit = np.inf                                         # To avoid maximum speed limit (does not correspond to the maximum speed of the profile)
+            odrv.axis0.controller.config.vel_limit = np.inf                                         # Disable maximum system velocity (does not correspond to the maximum speed of the profile)
             odrv.axis0.trap_traj.config.accel_limit = linear_to_angular(config.ACCELERATION)                        
             odrv.axis0.trap_traj.config.decel_limit = linear_to_angular(config.DECELERATION)
                                                   
@@ -59,6 +59,9 @@ def motor_init():
             odrv.axis0.controller.config.vel_gain = config.VEL_GAIN                                 # Proportional gain for velocity loop  [Nm / (rev/s)]
             odrv.axis0.controller.config.vel_integrator_gain = config.INTEGRATOR_GAIN               # Integral gain for velocity loop [(Nm/s) / (rev/s)] 
             odrv.axis0.controller.config.inertia = config.INERTIA                     
+        
+        print(odrv.axis0.trap_traj)
+
         return odrv
 
     except Exception as e:
@@ -84,9 +87,19 @@ def set_position(odrv, position):
     """
     Set the position of the motor
     :param odrv: ODrive object
-    :param position: Position in turns
+    :param position: Position in meters
     """
-    odrv.axis0.controller.input_pos = - position                        # in turns (minus sign because of the motor direction)
+    odrv.axis0.controller.input_pos = - linear_to_angular(position)     # in turns (minus sign because of the motor direction)
+
+
+def set_velocity(odrv, velocity):
+    """
+    Set the velocity of the motor
+    :param odrv: ODrive object
+    :param velocity: Velocity in meters per second
+    """
+    odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate           # so that the controller thinks that the trajectory is done
+    odrv.axis0.trap_traj.config.vel_limit = linear_to_angular(velocity) # in turns/s
 
 
 def get_data(odrv):
