@@ -119,7 +119,7 @@ def get_data(odrv):
     return angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current, decel_dist
 
 
-def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity):
+def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel):
     """
     Log motor data
     :param: Motor data
@@ -135,6 +135,6 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
         "Voltage [V]": np.round(voltage, 3),
         "Current [A]": np.round(current, 3),
         "Reference x_ref [m]": np.round(x_ref, 3),
-        "Estimated plane position [m]": np.round(estimated_position, 3),
-        "Estimated plane velocity [m/s]": np.round(estimated_velocity, 3) if estimated_velocity is not None else float('nan'),
+        "Estimated plane position [m]": np.round(estimated_UAV_pos, 3),
+        "Estimated plane velocity [m/s]": np.round(estimated_UAV_vel, 3) if estimated_UAV_vel is not None else float('nan'),
     }

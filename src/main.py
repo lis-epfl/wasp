@@ -10,6 +10,7 @@ import numpy as np
 import os
 import serial
 import random
+from simple_pid import PID
 
 import config
 import state_machine
@@ -247,9 +248,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     last_tracking_error = None
     last_target_position = None
     last_time_frame_captured = None
-    estimated_velocity = 0.0
-    last_estimated_velocity = 0.0
-    estimated_position = 0.0
+    estimated_UAV_vel = 0.0
+    last_estimated_UAV_vel = 0.0
+    estimated_UAV_pos = 0.0
+    last_estimated_UAV_pos = 0.0
     cnt_moving_blindly = 0
 
     in_calibration_mode = True
@@ -421,65 +423,56 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                             if np.isnan(tracking_error):
                                 tracking_error = None
-                            if tracking_error is not None:
-                                # ArUco marker detected: compute the new target position
 
-                                estimated_position = linear_position + tracking_error + linear_velocity * config.DT * config.prediction_step
-                                target_position = linear_position + tracking_error
+                            if tracking_error is not None:
+                                # ArUco marker detected
+                                estimated_UAV_pos = linear_position + tracking_error
                                 cnt_moving_blindly = 0
         
                                 if last_time_frame_captured is not None:
                                     time_diff = time_frame_captured - last_time_frame_captured
 
-                                    estimated_velocity = (target_position - last_target_position) / time_diff if time_diff > 0 else 0
-                                    estimated_velocity = motor_ctrl.low_pass(estimated_velocity, last_estimated_velocity, config.CUT_OFF_FREQUENCY_TRACKING, config.DT) # low pass filter
+                                    estimated_UAV_vel = (estimated_UAV_pos - last_estimated_UAV_pos) / time_diff if time_diff > 0 else 0
+                                    estimated_UAV_vel = motor_ctrl.low_pass(estimated_UAV_vel, last_estimated_UAV_vel, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
 
-                                    
-                                    last_estimated_velocity = estimated_velocity
+                                    last_estimated_UAV_vel = estimated_UAV_vel
 
-                                    # print("time_diff", time_diff, "estimated_velocity", estimated_velocity)
                                 last_time_frame_captured = time_frame_captured
+                                last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
-                                last_target_position = target_position
 
-                                vel_ref = estimated_velocity + tracking_error * config.BANG_BANG_VISION
-                                print("tag", estimated_velocity, tracking_error * config.BANG_BANG_VISION)
+                                # pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION, setpoint=0)
+                                # vel_ref = estimated_UAV_vel + pid(tracking_error)
+                                # pid.output_limits = (-10, 10) # FIXME
 
-                                # if ((abs(linear_velocity) < 0.5) & (abs(tracking_error) < 0.25)):
-                                #     x_ref = linear_position
-                                if (vel_ref > 0):
-                                    x_ref = zipline_length
-                                elif (vel_ref == 0):
+                                pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION, setpoint=estimated_UAV_vel)
+                                vel_ref = pid(linear_velocity)  # error = estimated_UAV_vel - linear_velocity
+                                pid.output_limits = (-10, 10)   # FIXME
+                                
+                                if (estimated_UAV_vel == 0):
                                     x_ref = linear_position
+                                if (estimated_UAV_vel > 0):
+                                    x_ref = zipline_length
                                 else:
                                     x_ref = 0
-
-                                vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
-                                odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(vel_ref)  
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
-                                    # x_ref = (linear_position + last_tracking_error) + last_estimated_velocity * config.DT * config.prediction_step # where we think we are
-                                    # estimated_position = x_ref
-                                    # x_ref += np.clip(last_estimated_velocity * config.BANG_BANG_GAIN_TRACKING, -config.MAX_SPEED, config.MAX_SPEED) * config.DT # to catch up
-                                    if (last_estimated_velocity > 0):
-                                        x_ref = zipline_length
-                                    elif (last_estimated_velocity == 0):
+
+                                    vel_ref = last_estimated_UAV_vel * config.CATCH_UP_GAIN
+
+                                    if (last_estimated_UAV_vel == 0):
                                         x_ref = linear_position
+                                    elif (last_estimated_UAV_vel > 0):
+                                        x_ref = zipline_length
                                     else:
                                         x_ref = 0
-                                    
-                                    vel_ref = last_estimated_velocity * config.BANG_BANG_GAIN_TRACKING
-                                    print("lost", vel_ref)
-                                    vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
-                                    odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(vel_ref)  
                                     
                                     cnt_moving_blindly += 1
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
                                     x_ref = linear_position
-                                    odrv.axis0.trap_traj.config.vel_limit = motor_ctrl.linear_to_angular(config.MAX_SPEED)
-                                    estimated_position = x_ref
+                                    estimated_UAV_pos = x_ref
                             
                             start_decelerating = True
 
@@ -522,10 +515,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 start_decelerating = True
 
                             # To switch from FORWARD to TRACKING smoothly
-                            last_estimated_velocity = linear_velocity
+                            last_estimated_UAV_vel = linear_velocity
 
                         # Set the target position and velocity of the motor
-                        x_ref = np.clip(x_ref, 0, zipline_length) # important safety
+                        x_ref = np.clip(x_ref, 0, zipline_length)
+                        vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
                         motor_ctrl.set_velocity(odrv, vel_ref)
                         motor_ctrl.set_position(odrv, x_ref)
 
@@ -536,7 +530,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
 
                         # Save data to CSV
-                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_position, estimated_velocity)
+                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel)
                         row = {**motor_data, **ArUco_pose, **li550_data}
                         writer.writerow(row)   
                         csv_file.flush()
