@@ -192,6 +192,10 @@ def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, sh
         'yaw ArUco [deg]': None,
     }
 
+    pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION)
+    pid.output_limits = (-config.MAX_SPEED, config.MAX_SPEED)  # Limit output to max speed
+    pid.sample_time = config.DT_VISION
+
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
@@ -441,13 +445,13 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
 
-                                # pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION, setpoint=0)
-                                # vel_ref = estimated_UAV_vel + pid(tracking_error)
-                                # pid.output_limits = (-10, 10) # FIXME
+                                # Option 1
+                                # pid.setpoint = estimated_UAV_vel + tracking_error/config.DT
+                                # vel_ref = pid(linear_velocity)
 
-                                pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION, setpoint=estimated_UAV_vel)
-                                vel_ref = pid(linear_velocity)  # error = estimated_UAV_vel - linear_velocity
-                                pid.output_limits = (-10, 10)   # FIXME
+                                # Option 2
+                                pid.setpoint = 0.0 # since it's constant, this can also be set at init
+                                vel_ref = estimated_UAV_vel + pid(tracking_error)
                                 
                                 if (estimated_UAV_vel == 0):
                                     x_ref = linear_position
