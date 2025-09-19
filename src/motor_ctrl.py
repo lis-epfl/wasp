@@ -79,24 +79,16 @@ def low_pass(curr_val, prev_val, cutoff_freq, dt):
     output = prev_val + a*(1.0 - np.e**(-dt*cutoff_freq))
     return output
 
-
-def set_position(odrv, position):
+def set_pos_vel(odrv, pos, vel):
     """
-    Set the position of the motor
+    Set the position and velocity of the motor
     :param odrv: ODrive object
     :param position: Position in meters
-    """
-    odrv.axis0.controller.input_pos = - linear_to_angular(position)     # in turns (minus sign because of the motor direction)
-
-
-def set_velocity(odrv, velocity):
-    """
-    Set the velocity of the motor
-    :param odrv: ODrive object
     :param velocity: Velocity in meters per second
     """
-    odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate           # so that the controller thinks that the trajectory is done
-    odrv.axis0.trap_traj.config.vel_limit = linear_to_angular(velocity) # in turns/s
+    odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate      # so that the controller thinks that the trajectory is done
+    odrv.axis0.trap_traj.config.vel_limit = linear_to_angular(vel) # in turns/s
+    odrv.axis0.controller.input_pos = - linear_to_angular(pos)     # in turns (minus sign because of the motor direction)
 
 
 def get_data(odrv):

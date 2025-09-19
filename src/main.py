@@ -416,8 +416,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             x_ref = linear_position
 
                         # Set the target position and velocity of the motor
-                        motor_ctrl.set_velocity(odrv, vel_ref)
-                        motor_ctrl.set_position(odrv, x_ref)
+                        motor_ctrl.set_pos_vel(odrv, x_ref, vel_ref)
                         
                     # Normal operation
                     else:
@@ -524,8 +523,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         # Set the target position and velocity of the motor
                         x_ref = np.clip(x_ref, 0, zipline_length)
                         vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
-                        motor_ctrl.set_velocity(odrv, vel_ref)
-                        motor_ctrl.set_position(odrv, x_ref)
+                        motor_ctrl.set_pos_vel(odrv, x_ref, vel_ref)
 
                         last_x_ref = x_ref
                         last_vel_ref = vel_ref
