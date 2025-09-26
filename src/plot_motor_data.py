@@ -22,6 +22,7 @@ def plot_data(csv_path):
     x_ref_vect = []
     x_aruco_est_vect = []
     v_aruco_est_vect = []
+    vel_ref_vect = []
     x_aruco_vect = []
     y_aruco_vect = []
     z_aruco_vect = []
@@ -41,6 +42,7 @@ def plot_data(csv_path):
             x_ref_vect.append(float(row['Reference x_ref [m]']))
             x_aruco_est_vect.append(float(row['Estimated plane position [m]']))
             v_aruco_est_vect.append(float(row['Estimated plane velocity [m/s]']))
+            vel_ref_vect.append(float(row['Reference velocity [m/s]']))
             x_aruco_vect.append(float(row['x ArUco [m]']))
             y_aruco_vect.append(float(row['y ArUco [m]']))
             z_aruco_vect.append(float(row['z ArUco [m]']))
@@ -113,6 +115,7 @@ def plot_data(csv_path):
     axs[0, 1].grid(True)
     axs[0, 1].plot(time_vect, v_aruco_est_vect, label="Estimated UAV speed", color="royalblue")
     axs[0, 1].plot(time_vect, velocity_vect, label="WASP speed", color="crimson", linestyle=(0, (5, 1)))
+    axs[0, 1].plot(time_vect, vel_ref_vect, label="Reference speed", color="green", linestyle=(0, (5, 1)))
     axs[0, 1].set_ylabel("Speed [m/s]", fontsize=11)
     axs[0, 1].set_xlim(t_start, t_max)
     axs[0, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))

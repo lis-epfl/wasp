@@ -44,7 +44,7 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 
 
 # Tracking
-P_GAIN_VISION = 1.5
+P_GAIN_VISION = 0.5
 I_GAIN_VISION = 0.0
 D_GAIN_VISION = 0.0
 MAX_CNT_MOVING_BLINDLY = 7          # number of iterations applying last detected position without any new detection
@@ -96,8 +96,8 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 3000                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
-ANALOGUE_GAIN = 4.0                                 # in dB
+EXPOSURE_TIME = 100                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+ANALOGUE_GAIN = 2.0                                 # in dB
 
 # Marker detection
 AUTO_EXPOSURE = False                               # Enable auto exposure (used to be False)
@@ -146,6 +146,7 @@ CSV_COLUMNS = [
     'Reference x_ref [m]',
     'Estimated plane position [m]',
     'Estimated plane velocity [m/s]',
+    'Reference velocity [m/s]',
     'x ArUco [m]',
     'y ArUco [m]',
     'z ArUco [m]',

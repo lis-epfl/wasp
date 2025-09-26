@@ -356,7 +356,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                     # Calibrating the zipline length
                     if in_calibration_mode:
-                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s")
+                        print(f"CALIBRATION  Position: {linear_position:.2f} m  |  Velocity: {linear_velocity:.2f} m/s {x_ref:.2f}")
 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
@@ -409,9 +409,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         if state == config.STATE["STOP"]:
                             x_ref = linear_position                          
                         elif state == config.STATE["FORWARD"]:
-                            x_ref = zipline_length
+                            x_ref = config.ZIPLINE_LENGTH_CALIB
                         elif state == config.STATE["BACKWARD"]:
-                            x_ref = 0
+                            x_ref = config.ZIPLINE_START_CALIB
                         else:
                             x_ref = linear_position
 
@@ -445,16 +445,12 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
 
-                                # Option 1
-                                # pid.setpoint = estimated_UAV_vel + tracking_error/config.DT
-                                # vel_ref = pid(linear_velocity)
-
-                                # Option 2
-                                vel_ref = estimated_UAV_vel + pid(tracking_error)
+                                vel_ref = estimated_UAV_vel + config.P_GAIN_VISION*(tracking_error-1) #pid(tracking_error)
+                                # print(estimated_UAV_vel, 0.5*tracking_error, vel_ref)
                                 
-                                if (estimated_UAV_vel == 0):
+                                if (vel_ref == 0):
                                     x_ref = linear_position
-                                if (estimated_UAV_vel > 0):
+                                if (vel_ref > 0):
                                     x_ref = zipline_length
                                 else:
                                     x_ref = 0
@@ -462,11 +458,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 # ArUco marker not detected: keep the last tracking_error for a while
                                 if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
 
-                                    vel_ref = last_estimated_UAV_vel * config.CATCH_UP_GAIN
+                                    vel_ref = last_estimated_UAV_vel
 
-                                    if (last_estimated_UAV_vel == 0):
+                                    if (vel_ref == 0):
                                         x_ref = linear_position
-                                    elif (last_estimated_UAV_vel > 0):
+                                    elif (vel_ref > 0):
                                         x_ref = zipline_length
                                     else:
                                         x_ref = 0
@@ -475,6 +471,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
                                     x_ref = linear_position
+                                    # vel_ref = 0 # FIXME
                                     estimated_UAV_pos = x_ref
                             
                             start_decelerating = True
@@ -519,20 +516,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                             # To switch from FORWARD to TRACKING smoothly
                             last_estimated_UAV_vel = linear_velocity
-
-                        # Set the target position and velocity of the motor
-                        x_ref = np.clip(x_ref, 0, zipline_length)
-                        vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
-                        motor_ctrl.set_pos_vel(odrv, x_ref, vel_ref)
-
-                        last_x_ref = x_ref
-                        last_vel_ref = vel_ref
-
-                        # Display current state with LEDs
-                        leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
-
+                        
                         # Save data to CSV
-                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel)
+                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
                         row = {**motor_data, **ArUco_pose, **li550_data}
                         writer.writerow(row)   
                         csv_file.flush()
@@ -546,6 +532,19 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m")
                         print(log_message)
+
+                        # Set the target position and velocity of the motor
+                        x_ref = np.clip(x_ref, 0, zipline_length)
+                        vel_ref = np.clip(abs(vel_ref), 0, config.MAX_SPEED)
+                        motor_ctrl.set_pos_vel(odrv, x_ref, vel_ref)
+
+                        last_x_ref = x_ref
+                        last_vel_ref = vel_ref
+
+                        # Display current state with LEDs
+                        leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
+
+
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
