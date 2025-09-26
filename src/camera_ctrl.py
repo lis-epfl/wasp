@@ -1,9 +1,9 @@
-from picamera2 import Picamera2, Preview
-from picamera2.encoders import H264Encoder, Quality
-from picamera2.outputs import FfmpegOutput
-from pathlib import Path
-from libcamera import controls
+# from picamera2 import Picamera2, Preview
+# from picamera2.encoders import H264Encoder, Quality
+# from picamera2.outputs import FfmpegOutput
+# from libcamera import controls
 
+from pathlib import Path
 import threading
 import sys
 import time
@@ -14,7 +14,6 @@ import glob
 import os
 
 import config
-
 
 def camera_init():
     """
@@ -244,7 +243,7 @@ def undistort_image(img, mtx, dist):
 
 prev_tvec = None
 prev_rvec = None
-def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_ref):
+def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_ref, post=False):
     """
     Capture a frame and detect the specified ArUco marker.
     :param picam2: Picamera2 object
@@ -254,45 +253,62 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
     :param frame_counter: Frame counter for naming the saved file
     :return: Pose information (position and orientation) if found, else None and time when frame captured.
     """
-    # Capture a frame
-    frame_rgb = picam2.capture_array("main")              
-    time_frame_captured = time.time()
+    if not post:
+        # Capture a frame
+        frame_rgb = picam2.capture_array("main")
+        time_frame_captured = time.time()
+    else:
+        # load image
+        frame_rgb = picam2 # here picam2 an image
+        time_frame_captured = time.time()
+
     frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
     if config.PRE_PROCESS:
         # gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
-        #gray = cv.GaussianBlur(gray, (3,3), 0) #maybe lower blur
-        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8)) # CLAHE for local contrast enhancement
-        gray = clahe.apply(gray)
+        # gray = cv.GaussianBlur(gray, (3,3), 0) # did not improve
         # gray = cv.convertScaleAbs(gray, alpha = 1.5, beta = 0)  # increase contrast
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4)) # CLAHE for local contrast enhancement
+        gray = clahe.apply(gray)
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
     parameters = cv.aruco.DetectorParameters()
 
     if config.ADVANCED_PARAMETERS:
-        parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
-        parameters.cornerRefinementWinSize = 5     # 3–7
-        parameters.cornerRefinementMaxIterations = 50
-        parameters.cornerRefinementMinAccuracy = 0.01
-
+        # 1) Spend more time on thresholding (more tries, larger windows)
         parameters.adaptiveThreshWinSizeMin = 3
-        parameters.adaptiveThreshWinSizeMax = 23   # try 23–53 if lighting is hard
-        parameters.adaptiveThreshWinSizeStep = 10
-        parameters.adaptiveThreshConstant = 7      # try 3–10
+        parameters.adaptiveThreshWinSizeMax = 53      # ↑ from 23 for tougher lighting
+        parameters.adaptiveThreshWinSizeStep = 4      # smaller step = more attempts
+        parameters.adaptiveThreshConstant = 7
 
-        parameters.minMarkerPerimeterRate = 0.001 # Needs to be small for small markers (ChatGPT suggested 0.025)
-        parameters.maxMarkerPerimeterRate = 4.0
-        parameters.polygonalApproxAccuracyRate = 0.03  # 0.02–0.05
-        parameters.minCornerDistanceRate = 0.05
-        parameters.minDistanceToBorder = 3
-        parameters.minOtsuStdDev = 5.0
-        parameters.errorCorrectionRate = 0.6
-        parameters.perspectiveRemovePixelPerCell = 8   # 4–12
+        # 2) Widen candidate search while staying sane
+        parameters.minMarkerPerimeterRate = 0.01      # small markers
+        parameters.maxMarkerPerimeterRate = 6.0       # ↑ allow very large candidates
+        parameters.polygonalApproxAccuracyRate = 0.03 # 0.02–0.05; lower = tighter contour fit
+
+        # 3) Be tolerant but not sloppy with borders/bits
+        parameters.markerBorderBits = 1               # if your printed markers use 1; else match your print
+        parameters.maxErroneousBitsInBorderRate = 0.5 # ↑ tolerate imperfect borders (default ~0.35)
+
+        # 4) Corner refinement (already on) — make it a bit more tenacious
+        parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
+        parameters.cornerRefinementWinSize = 7        # was 5; 5–9 helps with blur/noise
+        parameters.cornerRefinementMaxIterations = 100
+        parameters.cornerRefinementMinAccuracy = 0.005
+
+        # 5) Perspective normalization — give it more resolution to work with
+        parameters.perspectiveRemovePixelPerCell = 10 # 8→10 or 12 increases detail
         parameters.perspectiveRemoveIgnoredMarginPerCell = 0.33
-        parameters.detectInvertedMarker = True         # big boost if lighting inverts
 
+        # 6) Distance/spacing heuristics
+        parameters.minCornerDistanceRate = 0.03       # ↓ allows tighter clusters of candidates
+        parameters.minMarkerDistanceRate = 0.02       # ↓ helps when markers are close together
+
+        # 7) Robustness toggles
+        parameters.detectInvertedMarker = True
+        
     detector = cv.aruco.ArucoDetector(dictionary, parameters)
     corners, ids, _ = detector.detectMarkers(gray)
 
@@ -452,11 +468,12 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
     os.makedirs(output_folder, exist_ok=True)
 
     # Get all image files in the folder
-    image_files = sorted(glob(os.path.join(folder_path, "*.png")) +
-                         glob(os.path.join(folder_path, "*.jpg")) +
-                         glob(os.path.join(folder_path, "*.jpeg")))
+    image_files = sorted(glob.glob(os.path.join(folder_path, "*.png")) +
+                         glob.glob(os.path.join(folder_path, "*.jpg")) +
+                         glob.glob(os.path.join(folder_path, "*.jpeg")))
     
-    frame_counter = 1
+    frame_counter = 0
+    detection_counter = 0
 
     for image_path in image_files:
          
@@ -467,55 +484,59 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
             print(f"Skipping unreadable file: {image_path}")
             continue
 
-        gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        corners, ids, _ = detector.detectMarkers(gray)
+        # gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        # corners, ids, _ = detector.detectMarkers(gray)
 
-        if ids is not None and config.ARUCO_ID in ids:
-            idx = np.where(ids == config.ARUCO_ID)[0][0]
-            image_points = corners[idx][0]  # shape (4,2), corner points in image
+        # if ids is not None and config.ARUCO_ID in ids:
+        #     idx = np.where(ids == config.ARUCO_ID)[0][0]
+        #     image_points = corners[idx][0]  # shape (4,2), corner points in image
 
-            # Define 3D object points for the marker (centered at origin, Z=0)
-            s = config.ARUCO_REAL_SIZE
-            object_points = np.array([
-                [-s/2,  s/2, 0],  # top-left
-                [ s/2,  s/2, 0],  # top-right
-                [ s/2, -s/2, 0],  # bottom-right
-                [-s/2, -s/2, 0]   # bottom-left
-            ], dtype=np.float32)
+        #     # Define 3D object points for the marker (centered at origin, Z=0)
+        #     s = config.ARUCO_REAL_SIZE
+        #     object_points = np.array([
+        #         [-s/2,  s/2, 0],  # top-left
+        #         [ s/2,  s/2, 0],  # top-right
+        #         [ s/2, -s/2, 0],  # bottom-right
+        #         [-s/2, -s/2, 0]   # bottom-left
+        #     ], dtype=np.float32)
 
-            # Adjust camera matrix to center the image (origin at the center of the image)
-            img_center_x = image.shape[1] / 2
-            img_center_y = image.shape[0] / 2
-            adjusted_mtx = mtx.copy()
-            adjusted_mtx[0, 2] = img_center_x
-            adjusted_mtx[1, 2] = img_center_y
+        #     # Adjust camera matrix to center the image (origin at the center of the image)
+        #     img_center_x = image.shape[1] / 2
+        #     img_center_y = image.shape[0] / 2
+        #     adjusted_mtx = mtx.copy()
+        #     adjusted_mtx[0, 2] = img_center_x
+        #     adjusted_mtx[1, 2] = img_center_y
 
-            # Solve PnP to find the rotation and translation vectors
-            success, rvec, tvec = cv.solvePnP(
-                object_points,
-                image_points,
-                adjusted_mtx,
-                dist,
-                flags=cv.SOLVEPNP_ITERATIVE
-                )
+        #     # Solve PnP to find the rotation and translation vectors
+        #     success, rvec, tvec = cv.solvePnP(
+        #         object_points,
+        #         image_points,
+        #         adjusted_mtx,
+        #         dist,
+        #         flags=cv.SOLVEPNP_ITERATIVE
+        #         )
 
-            # Project the 3D center of the marker to the image
-            marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
-            projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
-            projected_point = tuple(projected_center[0][0].astype(int))
+        #     # Project the 3D center of the marker to the image
+        #     marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
+        #     projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
+        #     projected_point = tuple(projected_center[0][0].astype(int))
 
-            if success:
-                annotated_image = draw_on_frame(image, projected_point)
-        else:
-            print(f"No marker found in: {image_path}")
-            annotated_image = image.copy()
+        #     if success:
+        #         annotated_image = draw_on_frame(image, projected_point)
+        # else:
+        #     print(f"No marker found in: {image_path}")
+        #     annotated_image = image.copy()
 
-        # Save to annotated_output
-        filename = os.path.basename(image_path)
-        filename = f"{output_folder}/frame_{frame_counter:04d}.png"
-        cv.imwrite(filename, annotated_image)
-        print(f"Annotated and saved: {filename}")
+        # # Save to annotated_output
+        # filename = os.path.basename(image_path)
+        # filename = f"{output_folder}/frame_{frame_counter:04d}.png"
+        # cv.imwrite(filename, annotated_image)
+        # print(f"Annotated and saved: {filename}")
 
+        dictionary, timeframe = detect_aruco_pose(image, mtx, dist, output_folder, frame_counter, time_start_ref=0, post=True)
+        if dictionary['x ArUco [m]'] is not None:
+            detection_counter += 1
+    print(f"Detected {detection_counter} of {frame_counter} images.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
