@@ -1,7 +1,7 @@
-# from picamera2 import Picamera2, Preview
-# from picamera2.encoders import H264Encoder, Quality
-# from picamera2.outputs import FfmpegOutput
-# from libcamera import controls
+from picamera2 import Picamera2, Preview
+from picamera2.encoders import H264Encoder, Quality
+from picamera2.outputs import FfmpegOutput
+from libcamera import controls
 
 from pathlib import Path
 import threading
