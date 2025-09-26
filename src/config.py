@@ -91,20 +91,20 @@ CAM_WIDTH_LOW = int(CAM_HEIGHT_LOW / ASPECT_RATIO)  # lower resolution settings,
 FRAME_RATE = 60                                     # in frames/sec
 CALIBRATION_SQUARE = 0.0323                         # size of the squares in the checkerboard, in meters
 CHECKERBOARD_SHAPE = (4, 7)                         # number of inner corners per row and column !!nb of squares - 1!!
-NB_IMAGES_CALIBRATION = 20                          # number of images to capture for calibration
+NB_IMAGES_CALIBRATION = 200                          # number of images to capture for calibration
 ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 unique markers
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 100                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+EXPOSURE_TIME = 4000                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
 
 # Marker detection
-AUTO_EXPOSURE = False                               # Enable auto exposure (used to be False)
-RECENTER_ORIGIN = True                              #  If we alter the center of the image (used to be True)
+AUTO_EXPOSURE = True                               # Enable auto exposure (used to be False)
+RECENTER_ORIGIN = False                              #  If we alter the center of the image (used to be True)
 ADVANCED_PARAMETERS = False                         # Enable advanced parameters for ArUco detection (used to be False)
-PRE_PROCESS = False                                 # Enable pre-processing of the image (used to be False)
-SOLVER = 0                                          # 0: standard solver, 1: PnP solver, 2: PnP solver with initial guess as last pose
+PRE_PROCESS = True                                 # Enable pre-processing of the image (used to be False)
+SOLVER = 2                                          # 0: standard solver, 1: PnP solver, 2: PnP solver with initial guess as last pose
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'

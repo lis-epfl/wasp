@@ -4,6 +4,7 @@ from picamera2.outputs import FfmpegOutput
 from pathlib import Path
 from libcamera import controls
 
+import threading
 import sys
 import time
 from datetime import datetime
@@ -241,6 +242,7 @@ def undistort_image(img, mtx, dist):
 
     return undistorted_img
 
+prev_tvec = None
 prev_rvec = None
 def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_ref):
     """
@@ -259,10 +261,11 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
     if config.PRE_PROCESS:
-        gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
-        gray = cv.GaussianBlur(gray, (3,3), 0) #maybe lower blur
-        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        gray = clahe.apply(gray)
+        # gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
+        #gray = cv.GaussianBlur(gray, (3,3), 0) #maybe lower blur
+        # clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        # gray = clahe.apply(gray)
+        gray = cv.convertScaleAbs(gray, alpha = 1.5, beta = 0)  # increase contrast
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
@@ -323,16 +326,19 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         elif config.SOLVER == 1:
             success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_IPPE_SQUARE)
         elif config.SOLVER == 2:
+            global prev_tvec
             global prev_rvec
-            if prev_rvec is None:
+            if prev_tvec is None:
                 success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_IPPE_SQUARE)
-                prev_rvec = rvec
             else:
                 success, rvec, tvec = cv.solvePnP(
                     object_points, image_points, adjusted_mtx, dist,
                     rvec=prev_rvec, tvec=prev_tvec, useExtrinsicGuess=True,
                     flags=cv.SOLVEPNP_IPPE_SQUARE
                     )
+            prev_tvec = tvec
+            prev_rvec = rvec
+            
         else:
             print("Unknown solver selected in config.SOLVER.")
 
@@ -377,7 +383,8 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         roll_aruco = None
 
     # Save image
-    cv.imwrite(filename, frame_bgr)
+    undistorted = undistort_image(gray, mtx, dist)
+    cv.imwrite(filename, undistorted)
 
     return {
         'x ArUco [m]': x_aruco,
