@@ -28,8 +28,8 @@ def camera_init():
 
     # Manually set exposure
     if config.AUTO_EXPOSURE:
-        picam2.set_controls({"AwbEnable": False, "AeEnable": True})  # Enable auto-exposure
-    
+        picam2.set_controls({"AwbEnable": True, "AeEnable": True})  # Enable auto-exposure
+    else:
         picam2.set_controls({
             "AwbEnable": False,                         # Disabling auto white balance
             "AeEnable": False,                          # Auto-exposure off
