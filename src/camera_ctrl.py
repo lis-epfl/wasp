@@ -43,11 +43,37 @@ def camera_init():
     return picam2
 
 
+def _stream_camera(picam, stop_event, window_name="Camera"):
+    """
+    Background preview thread (OpenCV window). No Qt/GL preview, so no extra event loop.
+    Press 'q' while the window is focused to stop the preview.
+    """
+    cv.namedWindow(window_name, cv.WINDOW_NORMAL)
+    try:
+        while not stop_event.is_set():
+            try:
+                frame_rgb = picam.capture_array()  # Picamera2 yields RGB
+                frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
+                cv.imshow(window_name, frame_bgr)
+            except Exception as e:
+                print(f"[Stream] Capture error: {e}")
+                break
+
+            # Check keypress
+            if cv.waitKey(1) & 0xFF == ord('q'):
+                stop_event.set()
+                break
+    finally:
+        cv.destroyWindow(window_name)
+
+
 def calibrate_camera():
     """
     Calibrate the camera using a checkerboard pattern.
-    This function captures images of the checkerboard pattern and computes the camera matrix and distortion coefficients.
-    The calibration data is saved in 'camera_calib/calib_data.npz'.
+    Captures images, detects corners, runs calibration, and saves results to:
+      - Unannotated images: camera_calib/calib_images/unannotated/
+      - Annotated images:   camera_calib/calib_images/annotated/
+      - Calibration data:   camera_calib/calib_data.npz
     """
     print('Starting camera calibration...')
 
@@ -59,32 +85,52 @@ def calibrate_camera():
     os.makedirs('camera_calib/calib_images/annotated', exist_ok=True)
     os.makedirs('camera_calib/calib_data', exist_ok=True)
 
+    # Start preview stream in background (no GUI event-loop conflicts)
+    print("Starting live preview (press 'q' to close the preview window)...")
+    stop_event = threading.Event()
+    stream_thread = threading.Thread(target=_stream_camera, args=(picam, stop_event), daemon=True)
+    stream_thread.start()
+
     # Capture images
     print('Capturing calibration images...')
-    time.sleep(10)
+    time.sleep(2)  # short settle time
 
-    for i in range(config.NB_IMAGES_CALIBRATION):
-        print(f'Taking image {i}')
-        filepath = f'camera_calib/calib_images/unannotated/{i}.jpg'
-        picam.capture_file(filepath)
-        time.sleep(10) # Wait for a few seconds before taking the next picture
+    try:
+        for i in range(config.NB_IMAGES_CALIBRATION):
+            print(f'Taking image {i+1}/{config.NB_IMAGES_CALIBRATION}')
+            filepath = f'camera_calib/calib_images/unannotated/{i:03d}.jpg'
+            try:
+                picam.capture_file(filepath)
+            except Exception as e:
+                print(f"Failed to capture {filepath}: {e}")
+            time.sleep(0.5)  # brief pause between shots (adjust as needed)
+    except KeyboardInterrupt:
+        print("Capture interrupted by user.")
+    finally:
+        # Stop preview thread
+        stop_event.set()
+        stream_thread.join(timeout=2)
 
-    picam.stop()
+    # Prepare object points for checkerboard
+    # CHECKERBOARD_SHAPE is expected as (cols, rows) = inner corners per row & per column
+    objp = np.zeros(
+        (1, config.CHECKERBOARD_SHAPE[0] * config.CHECKERBOARD_SHAPE[1], 3),
+        np.float32
+    )
+    objp[0, :, :2] = np.mgrid[
+        0:config.CHECKERBOARD_SHAPE[0],
+        0:config.CHECKERBOARD_SHAPE[1]
+    ].T.reshape(-1, 2)
+    objp *= config.CALIBRATION_SQUARE  # square size in meters
 
-    # Prepare object points
-    objp = np.zeros((1, config.CHECKERBOARD_SHAPE[0] * config.CHECKERBOARD_SHAPE[1], 3), np.float32)
-    objp[0,:,:2] = np.mgrid[0:config.CHECKERBOARD_SHAPE[0], 0:config.CHECKERBOARD_SHAPE[1]].T.reshape(-1, 2)
-    objp *= config.CALIBRATION_SQUARE # in meters
-
-    objpoints = []  # 3d points in real world space
-    imgpoints = []  # 2d points in image plane.
-
-    subpix_criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1) # Stop when either 30 iterations are done or the corner pos are not changing significantly (less than 0.1 px change)
+    objpoints = []  # 3D points in real world space
+    imgpoints = []  # 2D points in image plane
+    subpix_criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.1)
     image_shape = None
 
     # Process captured images
     print('Detecting checkerboard corners...')
-    images = glob.glob('camera_calib/calib_images/unannotated/*.jpg')
+    images = sorted(glob.glob('camera_calib/calib_images/unannotated/*.jpg'))
     for fname in images:
         image = cv.imread(fname)
         if image is None:
@@ -92,40 +138,62 @@ def calibrate_camera():
             continue
 
         gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        ret, corners = cv.findChessboardCorners(gray, config.CHECKERBOARD_SHAPE, 
-                                                cv.CALIB_CB_ADAPTIVE_THRESH + 
-                                                cv.CALIB_CB_FAST_CHECK + 
-                                                cv.CALIB_CB_NORMALIZE_IMAGE)
+
+        ret, corners = cv.findChessboardCorners(
+            gray,
+            config.CHECKERBOARD_SHAPE,
+            flags=cv.CALIB_CB_ADAPTIVE_THRESH |
+                  cv.CALIB_CB_FAST_CHECK |
+                  cv.CALIB_CB_NORMALIZE_IMAGE
+        )
+
         if ret:
-            print(f"Checkerboard in {fname}")
-            corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), subpix_criteria) # search window size 11x11, no zero zone with (-1, -1)
+            print(f"Checkerboard detected in {os.path.basename(fname)}")
+            corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), subpix_criteria)
             objpoints.append(objp)
             imgpoints.append(corners2)
 
-            annotated = cv.drawChessboardCorners(image, config.CHECKERBOARD_SHAPE, corners2, ret)
+            annotated = cv.drawChessboardCorners(image.copy(), config.CHECKERBOARD_SHAPE, corners2, ret)
             annotated_fname = f'camera_calib/calib_images/annotated/{os.path.basename(fname)}'
-            cv.imwrite(annotated_fname, annotated)
+            try:
+                cv.imwrite(annotated_fname, annotated)
+            except Exception as e:
+                print(f"Failed to write annotated image {annotated_fname}: {e}")
 
             if image_shape is None:
-                image_shape = gray.shape[::-1]
+                image_shape = gray.shape[::-1]  # (width, height)
         else:
-            print(f"Checkerboard not found in {fname}")
+            print(f"Checkerboard NOT found in {os.path.basename(fname)}")
 
     # Calibration computation
     if len(objpoints) < 1:
         print('Not enough valid images for calibration.')
-        return
-
-    print('Running calibration...')
-    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, image_shape, None, None)
-
-    if ret:
-        np.savez('camera_calib/calib_data.npz', mtx=mtx, dist=dist)
-        print('Calibration complete.')
-        print(f'Camera matrix:\n{mtx}')
-        print(f'Distortion coefficients:\n{dist}')
     else:
-        print('Calibration failed.')
+        print('Running calibration...')
+        # retval is RMS reprojection error (float), not a boolean
+        rms, mtx, dist, rvecs, tvecs = cv.calibrateCamera(
+            objpoints, imgpoints, image_shape, None, None
+        )
+
+        # Save calibration
+        try:
+            np.savez('camera_calib/calib_data.npz', mtx=mtx, dist=dist, rms=rms, image_size=image_shape)
+            print('Calibration complete.')
+            print(f'RMS reprojection error: {rms:.4f}')
+            print(f'Camera matrix:\n{mtx}')
+            print(f'Distortion coefficients:\n{dist.ravel()}')
+            print("Saved to camera_calib/calib_data.npz")
+        except Exception as e:
+            print(f"Failed to save calibration data: {e}")
+
+    # Cleanup camera
+    try:
+        Picamera2.close(picam)  # newer API
+    except Exception:
+        try:
+            picam.stop()
+        except Exception:
+            pass
 
 
 def generate_markers():
@@ -261,7 +329,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
                 prev_rvec = rvec
             else:
                 success, rvec, tvec = cv.solvePnP(
-                    object_points, image_points, mtx, dist,
+                    object_points, image_points, adjusted_mtx, dist,
                     rvec=prev_rvec, tvec=prev_tvec, useExtrinsicGuess=True,
                     flags=cv.SOLVEPNP_IPPE_SQUARE
                     )
