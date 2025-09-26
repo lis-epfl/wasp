@@ -100,6 +100,7 @@ EXPOSURE_TIME = 3000                                  # in microseconds (set 29 
 ANALOGUE_GAIN = 4.0                                 # in dB
 
 # Marker detection
+AUTO_EXPOSURE = False                               # Enable auto exposure (used to be False)
 RECENTER_ORIGIN = True                              #  If we alter the center of the image (used to be True)
 ADVANCED_PARAMETERS = False                         # Enable advanced parameters for ArUco detection (used to be False)
 PRE_PROCESS = False                                 # Enable pre-processing of the image (used to be False)

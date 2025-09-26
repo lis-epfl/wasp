@@ -27,12 +27,15 @@ def camera_init():
     picam2.configure(config_cam)
 
     # Manually set exposure
-    picam2.set_controls({
-        "AwbEnable": False,                         # Disabling auto white balance
-        "AeEnable": False,                          # Auto-exposure off
-        "ExposureTime": config.EXPOSURE_TIME,       # Exposure time in microseconds
-        "AnalogueGain": config.ANALOGUE_GAIN        # Fix gain for brightness
-    })
+    if config.AUTO_EXPOSURE:
+        picam2.set_controls({"AwbEnable": False, "AeEnable": True})  # Enable auto-exposure
+    
+        picam2.set_controls({
+            "AwbEnable": False,                         # Disabling auto white balance
+            "AeEnable": False,                          # Auto-exposure off
+            "ExposureTime": config.EXPOSURE_TIME,       # Exposure time in microseconds
+            "AnalogueGain": config.ANALOGUE_GAIN        # Fix gain for brightness
+        })
     picam2.start()
     metadata = picam2.capture_metadata()
     print("Exposure time (µs):", metadata["ExposureTime"])
