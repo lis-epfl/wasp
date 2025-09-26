@@ -173,7 +173,7 @@ def undistort_image(img, mtx, dist):
 
     return undistorted_img
 
-
+prev_rvec = None
 def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_ref):
     """
     Capture a frame and detect the specified ArUco marker.
@@ -255,11 +255,16 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         elif config.SOLVER == 1:
             success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_IPPE_SQUARE)
         elif config.SOLVER == 2:
-            success, rvec, tvec = cv.solvePnP(
-                object_points, image_points, mtx, dist,
-                rvec=prev_rvec, tvec=prev_tvec, useExtrinsicGuess=True,
-                flags=cv.SOLVEPNP_IPPE_SQUARE
-                )
+            global prev_rvec
+            if prev_rvec is None:
+                success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_IPPE_SQUARE)
+                prev_rvec = rvec
+            else:
+                success, rvec, tvec = cv.solvePnP(
+                    object_points, image_points, mtx, dist,
+                    rvec=prev_rvec, tvec=prev_tvec, useExtrinsicGuess=True,
+                    flags=cv.SOLVEPNP_IPPE_SQUARE
+                    )
         else:
             print("Unknown solver selected in config.SOLVER.")
 
