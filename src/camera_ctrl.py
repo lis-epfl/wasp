@@ -187,9 +187,38 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
     frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
+    if config.PRE_PROCESS:
+        gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
+        gray = cv.GaussianBlur(gray, (3,3), 0) #maybe lower blur
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        gray = clahe.apply(gray)
+
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
     parameters = cv.aruco.DetectorParameters()
+
+    if config.ADVANCED_PARAMETERS:
+        parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
+        parameters.cornerRefinementWinSize = 5     # 3–7
+        parameters.cornerRefinementMaxIterations = 50
+        parameters.cornerRefinementMinAccuracy = 0.01
+
+        parameters.adaptiveThreshWinSizeMin = 3
+        parameters.adaptiveThreshWinSizeMax = 23   # try 23–53 if lighting is hard
+        parameters.adaptiveThreshWinSizeStep = 10
+        parameters.adaptiveThreshConstant = 7      # try 3–10
+
+        parameters.minMarkerPerimeterRate = 0.001 # Needs to be small for small markers (ChatGPT suggested 0.025)
+        parameters.maxMarkerPerimeterRate = 4.0
+        parameters.polygonalApproxAccuracyRate = 0.03  # 0.02–0.05
+        parameters.minCornerDistanceRate = 0.05
+        parameters.minDistanceToBorder = 3
+        parameters.minOtsuStdDev = 5.0
+        parameters.errorCorrectionRate = 0.6
+        parameters.perspectiveRemovePixelPerCell = 8   # 4–12
+        parameters.perspectiveRemoveIgnoredMarginPerCell = 0.33
+        parameters.detectInvertedMarker = True         # big boost if lighting inverts
+
     detector = cv.aruco.ArucoDetector(dictionary, parameters)
     corners, ids, _ = detector.detectMarkers(gray)
 
@@ -212,11 +241,24 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         img_center_x = frame_bgr.shape[1] / 2
         img_center_y = frame_bgr.shape[0] / 2
         adjusted_mtx = mtx.copy()
-        adjusted_mtx[0, 2] = img_center_x
-        adjusted_mtx[1, 2] = img_center_y
+
+        if config.RECENTER_ORIGIN:
+            adjusted_mtx[0, 2] = img_center_x
+            adjusted_mtx[1, 2] = img_center_y
 
         # Solve PnP to find the rotation and translation vectors
-        success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_ITERATIVE)
+        if config.SOLVER == 0:
+            success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_ITERATIVE)
+        elif config.SOLVER == 1:
+            success, rvec, tvec = cv.solvePnP(object_points, image_points, adjusted_mtx, dist, flags=cv.SOLVEPNP_IPPE_SQUARE)
+        elif config.SOLVER == 2:
+            success, rvec, tvec = cv.solvePnP(
+                object_points, image_points, mtx, dist,
+                rvec=prev_rvec, tvec=prev_tvec, useExtrinsicGuess=True,
+                flags=cv.SOLVEPNP_IPPE_SQUARE
+                )
+        else:
+            print("Unknown solver selected in config.SOLVER.")
 
         # Compute ArUco position and orientation
         x_aruco = np.round(tvec[0], 2)

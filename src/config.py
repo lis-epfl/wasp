@@ -99,6 +99,11 @@ ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, 
 EXPOSURE_TIME = 3000                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 4.0                                 # in dB
 
+# Marker detection
+RECENTER_ORIGIN = True                              #  If we alter the center of the image (used to be True)
+ADVANCED_PARAMETERS = False                         # Enable advanced parameters for ArUco detection (used to be False)
+PRE_PROCESS = False                                 # Enable pre-processing of the image (used to be False)
+SOLVER = 0                                          # 0: standard solver, 1: PnP solver, 2: PnP solver with initial guess as last pose
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
