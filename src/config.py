@@ -8,8 +8,8 @@ STATE = {
     'TRACKING': 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.14          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
-DT_VISION = 0.14   # execution period for vision in seconds (7Hz)
+DT = 0.07          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
+DT_VISION = 0.07   # execution period for vision in seconds (7Hz)
 
 
 # Battery

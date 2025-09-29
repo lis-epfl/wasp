@@ -227,7 +227,7 @@ def load_calibration():
 
     return mtx, dist
 
-_undistort_map = None
+_undistort_maps = None
 def build_undistort_maps(image_shape, mtx, dist):
     global _undistort_maps
     if _undistort_maps is None or _undistort_maps[0].shape[::-1] != (image_shape[1], image_shape[0]):
