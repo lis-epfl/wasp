@@ -260,6 +260,15 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
     frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
+    # Crop the image if specified (config.CROP_X is in percentage of width, config.CROP_Y is in percentage of height)
+    if config.CROP_X > 0 or config.CROP_Y > 0:
+        h, w = gray.shape[:2]
+        x1 = int(w * config.CROP_X/2)
+        y1 = int(h * config.CROP_Y/2)
+        x2 = int(w * (1 - config.CROP_X/2))
+        y2 = int(h * (1 - config.CROP_Y/2))
+        gray = gray[y1:y2, x1:x2]
+
     if config.PRE_PROCESS:
         # Local contrast enhancement
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))

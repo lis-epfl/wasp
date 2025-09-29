@@ -103,9 +103,12 @@ SAVE_IMAGES = True                                 # save images during operatio
 # Marker detection
 AUTO_EXPOSURE = True                               # Enable auto exposure (used to be False)
 RECENTER_ORIGIN = False                              #  If we alter the center of the image (used to be True)
-ADVANCED_PARAMETERS = False                         # Enable advanced parameters for ArUco detection (used to be False)
+ADVANCED_PARAMETERS = True                         # Enable advanced parameters for ArUco detection (used to be False)
 PRE_PROCESS = True                                 # Enable pre-processing of the image (used to be False)
 SOLVER = 2                                          # 0: standard solver, 1: PnP solver, 2: PnP solver with initial guess as last pose
+CROP_X = 0.0                                        # percentage of image to crop (0.1 = 10%)
+CROP_Y = 0.0                                        # percentage of image to crop (0.1 = 10%)
+STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipline, in meters
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
