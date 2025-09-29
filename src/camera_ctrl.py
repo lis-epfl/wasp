@@ -1,7 +1,7 @@
-from picamera2 import Picamera2, Preview
-from picamera2.encoders import H264Encoder, Quality
-from picamera2.outputs import FfmpegOutput
-from libcamera import controls
+# from picamera2 import Picamera2, Preview
+# from picamera2.encoders import H264Encoder, Quality
+# from picamera2.outputs import FfmpegOutput
+# from libcamera import controls
 
 from pathlib import Path
 import threading
@@ -227,19 +227,14 @@ def load_calibration():
 
     return mtx, dist
 
-
-def undistort_image(img, mtx, dist):
-    """
-    Undistort an image using the camera matrix and distortion coefficients.
-    :param img: Input distorted image
-    :param mtx: Camera matrix
-    :param dist: Distortion coefficients
-    :return undistorted_img: Undistorted image
-    """
-    h, w = img.shape[:2]
-    undistorted_img = cv.undistort(img, mtx, dist, None)
-
-    return undistorted_img
+_undistort_map = None
+def build_undistort_maps(image_shape, mtx, dist):
+    global _undistort_maps
+    if _undistort_maps is None or _undistort_maps[0].shape[::-1] != (image_shape[1], image_shape[0]):
+        newcameramtx, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (image_shape[1], image_shape[0]), 0)
+        _undistort_maps = cv.initUndistortRectifyMap(mtx, dist, None, newcameramtx,
+                                                     (image_shape[1], image_shape[0]), cv.CV_16SC2)
+    return _undistort_maps
 
 prev_tvec = None
 prev_rvec = None
@@ -270,16 +265,9 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
         gray = clahe.apply(gray)
 
-        # Denoise
-        gray = cv.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)  # or cv.fastNlMeansDenoising(gray, h=10)
-
         # Sharpen
         blur = cv.GaussianBlur(gray, (0,0), 1.0)
-        gray = cv.addWeighted(gray, 1.5, blur, -0.5, 0)
-        
-        # Illumination compensation
-        kernel = cv.getStructuringElement(cv.MORPH_RECT, (31,31))
-        gray_flat = cv.morphologyEx(gray, cv.MORPH_TOPHAT, kernel)
+        gray = cv.addWeighted(gray, 2, blur, -1, 0)
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
@@ -408,8 +396,10 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         roll_aruco = None
 
     # Save image
-    undistorted = undistort_image(gray, mtx, dist)
-    cv.imwrite(filename, undistorted)
+    if config.SAVE_IMAGES:
+        map1, map2 = build_undistort_maps(gray.shape, mtx, dist)
+        undistorted = cv.remap(gray, map1, map2, interpolation=cv.INTER_LINEAR)
+        cv.imwrite(filename, undistorted)
 
     return {
         'x ArUco [m]': x_aruco,
@@ -450,7 +440,8 @@ def take_picture():
     frame = picam2.capture_array("main")
     frame_bgr = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
 
-    undistorted = undistort_image(frame_bgr, mtx, dist)
+    map1, map2 = build_undistort_maps(gray.shape, mtx, dist)
+    undistorted = cv.remap(gray, map1, map2, interpolation=cv.INTER_LINEAR)
     # undistorted = frame_bgr.copy() # No undistortion = original image 
 
     save_path = "data"
