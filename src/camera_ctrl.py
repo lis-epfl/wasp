@@ -266,11 +266,20 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
     gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
 
     if config.PRE_PROCESS:
-        # gray = cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY)
-        # gray = cv.GaussianBlur(gray, (3,3), 0) # did not improve
-        # gray = cv.convertScaleAbs(gray, alpha = 1.5, beta = 0)  # increase contrast
-        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4)) # CLAHE for local contrast enhancement
+        # Local contrast enhancement
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
         gray = clahe.apply(gray)
+
+        # Denoise
+        gray = cv.bilateralFilter(gray, d=5, sigmaColor=50, sigmaSpace=50)  # or cv.fastNlMeansDenoising(gray, h=10)
+
+        # Sharpen
+        blur = cv.GaussianBlur(gray, (0,0), 1.0)
+        gray = cv.addWeighted(gray, 1.5, blur, -0.5, 0)
+        
+        # Illumination compensation
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (31,31))
+        gray_flat = cv.morphologyEx(gray, cv.MORPH_TOPHAT, kernel)
 
     # ArUco dictionary and detection setup
     dictionary = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
