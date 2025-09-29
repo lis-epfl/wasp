@@ -226,7 +226,7 @@ def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, sh
             if time_end_while - time_start_while < config.DT_VISION:
                 time.sleep(config.DT_VISION - (time_end_while - time_start_while))
             else:
-                print(f"Camera process: Execution time exceeded: {time_end_while - time_start_while} / {config.DT_VISION} s.")
+                print(f"Camera process: Execution time exceeded: {(time_end_while - time_start_while):.2f} / {config.DT_VISION:.2f} s.")
     except KeyboardInterrupt:
         print("\nCamera process stopped.")
     finally:
@@ -552,7 +552,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 if time_end_while - time_start_while < config.DT:
                     time.sleep(config.DT - (time_end_while - time_start_while))
                 else:
-                    print(f"Main process: Execution time exceeded: {time_end_while - time_start_while} / {config.DT} s.")
+                    print(f"Main process: Execution time exceeded: {(time_end_while - time_start_while):.2f} / {config.DT:.2f} s.")
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")

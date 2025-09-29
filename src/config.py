@@ -8,8 +8,8 @@ STATE = {
     'TRACKING': 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.07          # execution period in seconds (0.04 without the wind sensor, 0.12 with it)
-DT_VISION = 0.07   # execution period for vision in seconds (7Hz)
+DT = 0.1          # execution period in seconds (0.04 without the wind sensor, 0.12 with it) (can be set to 0.06666666 if save_images is False)
+DT_VISION = 0.1   # execution period for vision in seconds (7Hz) (can be set to 0.06666666 if save_images is False)
 
 
 # Battery
@@ -98,7 +98,7 @@ ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, 
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
 EXPOSURE_TIME = 4000                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = False                                 # save images during operation
+SAVE_IMAGES = True                                 # save images during operation
 
 # Marker detection
 AUTO_EXPOSURE = True                               # Enable auto exposure (used to be False)
