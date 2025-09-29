@@ -552,7 +552,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 if time_end_while - time_start_while < config.DT:
                     time.sleep(config.DT - (time_end_while - time_start_while))
                 else:
-                    print(f"Main process: Execution time exceeded {config.DT} seconds.")
+                    print(f"Main process: Execution time exceeded {config.DT} seconds with {time_end_while - time_start_while} seconds.")
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
