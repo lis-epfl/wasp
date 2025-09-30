@@ -69,7 +69,6 @@ PWM_MIN_PULSE_WIDTH = 1050          # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500      # in µs
 PWM_MAX_PULSE_WIDTH = 1950          # in µs
 GO_STOP_THRESHOLD = 200             # in µs
-STAY_TRACKING_THRESHOLD = 75        # in µs
 BUTTON_TOGGLE_THRESHOLD = 200       # in µs
 CALIB_SETPOINTS_THRESHOLD = 100     # in µs
 REMOTE_COMMAND = {

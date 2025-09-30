@@ -127,7 +127,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     # Logic for remote command and target speed
                     if remote_command == 3:
                         # Tracking mode
-                        if (button_in_default_position) or abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.STAY_TRACKING_THRESHOLD:
+                        if (button_in_default_position) or abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.GO_STOP_THRESHOLD:
                             # if the button or the trottle is touched, stop tracking
                             remote_command = 0 
                             target_speed = 0.0
