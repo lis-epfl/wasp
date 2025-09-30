@@ -84,7 +84,7 @@ COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 # Camera
 CAM_HEIGHT = 1456                                   # camera default resolution (maximum), in pixels
 CAM_WIDTH = 1088                                    # camera default resolution (maximum), in pixels
-RES_DROP = 1                                        # resolution drop factor
+RES_DROP = 1.0                                      # resolution drop factor
 ASPECT_RATIO = CAM_HEIGHT / CAM_WIDTH               # aspect ratio (4/3)
 CAM_HEIGHT_LOW = int(CAM_HEIGHT / RES_DROP)         # lower resolution settings, in pixels
 CAM_WIDTH_LOW = int(CAM_HEIGHT_LOW / ASPECT_RATIO)  # lower resolution settings, in pixels
@@ -108,7 +108,8 @@ PRE_PROCESS = True                                 # Enable pre-processing of th
 SOLVER = 2                                          # 0: standard solver, 1: PnP solver, 2: PnP solver with initial guess as last pose
 CROP_X = 0.0                                        # percentage of image to crop (0.1 = 10%)
 CROP_Y = 0.0                                        # percentage of image to crop (0.1 = 10%)
-STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipline, in meters
+RES_DROP_PRE = 1.0                                 # resolution drop factor for pre-processing (used to be 1.0)
+STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'

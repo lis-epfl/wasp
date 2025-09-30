@@ -269,7 +269,25 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         y2 = int(h * (1 - config.CROP_Y/2))
         gray = gray[y1:y2, x1:x2]
 
+    # Adjust camera matrix to center the image (origin at the center of the image)
+    img_center_x = frame_bgr.shape[1] / 2
+    img_center_y = frame_bgr.shape[0] / 2
+    adjusted_mtx = mtx.copy()
+
+    if config.RECENTER_ORIGIN:
+        adjusted_mtx[0, 2] = img_center_x
+        adjusted_mtx[1, 2] = img_center_y
+
     if config.PRE_PROCESS:
+        # Lower resolution
+        sx = config.RES_DROP_PRE
+        sy = config.RES_DROP_PRE
+        gray = cv.resize(gray, (0,0), fx=sx, fy=sy, interpolation=cv.INTER_AREA)
+        S = np.array([[sx, 0,  0],
+                  [0,  sy, 0],
+                  [0,  0,  1]], dtype=adjusted_mtx.dtype)
+        adjusted_mtx = S @ adjusted_mtx
+
         # Local contrast enhancement
         clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
         gray = clahe.apply(gray)
@@ -332,15 +350,6 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
             [ s/2, -s/2, 0],  # bottom-right
             [-s/2, -s/2, 0]   # bottom-left
         ], dtype=np.float32)
-
-        # Adjust camera matrix to center the image (origin at the center of the image)
-        img_center_x = frame_bgr.shape[1] / 2
-        img_center_y = frame_bgr.shape[0] / 2
-        adjusted_mtx = mtx.copy()
-
-        if config.RECENTER_ORIGIN:
-            adjusted_mtx[0, 2] = img_center_x
-            adjusted_mtx[1, 2] = img_center_y
 
         # Solve PnP to find the rotation and translation vectors
         if config.SOLVER == 0:
@@ -406,7 +415,7 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
 
     # Save image
     if config.SAVE_IMAGES:
-        map1, map2 = build_undistort_maps(gray.shape, mtx, dist)
+        map1, map2 = build_undistort_maps(gray.shape, adjusted_mtx, dist)
         undistorted = cv.remap(gray, map1, map2, interpolation=cv.INTER_LINEAR)
         cv.imwrite(filename, undistorted)
 
