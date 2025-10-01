@@ -606,6 +606,94 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         except Exception as e:
             print(f"Plotting failed: {e}")
 
+        # --- NEW: build a GIF from the latest frames_* folder ---
+        try:
+            # FPS is configurable via config.GIF_FPS; defaults to 10 if not set.
+            # You can also cap frames with 'limit' to keep file size reasonable.
+            make_gif_from_latest_frames(Path(save_path), fps=getattr(config, "GIF_FPS", 10), limit=getattr(config, "GIF_MAX_FRAMES", None))
+        except Exception as e:
+            print(f"GIF creation error: {e}")
+
+
+def _natural_key(p: Path):
+    # natural sort by numbers in filenames: 0001, 0002, 0010 ...
+    return [int(t) if t.isdigit() else t.lower() for t in re.findall(r'\d+|\D+', p.stem)]
+
+def make_gif_from_latest_frames(base_dir: Path, fps: int = None, limit: int = None) -> Path | None:
+    """
+    Create a GIF from the most recent frames_* folder inside base_dir.
+    Returns the GIF path if created, else None.
+
+    Args:
+        base_dir: the run folder (same 'save_path' you pass to camera_process), e.g. data/run_2025-09-30_12-34-56
+        fps: frames per second for the GIF (default: config.GIF_FPS or 10)
+        limit: optional max number of frames (take the last N) to keep GIF size reasonable
+    """
+    try:
+        from PIL import Image
+    except Exception as e:
+        print(f"GIF skipped: Pillow not available ({e}).")
+        return None
+
+    fps = fps if fps is not None else getattr(config, "GIF_FPS", 10)
+
+    # Pick the newest frames_* dir
+    frames_dirs = sorted((p for p in base_dir.glob("frames_*") if p.is_dir()), key=lambda p: p.stat().st_mtime)
+    if not frames_dirs:
+        print("GIF skipped: no 'frames_*' directory found.")
+        return None
+    frames_dir = frames_dirs[-1]
+
+    # Collect images (jpg + png)
+    imgs = sorted(list(frames_dir.glob("*.jpg")) + list(frames_dir.glob("*.png")), key=_natural_key)
+    if not imgs:
+        print(f"GIF skipped: no images found in {frames_dir}.")
+        return None
+
+    if limit is not None and len(imgs) > limit:
+        imgs = imgs[-limit:]  # keep most recent 'limit' frames
+
+    # Load with Pillow; normalize sizes to first image
+    pil_imgs = []
+    first = Image.open(imgs[0]).convert("RGB")
+    w0, h0 = first.size
+    pil_imgs.append(first)
+
+    for p in imgs[1:]:
+        try:
+            im = Image.open(p).convert("RGB")
+            if im.size != (w0, h0):
+                im = im.resize((w0, h0))
+            pil_imgs.append(im)
+        except Exception as e:
+            print(f"GIF: skipping unreadable frame {p.name}: {e}")
+
+    if len(pil_imgs) < 2:
+        print("GIF skipped: not enough frames to animate.")
+        return None
+
+    videos_dir = base_dir / "videos"
+    videos_dir.mkdir(parents=True, exist_ok=True)
+    out_gif = videos_dir / f"{frames_dir.name}.gif"
+
+    # duration per frame in ms
+    duration_ms = int(1000 / max(1, fps))
+
+    try:
+        pil_imgs[0].save(
+            out_gif,
+            save_all=True,
+            append_images=pil_imgs[1:],
+            duration=duration_ms,
+            loop=0,
+            optimize=True,
+            quality=85,
+        )
+        print(f"GIF saved: {out_gif}")
+        return out_gif
+    except Exception as e:
+        print(f"GIF failed to save: {e}")
+        return None
 
 if __name__ == "__main__":
     # Create a folder to save the data
