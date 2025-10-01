@@ -266,13 +266,16 @@ class ArucoPipeline:
 
         # Save exactly what we drew on
         saved_path = None
-        if save_path is not None and getattr(config, "SAVE_IMAGES", False):
+        if (save_path is not None) and (config.SAVE_IMAGES > 0):
             os.makedirs(save_path, exist_ok=True)
             if found:
                 fname = f"{save_path}/frame_{frame_counter:04d}_found_{(t_cap - time_start_ref):.3f}.png"
             else:
                 fname = f"{save_path}/frame_{frame_counter:04d}_{(t_cap - time_start_ref):.3f}.png"
-            cv.imwrite(fname, annotated)
+            if config.SAVE_IMAGES == 1:
+                cv.imwrite(fname, annotated)
+            elif config.SAVE_IMAGES == 2:
+                cv.imwrite(fname, frame_bgr)
             saved_path = fname
 
         return pose, t_cap, saved_path
@@ -614,10 +617,10 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
 
     print(f"Detected {found_count} of {len(files)} images.")
 
-    images_to_mp4(image_path=out_dir, fps=1/config.DT_VISION)
+    images_to_mp4(out_dir, fps=1/config.DT_VISION)
 
 
-def images_to_mp4(image_path=None, output_path=None, fps=20, pattern=("*.jpg", "*.png")):
+def images_to_mp4(image_path, output_path=None, fps=20, pattern=("*.jpg", "*.png")):
     """
     Create an MP4 video from all images in a folder.
 
@@ -627,9 +630,6 @@ def images_to_mp4(image_path=None, output_path=None, fps=20, pattern=("*.jpg", "
         fps (int): frames per second (default 20).
         pattern (tuple): glob patterns of image formats to include.
     """
-    if image_path is None:
-        image_path = getattr(config, "SAVE_IMAGES", False)
-    image_path = Path(image_path)
     if output_path is None:
         output_path = image_path / "onboard_video.mp4"
     else:

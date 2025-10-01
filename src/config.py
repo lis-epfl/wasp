@@ -97,7 +97,7 @@ ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, 
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
 EXPOSURE_TIME = 4000                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = True                                 # save images during operation
+SAVE_IMAGES = 0                                 # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
 
 # Marker detection
 AUTO_EXPOSURE = True                               # Enable auto exposure (used to be False)
