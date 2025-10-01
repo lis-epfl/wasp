@@ -109,6 +109,7 @@ CROP_X = 0.0                                        # percentage of image to cro
 CROP_Y = 0.0                                        # percentage of image to crop (0.1 = 10%)
 RES_DROP_PRE = 1.0                                 # resolution drop factor for pre-processing (used to be 1.0)
 STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
+UNDISTORT = True                                    # set False to work in distorted (raw) domain
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
