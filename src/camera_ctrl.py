@@ -184,12 +184,12 @@ class ArucoPipeline:
 
     # ---------- Main entry ----------
 
-    def process_bgr_frame(self, frame_bgr, save_path=None, frame_counter=0, time_start_ref=0.0):
+    def process_bgr_frame(self, frame_bgr, t_cap, save_path=None, frame_counter=0, time_start_ref=0.0):
         """
         Input: distorted BGR frame.
         Output: (pose_dict, time_frame_captured, saved_path or None).
         """
-        t_cap = time.time()
+        time_process = time.time()
 
         if getattr(config, "UNDISTORT", True):
             self._ensure_undistorter(frame_bgr)
@@ -264,7 +264,10 @@ class ArucoPipeline:
                 annotated = draw_on_frame(gray, pt)
                 found = True
 
+        duration_process = time_process - time.time()
+
         # Save exactly what we drew on
+        time_save = time.time()
         saved_path = None
         if (save_path is not None) and (config.SAVE_IMAGES > 0):
             os.makedirs(save_path, exist_ok=True)
@@ -278,7 +281,7 @@ class ArucoPipeline:
                 cv.imwrite(fname, annotated)
             saved_path = fname
 
-        return pose, t_cap, saved_path
+        return pose, duration_process, saved_path
 
 
 # =========================
@@ -610,7 +613,7 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
             print(f"Skipping unreadable file: {path}")
             continue
         pose, _, _ = pipeline.process_bgr_frame(
-            img, save_path=out_dir, frame_counter=i, time_start_ref=t0
+            img, time.time(), save_path=out_dir, frame_counter=i, time_start_ref=t0
         )
         if pose['x ArUco [m]'] is not None:
             found_count += 1
@@ -697,7 +700,7 @@ def camera_live_detect():
             frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
             i += 1
             pose, _, _ = pipeline.process_bgr_frame(
-                frame_bgr, save_path=save_dir, frame_counter=i, time_start_ref=t0
+                frame_bgr, time.time(), save_path=save_dir, frame_counter=i, time_start_ref=t0
             )
             if pose['x ArUco [m]'] is not None:
                 print(f"[{i}] Pose: x={pose['x ArUco [m]']}, y={pose['y ArUco [m]']}, z={pose['z ArUco [m]']}, "

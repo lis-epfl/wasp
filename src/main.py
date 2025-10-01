@@ -226,8 +226,9 @@ def camera_process(save_path, time_start_ref,
                 time_camera = time.time()
 
                 # Process with pipeline (undistorted or distorted depending on config.UNDISTORT)
-                ArUco_pose, time_frame_captured, _ = pipeline.process_bgr_frame(
+                ArUco_pose, duration_process, _ = pipeline.process_bgr_frame(
                     frame_bgr,
+                    time_camera,
                     save_path=str(save_path),
                     frame_counter=frame_counter,
                     time_start_ref=time_start_ref
@@ -245,7 +246,7 @@ def camera_process(save_path, time_start_ref,
                     shared_roll_aruco.value  = ArUco_pose['roll ArUco [deg]']  if ArUco_pose['roll ArUco [deg]']  is not None else float('nan')
                     shared_pitch_aruco.value = ArUco_pose['pitch ArUco [deg]'] if ArUco_pose['pitch ArUco [deg]'] is not None else float('nan')
                     shared_yaw_aruco.value   = ArUco_pose['yaw ArUco [deg]']   if ArUco_pose['yaw ArUco [deg]']   is not None else float('nan')
-                    shared_time_frame_captured.value = time_frame_captured
+                    shared_time_frame_captured.value = time_camera
             else:
                 time.sleep(0.01)
 
@@ -254,7 +255,8 @@ def camera_process(save_path, time_start_ref,
             if dt < config.DT_VISION:
                 time.sleep(config.DT_VISION - dt)
             else:
-                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s. Time camera: {time_camera - time_start_while:.4f} s. Time detector: {time_detector - time_camera:.4f} s.")
+                time_saving = time_end_while - time_camera - duration_process
+                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s. Time camera: {time_camera - time_start_while:.4f} s. Time detector: {duration_process:.4f} s. Time saving: {time_saving:.4f} s.")
     except KeyboardInterrupt:
         print("\nCamera process stopped.")
     finally:
