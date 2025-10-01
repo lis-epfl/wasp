@@ -222,8 +222,7 @@ def camera_process(save_path, time_start_ref,
 
             if shared_detect_flag.value == 1:
                 # Grab frame (Picamera2 gives RGB) and convert to BGR for OpenCV
-                frame_rgb = camera.capture_array("main")
-                frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
+                frame_bgr = camera_ctrl.capture_bgr_frame(camera)
 
                 # Process with pipeline (undistorted or distorted depending on config.UNDISTORT)
                 ArUco_pose, time_frame_captured, _ = pipeline.process_bgr_frame(

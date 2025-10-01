@@ -274,7 +274,7 @@ class ArucoPipeline:
 
 
 # =========================
-# Draw helper
+# Helpers
 # =========================
 
 def draw_on_frame(frame, projected_point, corners=None):
@@ -295,6 +295,14 @@ def draw_on_frame(frame, projected_point, corners=None):
 
     return img
 
+def capture_bgr_frame(picam2):
+    """
+    Capture a frame from Picamera2 and return it as a BGR numpy array
+    (ready for OpenCV).
+    """
+    frame_rgb = picam2.capture_array("main")
+    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
+    return frame_bgr
 
 
 # =========================
