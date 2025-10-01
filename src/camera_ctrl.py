@@ -199,7 +199,9 @@ class ArucoPipeline:
             gray, K_work, dist_work = self._prep_distorted_gray_and_K(frame_bgr)
 
         # Detect ArUco
+        # t_detector = time.time()
         corners, ids, _ = self.detector.detectMarkers(gray)
+        # print(f"[Aruco] Detection time: {(time.time() - t_detector)*1000:.1f} ms")
 
         pose = {
             'x ArUco [m]': None,
@@ -273,9 +275,9 @@ class ArucoPipeline:
             else:
                 fname = f"{save_path}/frame_{frame_counter:04d}_{(t_cap - time_start_ref):.3f}.png"
             if config.SAVE_IMAGES == 1:
-                cv.imwrite(fname, annotated)
-            elif config.SAVE_IMAGES == 2:
                 cv.imwrite(fname, frame_bgr)
+            elif config.SAVE_IMAGES == 2:
+                cv.imwrite(fname, annotated)
             saved_path = fname
 
         return pose, t_cap, saved_path
