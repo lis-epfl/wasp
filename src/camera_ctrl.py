@@ -361,27 +361,42 @@ def calibrate_camera():
     """
     Checkerboard calibration.
     Saves images and 'camera_calib/calib_data/calib_data.npz' (mtx, dist, rms, image_size).
+    Additionally creates:
+      - camera_calib/result/0_before/ : 5 random raw images from the capture set
+      - camera_calib/result/0_after/  : their undistorted counterparts (post-calibration)
     """
+    import random
+
     print('Starting camera calibration...')
     picam = camera_init()
 
-    os.makedirs('camera_calib/calib_images/unannotated', exist_ok=True)
-    os.makedirs('camera_calib/calib_images/annotated', exist_ok=True)
-    os.makedirs('camera_calib/calib_data', exist_ok=True)
+    # Base folders
+    unann_dir = 'camera_calib/calib_images/unannotated'
+    ann_dir = 'camera_calib/calib_images/annotated'
+    data_dir = 'camera_calib/calib_data'
+    result_dir = 'camera_calib/result'
+    before_dir = os.path.join(result_dir, '0_before')
+    after_dir = os.path.join(result_dir, '0_after')
 
-    # preview in background
+    os.makedirs(unann_dir, exist_ok=True)
+    os.makedirs(ann_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(before_dir, exist_ok=True)
+    os.makedirs(after_dir, exist_ok=True)
+
+    # Preview in background
     print("Starting live preview (press 'q' to close the preview window)...")
     stop_event = threading.Event()
     th = threading.Thread(target=_stream_camera, args=(picam, stop_event), daemon=True)
     th.start()
 
-    # capture stills
+    # Capture stills
     print('Capturing calibration images...')
     time.sleep(2)
     try:
         for i in range(config.NB_IMAGES_CALIBRATION):
             print(f'Taking image {i+1}/{config.NB_IMAGES_CALIBRATION}')
-            path = f'camera_calib/calib_images/unannotated/{i:03d}.jpg'
+            path = f'{unann_dir}/{i:03d}.jpg'
             try:
                 picam.capture_file(path)
             except Exception as e:
@@ -393,7 +408,28 @@ def calibrate_camera():
         stop_event.set()
         th.join(timeout=2)
 
-    # corner detection
+    # -------------------------
+    # Pick 5 random "before" images
+    # -------------------------
+    all_imgs = sorted(glob.glob(os.path.join(unann_dir, '*.jpg')))
+    if not all_imgs:
+        print("No images found for calibration.")
+    # select up to 5 distinct images
+    k = min(5, len(all_imgs))
+    sample_before = random.sample(all_imgs, k) if k > 0 else []
+
+    # Copy raw images into result/0_before (keep original filenames)
+    for src in sample_before:
+        img = cv.imread(src)
+        if img is None:
+            print(f"[before] Skipping unreadable file: {src}")
+            continue
+        dst = os.path.join(before_dir, os.path.basename(src))
+        cv.imwrite(dst, img)
+
+    # -------------------------
+    # Corner detection
+    # -------------------------
     objp = np.zeros((1, config.CHECKERBOARD_SHAPE[0] * config.CHECKERBOARD_SHAPE[1], 3), np.float32)
     objp[0, :, :2] = np.mgrid[
         0:config.CHECKERBOARD_SHAPE[0],
@@ -406,8 +442,7 @@ def calibrate_camera():
     image_shape = None
 
     print('Detecting checkerboard corners...')
-    images = sorted(glob.glob('camera_calib/calib_images/unannotated/*.jpg'))
-    for fname in images:
+    for fname in all_imgs:
         image = cv.imread(fname)
         if image is None:
             print(f"Could not read image: {fname}")
@@ -425,26 +460,51 @@ def calibrate_camera():
             imgpoints.append(corners2)
 
             annotated = cv.drawChessboardCorners(image.copy(), config.CHECKERBOARD_SHAPE, corners2, ret)
-            cv.imwrite(f'camera_calib/calib_images/annotated/{os.path.basename(fname)}', annotated)
+            cv.imwrite(f'{ann_dir}/{os.path.basename(fname)}', annotated)
 
             if image_shape is None:
                 image_shape = gray.shape[::-1]  # (width, height)
         else:
             print(f"Checkerboard NOT found in {os.path.basename(fname)}")
 
-    if len(objpoints) < 1:
+    # -------------------------
+    # Calibration + "after" images
+    # -------------------------
+    if len(objpoints) < 1 or image_shape is None:
         print('Not enough valid images for calibration.')
     else:
         print('Running calibration...')
         rms, mtx, dist, _, _ = cv.calibrateCamera(objpoints, imgpoints, image_shape, None, None)
-        np.savez('camera_calib/calib_data/calib_data.npz', mtx=mtx, dist=dist, rms=rms, image_size=image_shape)
+        np.savez(f'{data_dir}/calib_data.npz', mtx=mtx, dist=dist, rms=rms, image_size=image_shape)
         print('Calibration complete.')
         print(f'RMS reprojection error: {rms:.4f}')
         print(f'Camera matrix:\n{mtx}')
         print(f'Distortion coefficients:\n{dist.ravel()}')
-        print("Saved to camera_calib/calib_data/calib_data.npz")
+        print(f"Saved to {data_dir}/calib_data.npz")
 
-    # cleanup
+        # Create undistorted versions of the same 5 "before" images in result/0_after
+        # Use K_new and remap for clean results
+        if sample_before:
+            # Determine size from the first sampled image
+            test_img = cv.imread(sample_before[0])
+            if test_img is not None:
+                h, w = test_img.shape[:2]
+                K_new, _ = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), alpha=0.0)
+                map1, map2 = cv.initUndistortRectifyMap(mtx, dist, None, K_new, (w, h), cv.CV_32FC1)
+
+                for src in sample_before:
+                    img = cv.imread(src)
+                    if img is None:
+                        print(f"[after] Skipping unreadable file: {src}")
+                        continue
+                    undist = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR)
+                    dst = os.path.join(after_dir, os.path.basename(src))
+                    cv.imwrite(dst, undist)
+                print(f"Saved {len(sample_before)} undistorted images to {after_dir}")
+            else:
+                print("Could not read a sampled 'before' image to create 'after' set.")
+
+    # Cleanup camera
     try:
         Picamera2.close(picam)
     except Exception:
