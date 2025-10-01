@@ -199,9 +199,7 @@ class ArucoPipeline:
             gray, K_work, dist_work = self._prep_distorted_gray_and_K(frame_bgr)
 
         # Detect ArUco
-        # t_detector = time.time()
         corners, ids, _ = self.detector.detectMarkers(gray)
-        # print(f"[Aruco] Detection time: {(time.time() - t_detector)*1000:.1f} ms")
 
         pose = {
             'x ArUco [m]': None,

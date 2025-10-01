@@ -223,6 +223,7 @@ def camera_process(save_path, time_start_ref,
             if shared_detect_flag.value == 1:
                 # Grab frame (Picamera2 gives RGB) and convert to BGR for OpenCV
                 frame_bgr = camera_ctrl.capture_bgr_frame(camera)
+                time_camera = time.time()
 
                 # Process with pipeline (undistorted or distorted depending on config.UNDISTORT)
                 ArUco_pose, time_frame_captured, _ = pipeline.process_bgr_frame(
@@ -231,6 +232,7 @@ def camera_process(save_path, time_start_ref,
                     frame_counter=frame_counter,
                     time_start_ref=time_start_ref
                 )
+                time_detector = time.time()
                 frame_counter += 1
 
                 # Update shared memory (keep your sign convention on X)
@@ -252,7 +254,7 @@ def camera_process(save_path, time_start_ref,
             if dt < config.DT_VISION:
                 time.sleep(config.DT_VISION - dt)
             else:
-                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s.")
+                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s. Time camera: {time_camera - time_start_while:.4f} s. Time detector: {time_detector - time_camera:.4f} s.")
     except KeyboardInterrupt:
         print("\nCamera process stopped.")
     finally:
