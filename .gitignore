@@ -30,5 +30,5 @@ src/data/
 src/Figures/
 src/zipline_calib/
 
-src/camera_calib/calib_images
+src/camera_calib/*
 src/Figures/frame*

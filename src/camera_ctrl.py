@@ -367,7 +367,6 @@ def calibrate_camera():
       - camera_calib/result/after/  : their undistorted counterparts (post-calibration)
     """
     print('Starting camera calibration...')
-    picam = camera_init()
 
     # Base folders
     unann_dir = 'camera_calib/calib_images/unannotated'
@@ -383,6 +382,7 @@ def calibrate_camera():
     os.makedirs(before_dir, exist_ok=True)
     os.makedirs(after_dir, exist_ok=True)
 
+    picam = camera_init()
     # Preview in background
     print("Starting live preview (press 'q' to close the preview window)...")
     stop_event = threading.Event()
