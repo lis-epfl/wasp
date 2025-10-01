@@ -599,10 +599,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
-            print("Plotting data...")
             plot_motor_data.plot_data(csv_path)
+            print("Plotting motor data complete")
             # plot_li550_data.plot_data(csv_path)
             plot_li550_data.create_video_from_data(csv_path)
+            print("Creating video complete")
         except Exception as e:
             print(f"Plotting failed: {e}")
 

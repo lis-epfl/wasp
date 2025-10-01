@@ -2,6 +2,7 @@ import csv
 import math
 from pathlib import Path
 import matplotlib.pyplot as plt
+plt.use('Agg')  # Use a non-interactive backend
 from matplotlib.ticker import FormatStrFormatter
 import sys
 import numpy as np
