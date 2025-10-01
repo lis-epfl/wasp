@@ -617,7 +617,7 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
     images_to_mp4(image_path=out_dir, fps=1/config.DT_VISION)
 
 
-def images_to_mp4(image_path=None, fps=20, pattern=("*.jpg", "*.png")):
+def images_to_mp4(image_path=None, output_path=None, fps=20, pattern=("*.jpg", "*.png")):
     """
     Create an MP4 video from all images in a folder.
 
@@ -630,7 +630,10 @@ def images_to_mp4(image_path=None, fps=20, pattern=("*.jpg", "*.png")):
     if image_path is None:
         image_path = getattr(config, "SAVE_IMAGES", False)
     image_path = Path(image_path)
-    output_path = image_path / "output.mp4"
+    if output_path is None:
+        output_path = image_path / "onboard_video.mp4"
+    else:
+        output_path = output_path / "onboard_video.mp4"
 
     # Collect files
     files = []
