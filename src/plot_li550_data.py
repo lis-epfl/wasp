@@ -1,7 +1,8 @@
 import csv
 from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
-plt.use('Agg')  # Use a non-interactive backend
 import random
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 from mpl_toolkits.mplot3d import Axes3D
