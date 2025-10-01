@@ -212,8 +212,8 @@ def camera_process(save_path, time_start_ref,
     }
 
     # Data recording settings    
-    timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path(save_path) / f"frames_{timestamp_folder}"
+    # timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    save_path = Path(save_path) / "frames"
     save_path.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -603,7 +603,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             print("Plotting motor data complete")
             # plot_li550_data.plot_data(csv_path)
             # plot_li550_data.create_video_from_data(csv_path)
-            video_input = save_path / f"frames_{timestamp_folder}"
+            video_input = save_path / "frames"
             camera_ctrl.images_to_mp4(image_path=video_input, fps=1/config.DT_VISION)
         except Exception as e:
             print(f"Plotting failed: {e}")
