@@ -1,7 +1,7 @@
-from picamera2 import Picamera2, Preview
-from picamera2.encoders import H264Encoder, Quality
-from picamera2.outputs import FfmpegOutput
-from libcamera import controls
+# from picamera2 import Picamera2, Preview
+# from picamera2.encoders import H264Encoder, Quality
+# from picamera2.outputs import FfmpegOutput
+# from libcamera import controls
 
 from pathlib import Path
 import threading
@@ -401,6 +401,14 @@ def detect_aruco_pose(picam2, mtx, dist, save_path, frame_counter, time_start_re
         marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
         projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
         projected_point = tuple(projected_center[0][0].astype(int))
+
+        # Project the 3D center of the marker to the image
+        marker_center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
+        projected_center, _ = cv.projectPoints(marker_center_3d, rvec, tvec, adjusted_mtx, dist)
+        projected_point = tuple(projected_center[0][0].astype(int))
+
+        if success:
+            gray = draw_on_frame(gray, projected_point)
 
     else:
         # ArUco not found
