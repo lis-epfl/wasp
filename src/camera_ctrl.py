@@ -264,7 +264,7 @@ class ArucoPipeline:
                 annotated = draw_on_frame(gray, pt)
                 found = True
 
-        duration_process = time_process - time.time()
+        duration_process = time.time() - time_process
 
         # Save exactly what we drew on
         time_save = time.time()
