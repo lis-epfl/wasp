@@ -178,11 +178,30 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
         steering_line.release()
 
 
-def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
+def camera_process(save_path, time_start_ref,
+                   shared_x_aruco, shared_y_aruco, shared_z_aruco,
+                   shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco,
+                   shared_time_frame_captured, shared_detect_flag):
+
+    # Init camera
     camera = camera_ctrl.camera_init()
-    mtx, dist = camera_ctrl.load_calibration()
+
+    # Load calibration (supports functions that return (mtx, dist) or (mtx, dist, image_size))
+    cal = camera_ctrl.load_calibration()
+    if isinstance(cal, (list, tuple)) and len(cal) >= 2:
+        mtx, dist = cal[0], cal[1]
+    else:
+        raise RuntimeError("camera_ctrl.load_calibration() must return at least (mtx, dist).")
+
+    # Build ArUco pipeline once (reuses undistortion maps when UNDISTORT=True)
+    pipeline = camera_ctrl.ArucoPipeline(
+        mtx, dist,
+        alpha=getattr(config, "UNDISTORT_ALPHA", 0.0),
+        new_size=getattr(config, "UNDISTORT_SIZE", None)
+    )
+
     frame_counter = 1
-    time_frame_captured = 0
+    time_frame_captured = 0.0
     ArUco_pose = {
         'x ArUco [m]': None,
         'y ArUco [m]': None,
@@ -194,43 +213,54 @@ def camera_process(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, sh
 
     # Data recording settings    
     timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    
     save_path = Path(save_path) / f"frames_{timestamp_folder}"
     save_path.mkdir(parents=True, exist_ok=True)
+
     try:
         while True:
             time_start_while = time.time()
 
-            # Only compute if tracking is on
             if shared_detect_flag.value == 1:
+                # Grab frame (Picamera2 gives RGB) and convert to BGR for OpenCV
+                frame_rgb = camera.capture_array("main")
+                frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
 
-                ArUco_pose, time_frame_captured = camera_ctrl.detect_aruco_pose(camera, mtx, dist, save_path, frame_counter, time_start_ref)
+                # Process with pipeline (undistorted or distorted depending on config.UNDISTORT)
+                ArUco_pose, time_frame_captured, _ = pipeline.process_bgr_frame(
+                    frame_bgr,
+                    save_path=str(save_path),
+                    frame_counter=frame_counter,
+                    time_start_ref=time_start_ref
+                )
                 frame_counter += 1
 
-                with shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(), shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(), shared_time_frame_captured.get_lock():
-                    shared_x_aruco.value = - ArUco_pose['x ArUco [m]'] if ArUco_pose['x ArUco [m]'] is not None else float('nan')
-                    shared_y_aruco.value = ArUco_pose['y ArUco [m]'] if ArUco_pose['y ArUco [m]'] is not None else float('nan')
-                    shared_z_aruco.value = ArUco_pose['z ArUco [m]'] if ArUco_pose['z ArUco [m]'] is not None else float('nan')
-                    shared_roll_aruco.value = ArUco_pose['roll ArUco [deg]'] if ArUco_pose['roll ArUco [deg]'] is not None else float('nan')
+                # Update shared memory (keep your sign convention on X)
+                with (shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(),
+                      shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(),
+                      shared_time_frame_captured.get_lock()):
+                    shared_x_aruco.value = -ArUco_pose['x ArUco [m]'] if ArUco_pose['x ArUco [m]'] is not None else float('nan')
+                    shared_y_aruco.value =  ArUco_pose['y ArUco [m]'] if ArUco_pose['y ArUco [m]'] is not None else float('nan')
+                    shared_z_aruco.value =  ArUco_pose['z ArUco [m]'] if ArUco_pose['z ArUco [m]'] is not None else float('nan')
+                    shared_roll_aruco.value  = ArUco_pose['roll ArUco [deg]']  if ArUco_pose['roll ArUco [deg]']  is not None else float('nan')
                     shared_pitch_aruco.value = ArUco_pose['pitch ArUco [deg]'] if ArUco_pose['pitch ArUco [deg]'] is not None else float('nan')
-                    shared_yaw_aruco.value = ArUco_pose['yaw ArUco [deg]'] if ArUco_pose['yaw ArUco [deg]'] is not None else float('nan')
+                    shared_yaw_aruco.value   = ArUco_pose['yaw ArUco [deg]']   if ArUco_pose['yaw ArUco [deg]']   is not None else float('nan')
                     shared_time_frame_captured.value = time_frame_captured
             else:
                 time.sleep(0.01)
-            
+
             time_end_while = time.time()
-            # if ArUco_pose['x ArUco [m]'] is not None:
-            #     print(f"ArUco Marker Position - X: {ArUco_pose['x ArUco [m]']}, Y: {ArUco_pose['y ArUco [m]']}, Z: {ArUco_pose['z ArUco [m]']}")
-            #     print(f"ArUco Marker Orientation - Roll: {ArUco_pose['roll ArUco [deg]']}, Pitch: {ArUco_pose['pitch ArUco [deg]']}, Yaw: {ArUco_pose['yaw ArUco [deg]']}")
-            # print("Camera process:", time_end_while - time_start_while, "s") # ~0.12s with full resolution
-            if time_end_while - time_start_while < config.DT_VISION:
-                time.sleep(config.DT_VISION - (time_end_while - time_start_while))
+            dt = time_end_while - time_start_while
+            if dt < config.DT_VISION:
+                time.sleep(config.DT_VISION - dt)
             else:
-                print(f"Camera process: Execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT_VISION:.4f} s.")
+                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s.")
     except KeyboardInterrupt:
         print("\nCamera process stopped.")
     finally:
-        camera.stop()
+        try:
+            camera.stop()
+        except Exception:
+            pass
 
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
