@@ -603,7 +603,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             print("Plotting motor data complete")
             # plot_li550_data.plot_data(csv_path)
             # plot_li550_data.create_video_from_data(csv_path)
-            images_to_mp4(image_path=save_path, fps=1/config.DT_VISION)
+            video_input = save_path / f"frames_{timestamp_folder}"
+            camera_ctrl.images_to_mp4(image_path=video_input, fps=1/config.DT_VISION)
         except Exception as e:
             print(f"Plotting failed: {e}")
 
