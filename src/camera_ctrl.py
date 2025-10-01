@@ -362,8 +362,8 @@ def calibrate_camera():
     Checkerboard calibration.
     Saves images and 'camera_calib/calib_data/calib_data.npz' (mtx, dist, rms, image_size).
     Additionally creates:
-      - camera_calib/result/0_before/ : 5 random raw images from the capture set
-      - camera_calib/result/0_after/  : their undistorted counterparts (post-calibration)
+      - camera_calib/result/before/ : 5 random raw images from the capture set
+      - camera_calib/result/after/  : their undistorted counterparts (post-calibration)
     """
     import random
 
@@ -375,8 +375,8 @@ def calibrate_camera():
     ann_dir = 'camera_calib/calib_images/annotated'
     data_dir = 'camera_calib/calib_data'
     result_dir = 'camera_calib/result'
-    before_dir = os.path.join(result_dir, '0_before')
-    after_dir = os.path.join(result_dir, '0_after')
+    before_dir = os.path.join(result_dir, 'before')
+    after_dir = os.path.join(result_dir, 'after')
 
     os.makedirs(unann_dir, exist_ok=True)
     os.makedirs(ann_dir, exist_ok=True)
