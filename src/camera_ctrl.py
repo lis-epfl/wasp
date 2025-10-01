@@ -79,9 +79,9 @@ class ArucoPipeline:
         parameters = cv.aruco.DetectorParameters()
         if getattr(config, "ADVANCED_PARAMETERS", False):
             p = parameters
-            p.adaptiveThreshWinSizeMin = 3
-            p.adaptiveThreshWinSizeMax = 53
-            p.adaptiveThreshWinSizeStep = 4
+            # p.adaptiveThreshWinSizeMin = 3    # slow down too much
+            # p.adaptiveThreshWinSizeMax = 53   # slow down too much
+            # p.adaptiveThreshWinSizeStep = 4   # slow down too much
             p.adaptiveThreshConstant = 7
             p.minMarkerPerimeterRate = 0.01
             p.maxMarkerPerimeterRate = 6.0
