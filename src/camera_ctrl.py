@@ -15,6 +15,10 @@ import random
 
 import config
 
+import cv2
+import re
+from pathlib import Path
+
 
 # =========================
 # Undistorted-domain helper
@@ -609,6 +613,60 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
             found_count += 1
 
     print(f"Detected {found_count} of {len(files)} images.")
+
+    images_to_mp4(image_path=out_dir, fps=1/config.DT_VISION)
+
+
+def images_to_mp4(image_path=None, fps=20, pattern=("*.jpg", "*.png")):
+    """
+    Create an MP4 video from all images in a folder.
+
+    Args:
+        image_path (str or Path): folder containing images.
+        output_path (str or Path): path for the output .mp4 file.
+        fps (int): frames per second (default 20).
+        pattern (tuple): glob patterns of image formats to include.
+    """
+    if image_path is None:
+        image_path = getattr(config, "SAVE_IMAGES", False)
+    image_path = Path(image_path)
+    output_path = image_path / "output.mp4"
+
+    # Collect files
+    files = []
+    for p in pattern:
+        files.extend(image_path.glob(p))
+    if not files:
+        raise ValueError(f"No images found in {image_path}")
+
+    # Natural sort: 1, 2, 10 instead of 1, 10, 2
+    def natural_key(p: Path):
+        return [int(t) if t.isdigit() else t.lower()
+                for t in re.findall(r'\d+|\D+', p.stem)]
+    files = sorted(files, key=natural_key)
+
+    # Read first image for size
+    first = cv2.imread(str(files[0]))
+    if first is None:
+        raise RuntimeError(f"Could not read first image: {files[0]}")
+    height, width, _ = first.shape
+
+    # Define video writer (H.264 codec in MP4 container)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # safer than 'H264' for portability
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+
+    for f in files:
+        img = cv2.imread(str(f))
+        if img is None:
+            print(f"Skipping unreadable file: {f}")
+            continue
+        if img.shape[0:2] != (height, width):
+            img = cv2.resize(img, (width, height))
+        out.write(img)
+
+    out.release()
+    print(f"MP4 video saved to {output_path}")
 
 
 def camera_live_detect():
