@@ -11,6 +11,7 @@ import cv2 as cv
 import numpy as np
 import glob
 import os
+import random
 
 import config
 
@@ -365,8 +366,6 @@ def calibrate_camera():
       - camera_calib/result/before/ : 5 random raw images from the capture set
       - camera_calib/result/after/  : their undistorted counterparts (post-calibration)
     """
-    import random
-
     print('Starting camera calibration...')
     picam = camera_init()
 
@@ -411,12 +410,15 @@ def calibrate_camera():
     # -------------------------
     # Pick 5 random "before" images
     # -------------------------
+    SAMPLE_SEED = 12345
+    rnd = random.Random(SAMPLE_SEED)
+
     all_imgs = sorted(glob.glob(os.path.join(unann_dir, '*.jpg')))
     if not all_imgs:
         print("No images found for calibration.")
     # select up to 5 distinct images
     k = min(5, len(all_imgs))
-    sample_before = random.sample(all_imgs, k) if k > 0 else []
+    sample_before = rnd.sample(all_imgs, k) if k > 0 else []
 
     # Copy raw images into result/0_before (keep original filenames)
     for src in sample_before:

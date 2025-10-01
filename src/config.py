@@ -90,7 +90,7 @@ CAM_WIDTH_LOW = int(CAM_HEIGHT_LOW / ASPECT_RATIO)  # lower resolution settings,
 FRAME_RATE = 60                                     # in frames/sec
 CALIBRATION_SQUARE = 0.0323                         # size of the squares in the checkerboard, in meters
 CHECKERBOARD_SHAPE = (4, 7)                         # number of inner corners per row and column !!nb of squares - 1!!
-NB_IMAGES_CALIBRATION = 200                          # number of images to capture for calibration
+NB_IMAGES_CALIBRATION = 300                          # number of images to capture for calibration
 ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 unique markers
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
@@ -108,8 +108,8 @@ SOLVER = 2                                          # 0: standard solver, 1: PnP
 CROP_X = 0.0                                        # percentage of image to crop (0.1 = 10%)
 CROP_Y = 0.0                                        # percentage of image to crop (0.1 = 10%)
 RES_DROP_PRE = 1.0                                 # resolution drop factor for pre-processing (used to be 1.0)
-STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
 UNDISTORT = True                                    # set False to work in distorted (raw) domain
+STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
