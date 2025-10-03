@@ -13,6 +13,19 @@ from matplotlib.patches import Patch
 import config   
 
 
+def fnum(x):
+    """Safe float: '', None, 'None', 'nan' -> np.nan."""
+    if x is None:
+        return np.nan
+    s = str(x).strip()
+    if s.lower() in {"", "none", "nan", "n/a"}:
+        return np.nan
+    try:
+        return float(s)
+    except ValueError:
+        return np.nan
+
+
 def plot_data(csv_path):
     # Read data from CSV
     time_vect = []
@@ -32,25 +45,29 @@ def plot_data(csv_path):
     pitch_aruco_vect = []
     yaw_aruco_vect = []
 
-    with open(csv_path, 'r') as f:
+    with open(csv_path, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            time_vect.append(float(row['Timestamp [s]']))
-            velocity_vect.append(float(row['Linear speed [m/s]']))
-            position_vect.append(float(row['Linear position [m]']))
-            torque_vect.append(float(row['Torque [Nm]']))
-            voltage_vect.append(float(row['Voltage [V]']))
-            current_vect.append(float(row['Current [A]']))
-            x_ref_vect.append(float(row['Reference x_ref [m]']))
-            x_aruco_est_vect.append(float(row['Estimated plane position [m]']))
-            v_aruco_est_vect.append(float(row['Estimated plane velocity [m/s]']))
-            vel_ref_vect.append(float(row['Reference velocity [m/s]']))
-            x_aruco_vect.append(float(row['x ArUco [m]']))
-            y_aruco_vect.append(float(row['y ArUco [m]']))
-            z_aruco_vect.append(float(row['z ArUco [m]']))
-            roll_aruco_vect.append(float(row['roll ArUco [deg]']))
-            pitch_aruco_vect.append(float(row['pitch ArUco [deg]']))
-            yaw_aruco_vect.append(float(row['yaw ArUco [deg]']))
+            time_vect.append(fnum(row.get("Timestamp [s]")))
+            velocity_vect.append(fnum(row.get("Linear speed [m/s]")))
+            position_vect.append(fnum(row.get("Linear position [m]")))
+            torque_vect.append(fnum(row.get("Torque [Nm]")))
+            voltage_vect.append(fnum(row.get("Voltage [V]")))
+            current_vect.append(fnum(row.get("Current [A]")))
+            x_ref_vect.append(fnum(row.get("Reference x_ref [m]")))
+            x_aruco_est_vect.append(
+                fnum(row.get("Estimated plane position [m]"))
+            )
+            v_aruco_est_vect.append(
+                fnum(row.get("Estimated plane velocity [m/s]"))
+            )
+            vel_ref_vect.append(fnum(row.get("Reference velocity [m/s]")))
+            x_aruco_vect.append(fnum(row.get("x ArUco [m]")))
+            y_aruco_vect.append(fnum(row.get("y ArUco [m]")))
+            z_aruco_vect.append(fnum(row.get("z ArUco [m]")))
+            roll_aruco_vect.append(fnum(row.get("roll ArUco [deg]")))
+            pitch_aruco_vect.append(fnum(row.get("pitch ArUco [deg]")))
+            yaw_aruco_vect.append(fnum(row.get("yaw ArUco [deg]")))
 
     t_max = max(time_vect)
 

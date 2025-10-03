@@ -14,7 +14,7 @@ DT_RC = 0.01
 ENABLE_WIND_SENSING = False
 
 # Battery
-NB_CELLS = 8                                            # Number of cells in the battery
+NB_CELLS = 4                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
 
@@ -98,7 +98,7 @@ ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, 
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
 EXPOSURE_TIME = 4000                                # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = 0                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
+SAVE_IMAGES = 2                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
 
 
 # Marker detection

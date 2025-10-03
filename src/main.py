@@ -276,7 +276,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     # PID initialization
     pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION)
     pid.output_limits = (-config.MAX_SPEED, config.MAX_SPEED)  # Limit output to max speed
-    pid.sample_time = config.DT_VISION
+    pid.sample_time = config.DT_MAIN
     pid.setpoint = 0.0 # since it's constant, this can also be set at initialization
 
     # Initialize peripherals
@@ -427,10 +427,15 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 time_start_ref=time_start_ref
                             )
                             frame_counter += 1
-                            tracking_error = - ArUco_pose['x ArUco [m]']
+
+                            if ArUco_pose['x ArUco [m]'] is not None:
+                                tracking_error = - ArUco_pose['x ArUco [m]']
+                            else:
+                                tracking_error = None
 
                             if tracking_error is not None:
                                 # ArUco marker detected
+                                tracking_error = - ArUco_pose['x ArUco [m]']
                                 estimated_UAV_pos = linear_position + tracking_error
                                 cnt_moving_blindly = 0
         
@@ -484,6 +489,14 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             start_decelerating = True
 
                         else:
+                            ArUco_pose = {
+                                'x ArUco [m]': None,
+                                'y ArUco [m]': None,
+                                'z ArUco [m]': None,
+                                'roll ArUco [deg]': None,
+                                'pitch ArUco [deg]': None,
+                                'yaw ArUco [deg]': None,
+                            }
                             tracking_error = None
                             last_tracking_error = None
 
@@ -536,7 +549,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                        f"Vel: {linear_velocity:.2f} m/s  |  "
                                        f"ArUco offset: {offset_str} m  |  "
                                        f"x_ref: {x_ref} m")
-                        print(log_message)
+                        # print(log_message)
 
                         # Set the target position and velocity of the motor
                         x_ref = np.clip(x_ref, 0, zipline_length)
@@ -552,7 +565,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
-                # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
+                print("Main process:", time_end_while - time_start_while, "s") # 0.011 s without camera on, 0.075 s with camera but no saving
                 if time_end_while - time_start_while < config.DT_MAIN:
                     time.sleep(config.DT_MAIN - (time_end_while - time_start_while))
                 else:
@@ -571,7 +584,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             plot_motor_data.plot_data(csv_path)
             print("Plotting motor data complete")
             image_path = save_path / "frames"
-            camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_VISION)
+            camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_MAIN)
         except Exception as e:
             print(f"Plotting failed: {e}")
 
@@ -605,7 +618,7 @@ if __name__ == "__main__":
 
     procs = [p1, p3]
 
-    if ENABLE_WIND_SENSING:
+    if config.ENABLE_WIND_SENSING:
         p2 = Process(target=wind_sensor_reading, args=(save_path,))
         procs.append(p2)
 
