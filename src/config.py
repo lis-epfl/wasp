@@ -8,9 +8,10 @@ STATE = {
     'TRACKING': 3
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
-DT = 0.1          # execution period in seconds (0.04 without the wind sensor, 0.12 with it) (set to 0.1 for save_images = 0, 0.2 for save_images = 1 or 2)
-DT_VISION = 0.1   # execution period for vision in seconds (7Hz) (can be set to 0.06666666 if save_images is False)
-
+DT_MAIN = 0.1   # execution period in seconds (0.04 without the wind sensor, 0.12 with it) (set to 0.1 for save_images = 0, 0.2 for save_images = 1 or 2)
+DT_WIND = 0.1   # execution period for vision in seconds (7Hz) (can be set to 0.06666666 if save_images is False)
+DT_RC = 0.01
+ENABLE_WIND_SENSING = False
 
 # Battery
 NB_CELLS = 8                                            # Number of cells in the battery
@@ -99,6 +100,7 @@ EXPOSURE_TIME = 4000                                # in microseconds (set 29 µ
 ANALOGUE_GAIN = 2.0                                 # in dB
 SAVE_IMAGES = 0                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
 
+
 # Marker detection
 AUTO_EXPOSURE = True                                # Enable auto exposure (used to be False)
 RECENTER_ORIGIN = False                             #  If we alter the center of the image (used to be True)
@@ -110,6 +112,7 @@ CROP_Y = 0.0                                        # percentage of image to cro
 RES_DROP_PRE = 1.0                                  # resolution drop factor for pre-processing (used to be 1.0)
 UNDISTORT = True                                    # set False to work in distorted (raw) domain
 STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
+
 
 # Wind sensor
 SERIAL_PORT_LI550= '/dev/ttyUSB0'
@@ -158,4 +161,8 @@ CSV_COLUMNS = [
     'roll ArUco [deg]',
     'pitch ArUco [deg]',
     'yaw ArUco [deg]'
+]
+
+CSV_WIND_COLUMNS = [
+    'Timestamp [s]',
 ] + list(LI550_MAPPING.values())

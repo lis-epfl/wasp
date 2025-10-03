@@ -56,6 +56,8 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             button_initialized = False
 
             while True:
+                time_start_while = time.time()
+
                 throttle_event = throttle_line.event_wait(sec=1)
                 button_event = button_line.event_wait(sec=1)
                 steering_event = steering_line.event_wait(sec=1)
@@ -169,104 +171,67 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     shared_target_speed.value = target_speed
                     shared_calibration_setpoints.value = calibration_setpoints
 
-                time.sleep(0.01)
+                # Sleep to respect the desired loop time
+                time_end_while = time.time()
+                # print("RC process:", time_end_while - time_start_while, "s")
+                if time_end_while - time_start_while < config.DT_RC:
+                    time.sleep(config.DT_RC - (time_end_while - time_start_while))
+                else:
+                    print(f"RC process execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT_RC:.4f} s.")
+
     except KeyboardInterrupt:
-        print("\nRC remote process stopped.")
+        print("\nRC process stopped.")
     finally:
         throttle_line.release()
         button_line.release()
         steering_line.release()
 
 
-def camera_process(save_path, time_start_ref,
-                   shared_x_aruco, shared_y_aruco, shared_z_aruco,
-                   shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco,
-                   shared_time_frame_captured, shared_detect_flag):
-
-    # Init camera
-    camera = camera_ctrl.camera_init()
-
-    # Load calibration (supports functions that return (mtx, dist) or (mtx, dist, image_size))
-    cal = camera_ctrl.load_calibration()
-    if isinstance(cal, (list, tuple)) and len(cal) >= 2:
-        mtx, dist = cal[0], cal[1]
-    else:
-        raise RuntimeError("camera_ctrl.load_calibration() must return at least (mtx, dist).")
-
-    # Build ArUco pipeline once (reuses undistortion maps when UNDISTORT=True)
-    pipeline = camera_ctrl.ArucoPipeline(
-        mtx, dist,
-        alpha=getattr(config, "UNDISTORT_ALPHA", 0.0),
-        new_size=getattr(config, "UNDISTORT_SIZE", None)
-    )
-
-    frame_counter = 1
-    time_frame_captured = 0.0
-    ArUco_pose = {
-        'x ArUco [m]': None,
-        'y ArUco [m]': None,
-        'z ArUco [m]': None,
-        'roll ArUco [deg]': None,
-        'pitch ArUco [deg]': None,
-        'yaw ArUco [deg]': None,
-    }
-
-    # Data recording settings    
-    # timestamp_folder = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    save_path = Path(save_path) / "frames"
-    save_path.mkdir(parents=True, exist_ok=True)
-
+def wind_sensor_reading(save_path): 
+    # Data recording setings
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    csv_path = Path(save_path) / f"wind_data_{timestamp}.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_file = open(csv_path, 'w', newline='')
+    writer = csv.DictWriter(csv_file, fieldnames=config.CSV_WIND_COLUMNS)
+    writer.writeheader()
+ 
     try:
+        ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
         while True:
             time_start_while = time.time()
+            
+            # Read data from LI550
+            li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
+            
+            # Save data to CSV
+            row = {**li550_data}
+            writer.writerow(row)   
+            csv_file.flush()
 
-            if shared_detect_flag.value == 1:
-                # Grab frame (Picamera2 gives RGB) and convert to BGR for OpenCV
-                frame_bgr = camera_ctrl.capture_bgr_frame(camera)
-                time_camera = time.time()
-
-                # Process with pipeline (undistorted or distorted depending on config.UNDISTORT)
-                ArUco_pose, duration_process, _ = pipeline.process_bgr_frame(
-                    frame_bgr,
-                    time_camera,
-                    save_path=str(save_path),
-                    frame_counter=frame_counter,
-                    time_start_ref=time_start_ref
-                )
-                time_detector = time.time()
-                frame_counter += 1
-
-                # Update shared memory (keep your sign convention on X)
-                with (shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(),
-                      shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(),
-                      shared_time_frame_captured.get_lock()):
-                    shared_x_aruco.value = -ArUco_pose['x ArUco [m]'] if ArUco_pose['x ArUco [m]'] is not None else float('nan')
-                    shared_y_aruco.value =  ArUco_pose['y ArUco [m]'] if ArUco_pose['y ArUco [m]'] is not None else float('nan')
-                    shared_z_aruco.value =  ArUco_pose['z ArUco [m]'] if ArUco_pose['z ArUco [m]'] is not None else float('nan')
-                    shared_roll_aruco.value  = ArUco_pose['roll ArUco [deg]']  if ArUco_pose['roll ArUco [deg]']  is not None else float('nan')
-                    shared_pitch_aruco.value = ArUco_pose['pitch ArUco [deg]'] if ArUco_pose['pitch ArUco [deg]'] is not None else float('nan')
-                    shared_yaw_aruco.value   = ArUco_pose['yaw ArUco [deg]']   if ArUco_pose['yaw ArUco [deg]']   is not None else float('nan')
-                    shared_time_frame_captured.value = time_camera
-            else:
-                time.sleep(0.01)
-
+            # Sleep to respect the desired loop time
             time_end_while = time.time()
-            dt = time_end_while - time_start_while
-            if dt < config.DT_VISION:
-                time.sleep(config.DT_VISION - dt)
+            # print("Wind process:", time_end_while - time_start_while, "s")
+            if time_end_while - time_start_while < config.DT_WIND:
+                time.sleep(config.DT_WIND - (time_end_while - time_start_while))
             else:
-                time_saving = time_end_while - time_camera - duration_process
-                print(f"Camera process: Execution time exceeded: {dt:.4f} / {config.DT_VISION:.4f} s. Time camera: {time_camera - time_start_while:.4f} s. Time detector: {duration_process:.4f} s. Time saving: {time_saving:.4f} s.")
+                print(f"Wind process execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT_WIND:.4f} s.")
+
     except KeyboardInterrupt:
-        print("\nCamera process stopped.")
+        print("\nWind sensor process stopped.")
+
     finally:
+        csv_file.close()
+        print(f"\nRun complete. Wind data saved to {csv_path}")
         try:
-            camera.stop()
-        except Exception:
-            pass
+            # plot_li550_data.plot_data(csv_path)
+            # plot_li550_data.create_video_from_data(csv_path)
+            print("Plotting wind data complete")
+        except Exception as e:
+            print(f"Plotting failed: {e}")
 
 
-def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag):
+def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints):
     # Initialize variable
     time_start_while = 0
     time_end_while = 0
@@ -281,6 +246,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     last_tracking_error = None
     last_target_position = None
     last_time_frame_captured = None
+    frame_counter = 1
     estimated_UAV_vel = 0.0
     last_estimated_UAV_vel = 0.0
     estimated_UAV_pos = 0.0
@@ -294,6 +260,20 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     zipline_start = 0
     zipline_end = 0
 
+    # Camera settings
+    cal = camera_ctrl.load_calibration()
+    if isinstance(cal, (list, tuple)) and len(cal) >= 2:
+        mtx, dist = cal[0], cal[1]
+    else:
+        raise RuntimeError("camera_ctrl.load_calibration() must return at least (mtx, dist).")
+
+    pipeline = camera_ctrl.ArucoPipeline(
+        mtx, dist,
+        alpha=getattr(config, "UNDISTORT_ALPHA", 0.0),
+        new_size=getattr(config, "UNDISTORT_SIZE", None)
+    )
+
+    # PID initialization
     pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION)
     pid.output_limits = (-config.MAX_SPEED, config.MAX_SPEED)  # Limit output to max speed
     pid.sample_time = config.DT_VISION
@@ -302,7 +282,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
-    # ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
+    camera = camera_ctrl.camera_init()
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
@@ -329,6 +309,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_COLUMNS)
     writer.writeheader()
+    save_camera_path = Path(save_path) / "frames"
+    save_camera_path.mkdir(parents=True, exist_ok=True)
 
     try:
         try:
@@ -362,26 +344,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         else:
                             target_speed_m_s = 0.0
                     
-                    # Get the ArUco marker position and the time at which the frame was captured
-                    with shared_x_aruco.get_lock(), shared_y_aruco.get_lock(), shared_z_aruco.get_lock(), shared_roll_aruco.get_lock(), shared_pitch_aruco.get_lock(), shared_yaw_aruco.get_lock(), shared_time_frame_captured.get_lock():
-                         tracking_error = shared_x_aruco.value
-                         ArUco_pose = {      
-                            'x ArUco [m]': tracking_error,
-                            'y ArUco [m]': shared_y_aruco.value,
-                            'z ArUco [m]': shared_z_aruco.value,
-                            'roll ArUco [deg]': shared_roll_aruco.value,
-                            'pitch ArUco [deg]': shared_pitch_aruco.value,
-                            'yaw ArUco [deg]': shared_yaw_aruco.value,
-                         }
-                         time_frame_captured = shared_time_frame_captured.value                        
-                    
                     # Get motor data                    
                     angular_position, angular_velocity, torque, linear_position, linear_velocity, voltage, current, decel_dist = motor_ctrl.get_data(odrv) # in turns, turns/s, Nm, m, m/s
                     time_position_measured = time.time()
-
-                    # Get LI-5500 data
-                    # li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
-                    li550_data = {}
 
                     # Update state
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
@@ -432,10 +397,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 leds_ctrl.leds_show_setpoint_calibration(leds)
                                 time.sleep(3)  # Reduced wait time 
 
-                        # Don't capture frames from the camera in this mode
-                        with shared_detect_flag.get_lock():
-                            shared_detect_flag.value = 0
-
                         # Desired velocity based on the remote command
                         vel_ref = target_speed_m_s
 
@@ -454,12 +415,19 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     # Normal operation
                     else:
                         if state == config.STATE["TRACKING"]:
-                            # Start camera recording and get ArUco marker position
-                            with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 1
+                            # Take frame 
+                            frame_bgr = camera_ctrl.capture_bgr_frame(camera)
+                            time_frame_captured = time.time()
 
-                            if np.isnan(tracking_error):
-                                tracking_error = None
+                            ArUco_pose, duration_process, _ = pipeline.process_bgr_frame(
+                                frame_bgr,
+                                time_frame_captured,
+                                save_path=str(save_camera_path),
+                                frame_counter=frame_counter,
+                                time_start_ref=time_start_ref
+                            )
+                            frame_counter += 1
+                            tracking_error = - ArUco_pose['x ArUco [m]']
 
                             if tracking_error is not None:
                                 # ArUco marker detected
@@ -470,7 +438,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     time_diff = time_frame_captured - last_time_frame_captured
 
                                     estimated_UAV_vel = (estimated_UAV_pos - last_estimated_UAV_pos) / time_diff if time_diff > 0 else 0
-                                    estimated_UAV_vel = motor_ctrl.low_pass(estimated_UAV_vel, last_estimated_UAV_vel, config.CUT_OFF_FREQUENCY_TRACKING, config.DT)
+                                    estimated_UAV_vel = motor_ctrl.low_pass(estimated_UAV_vel, last_estimated_UAV_vel, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
 
                                     last_estimated_UAV_vel = estimated_UAV_vel
 
@@ -516,8 +484,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             start_decelerating = True
 
                         else:
-                            with shared_detect_flag.get_lock():
-                                shared_detect_flag.value = 1
                             tracking_error = None
                             last_tracking_error = None
 
@@ -558,7 +524,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
-                        row = {**motor_data, **ArUco_pose, **li550_data}
+                        row = {**motor_data, **ArUco_pose}
                         writer.writerow(row)   
                         csv_file.flush()
 
@@ -584,14 +550,13 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
 
 
-
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
                 # print("Main process:", time_end_while - time_start_while, "s") # 0.05s usually
-                if time_end_while - time_start_while < config.DT:
-                    time.sleep(config.DT - (time_end_while - time_start_while))
+                if time_end_while - time_start_while < config.DT_MAIN:
+                    time.sleep(config.DT_MAIN - (time_end_while - time_start_while))
                 else:
-                    print(f"Main process: Execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT:.4f} s.")
+                    print(f"Main process execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT_MAIN:.4f} s.")
 
         except KeyboardInterrupt:
             print("\nMain process stopped.")
@@ -605,8 +570,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         try:
             plot_motor_data.plot_data(csv_path)
             print("Plotting motor data complete")
-            # plot_li550_data.plot_data(csv_path)
-            # plot_li550_data.create_video_from_data(csv_path)
             image_path = save_path / "frames"
             camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_VISION)
         except Exception as e:
@@ -625,24 +588,31 @@ if __name__ == "__main__":
     shared_target_speed = Value('d', 0.0)
     shared_calibration_setpoints = Value('d', 0.0)
 
-    # Shared variables between camera process and main process
-    shared_x_aruco = Value('d', float('nan'))
-    shared_y_aruco = Value('d', float('nan'))
-    shared_z_aruco = Value('d', float('nan'))
-    shared_roll_aruco = Value('d', float('nan'))
-    shared_pitch_aruco = Value('d', float('nan'))
-    shared_yaw_aruco = Value('d', float('nan'))
-    shared_time_frame_captured = Value('d', 0.0)
-    shared_detect_flag = Value('i', 0)
+    p1 = Process(
+        target=rc_receiver_reading,
+        args=(shared_remote_command,
+              shared_target_speed,
+              shared_calibration_setpoints),
+    )
+    p3 = Process(
+        target=main,
+        args=(save_path,
+              time_start_ref,
+              shared_remote_command,
+              shared_target_speed,
+              shared_calibration_setpoints),
+    )
 
-    p1 = Process(target=rc_receiver_reading, args=(shared_remote_command, shared_target_speed, shared_calibration_setpoints))
-    p2 = Process(target=camera_process, args=(save_path, time_start_ref, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
-    p3 = Process(target=main, args=(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_x_aruco, shared_y_aruco, shared_z_aruco, shared_roll_aruco, shared_pitch_aruco, shared_yaw_aruco, shared_time_frame_captured, shared_detect_flag))
+    procs = [p1, p3]
 
-    p1.start()
-    p2.start()
-    p3.start()
+    if ENABLE_WIND_SENSING:
+        p2 = Process(target=wind_sensor_reading, args=(save_path,))
+        procs.append(p2)
 
-    p1.join()
-    p2.join()
-    p3.join()
+    # start everything
+    for p in procs:
+        p.start()
+
+    # wait for them (until Ctrl+C / stop condition)
+    for p in procs:
+        p.join()
