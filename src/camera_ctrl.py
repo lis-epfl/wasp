@@ -136,10 +136,8 @@ class ArucoPipeline:
             K_work[0, 2] *= sx
             K_work[1, 2] *= sy
 
-            clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
+            clahe = cv.createCLAHE(clipLimit=1.0, tileGridSize=(8, 8))
             gray = clahe.apply(gray)
-            blur = cv.GaussianBlur(gray, (0, 0), 1.0)
-            gray = cv.addWeighted(gray, 1.5, blur, -0.5, 0)
 
         return gray, K_work
 
@@ -620,7 +618,7 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
 
     print(f"Detected {found_count} of {len(files)} images.")
 
-    images_to_mp4(out_dir, fps=1/config.DT_VISION)
+    images_to_mp4(out_dir, fps=1/config.DT_MAIN)
 
 
 def images_to_mp4(image_path, output_path=None, fps=20, pattern=("*.jpg", "*.png")):

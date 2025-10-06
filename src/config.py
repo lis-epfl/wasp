@@ -66,6 +66,8 @@ PURPLE = (102, 51, 153)                                 # RGB colors for purple
 BUTTON_PIN = 24                                         # GPIO24 (PIN 18)
 TROTTLE_PIN = 25                                        # GPIO25 (PIN 22)
 STEERING_PIN = 22                                       # GPIO22 (PIN 15)
+SWITCH_PIN = 26                                         # GPIO26 (PIN 16)
+KNOB_PIN = 27                                           # GPIO27 (PIN 13)
 PWM_MIN_PULSE_WIDTH = 1050                              # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500                          # in µs
 PWM_MAX_PULSE_WIDTH = 1950                              # in µs
@@ -96,9 +98,9 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 4000                                # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+EXPOSURE_TIME = 80                                   # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = 2                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
+SAVE_IMAGES = 1                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
 
 
 # Marker detection

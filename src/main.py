@@ -29,10 +29,14 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             throttle_line = chip.get_line(config.TROTTLE_PIN)
             button_line = chip.get_line(config.BUTTON_PIN)
             steering_line = chip.get_line(config.STEERING_PIN)
+            switch_line = chip.get_line(config.SWITCH_PIN)
+            knob_line = chip.get_line(config.KNOB_PIN)
 
             throttle_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             button_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             steering_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            switch_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            knob_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
 
             # Initialize variables
             last_rising_throttle = None
@@ -103,7 +107,37 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                 else:
                     steering_pulse = 0.0
                     steering_timeout = True
-                
+
+                # Reading switch state
+                if switch_event:
+                    ev_switch = switch_line.event_read()
+                    timestamp_switch = ev_switch.sec + ev_switch.nsec / 1e9
+                    if ev_switch.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising_switch = timestamp_switch
+                    elif ev_switch.type == gpiod.LineEvent.FALLING_EDGE and last_rising_switch is not None:
+                        switch_pulse = (timestamp_switch - last_rising_switch) * 1_000_000  # in µs
+                        last_rising_switch = None
+                    switch_timeout = False
+                else:
+                    switch_pulse = 0.0
+                    switch_timeout = True
+                print(switch_pulse)
+
+                # Reading knob state
+                if knob_event:
+                    ev_knob = knob_line.event_read()
+                    timestamp_knob = ev_knob.sec + ev_knob.nsec / 1e9
+                    if ev_knob.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising_knob = timestamp_knob
+                    elif ev_knob.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knob is not None:
+                        knob_pulse = (timestamp_knob - last_rising_knob) * 1_000_000  # in µs
+                        last_rising_knob = None
+                    knob_timeout = False
+                else:
+                    knob_pulse = 0.0
+                    knob_timeout = True
+                print(knob_pulse)
+
                 # Logic to determine remote command, target speed, and calibration setpoints
                 if throttle_timeout or (throttle_pulse == 0.0) or button_timeout or (button_pulse == 0.0) or steering_timeout or (steering_pulse == 0.0):
                     if last_remote_command == 3:
