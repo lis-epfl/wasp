@@ -77,6 +77,8 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             last_remote_command = 0
             calibration_setpoints = 0
             target_speed = 0.0
+            knobl_value = 0.0
+            knobr_value = 0.0
 
             # Button initialization to detect the toggled position relative to startup
             initial_button_pulse = 0.0
@@ -149,13 +151,9 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                         # Take off mode
                         if sw.pulse > config.PWM_MAX_PULSE_WIDTH:
                             take_off_armed = True
-                            print("Take off armed.")
 
                         if sw.pulse < config.PWM_MIN_PULSE_WIDTH and take_off_armed:
-                            take_off_armed = False
                             remote_command = 4
-                            target_speed = 0.0
-                            print("TAKE OFF command issued for time: " + str(kl.pulse) + " µs")
 
                         # Safety: stop if button is toggled or not in default position
                         if button_in_default_position or abs(th.pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.GO_STOP_THRESHOLD:
@@ -164,6 +162,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                             # require a toggle to resume tracking
                             initial_button_pulse = bt.pulse
                     else:
+                        take_off_armed = False
                         # Manual mode
                         if not button_in_default_position:
                             remote_command = 3
@@ -188,15 +187,24 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     else:
                         calibration_setpoints = 0  # no setpoint
 
+                    # Knob values (0.0 to 1.0)
+                    knobl_value = (kl.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
+                    knobr_value = (kr.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
+
                 last_remote_command = remote_command
 
                 # Share results atomically
-                with (shared_remote_command.get_lock(),
-                      shared_target_speed.get_lock(),
-                      shared_calibration_setpoints.get_lock()):
+                with (  shared_remote_command.get_lock(),
+                        shared_target_speed.get_lock(),
+                        shared_calibration_setpoints.get_lock(),
+                        shared_knobl_value.get_lock(),
+                        shared_knobr_value.get_lock()):
+
                     shared_remote_command.value = remote_command
                     shared_target_speed.value = target_speed
                     shared_calibration_setpoints.value = calibration_setpoints
+                    shared_knobl_value.value = knobl_value
+                    shared_knobr_value.value = knobr_value
 
                 # Loop timing
                 dt = time.time() - t0
@@ -365,6 +373,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking, 4: take off
                         target_speed = shared_target_speed.value                    # in µs
                         calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
+                        knobl_value = shared_knobl_value.value                      # 0.0 to 1.0
+                        knobr_value = shared_knobr_value.value                      # 0.0 to 1.0
 
                         # Map target_speed (µs) to target_speed_m_s (m/s)
                         speed_max = config.MAX_SPEED_CALIB if in_calibration_mode else config.MAX_SPEED
@@ -532,9 +542,13 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 take_off_start_time = time.time()
                             
                             # During the take-off, move forward at a constant speed for a fixed duration
-                            if (time.time() - take_off_start_time) < config.TAKE_OFF_DURATION:
-                                x_ref = min(linear_position + config.TAKE_OFF_SPEED * config.DT_MAIN, zipline_length)
-                                vel_ref = config.TAKE_OFF_SPEED
+                            if (time.time() - take_off_start_time) < knobl_value * 2.0: # max 2 seconds
+                                if linear_position < zipline_length/4:
+                                    x_ref = zipline_length
+                                    vel_ref = config.MAX_SPEED
+                                if linear_position > zipline_length * (1 - 1/4):
+                                    x_ref = 0
+                                    vel_ref = config.MAX_SPEED
                             else:
                                 # After the take-off duration, switch to tracking mode
                                 state = config.STATE["TRACKING"]

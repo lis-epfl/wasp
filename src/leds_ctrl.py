@@ -48,8 +48,8 @@ def leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_
         leds.show()
     elif state == config.STATE["TAKE_OFF"]:
         if tracking_error is None:
-        leds.fill(config.TURQUOISE)
-        leds.show()
+            leds.fill(config.TURQUOISE)
+            leds.show()
 
     else:
         leds.fill((0, 0, 0)) # Off
