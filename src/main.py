@@ -30,13 +30,15 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             button_line = chip.get_line(config.BUTTON_PIN)
             steering_line = chip.get_line(config.STEERING_PIN)
             switch_line = chip.get_line(config.SWITCH_PIN)
-            knob_line = chip.get_line(config.KNOB_PIN)
+            knobl_line = chip.get_line(config.KNOBL_PIN)
+            knobr_line = chip.get_line(config.KNOBR_PIN)
 
             throttle_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             button_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             steering_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
             switch_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            knob_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            knobl_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            knobr_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
 
             # Initialize variables
             last_rising_throttle = None
@@ -121,22 +123,37 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                 else:
                     switch_pulse = 0.0
                     switch_timeout = True
-                print(switch_pulse)
+                print("switch_pulse:", switch_pulse)
 
-                # Reading knob state
-                if knob_event:
-                    ev_knob = knob_line.event_read()
-                    timestamp_knob = ev_knob.sec + ev_knob.nsec / 1e9
-                    if ev_knob.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_knob = timestamp_knob
-                    elif ev_knob.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knob is not None:
-                        knob_pulse = (timestamp_knob - last_rising_knob) * 1_000_000  # in µs
-                        last_rising_knob = None
-                    knob_timeout = False
+                # Reading knobl state
+                if knobl_event:
+                    ev_knobl = knobl_line.event_read()
+                    timestamp_knobl = ev_knobl.sec + ev_knobl.nsec / 1e9
+                    if ev_knobl.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising_knobl = timestamp_knobl
+                    elif ev_knobl.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knobl is not None:
+                        knobl_pulse = (timestamp_knobl - last_rising_knobl) * 1_000_000  # in µs
+                        last_rising_knobl = None
+                    knobl_timeout = False
                 else:
-                    knob_pulse = 0.0
-                    knob_timeout = True
-                print(knob_pulse)
+                    knobl_pulse = 0.0
+                    knobl_timeout = True
+                print("knobl_pulse:", knobl_pulse)
+
+                # Reading knobr state
+                if knobr_event:
+                    ev_knobr = knobr_line.event_read()
+                    timestamp_knobr = ev_knobr.sec + ev_knobr.nsec / 1e9
+                    if ev_knobr.type == gpiod.LineEvent.RISING_EDGE:
+                        last_rising_knobr = timestamp_knobr
+                    elif ev_knobr.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knobr is not None:
+                        knobr_pulse = (timestamp_knobr - last_rising_knobr) * 1_000_000  # in µs
+                        last_rising_knobr = None
+                    knobr_timeout = False
+                else:
+                    knobr_pulse = 0.0
+                    knobr_timeout = True
+                print("knobr_pulse:", knobr_pulse)
 
                 # Logic to determine remote command, target speed, and calibration setpoints
                 if throttle_timeout or (throttle_pulse == 0.0) or button_timeout or (button_pulse == 0.0) or steering_timeout or (steering_pulse == 0.0):
@@ -599,7 +616,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
-                print("Main process:", time_end_while - time_start_while, "s") # 0.011 s without camera on, 0.075 s with camera but no saving
+                # print("Main process:", time_end_while - time_start_while, "s") # 0.011 s without camera on, 0.075 s with camera but no saving
                 if time_end_while - time_start_while < config.DT_MAIN:
                     time.sleep(config.DT_MAIN - (time_end_while - time_start_while))
                 else:

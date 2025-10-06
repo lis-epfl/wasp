@@ -63,11 +63,12 @@ PURPLE = (102, 51, 153)                                 # RGB colors for purple
 
 
 # RC communication
-BUTTON_PIN = 24                                         # GPIO24 (PIN 18)
-TROTTLE_PIN = 25                                        # GPIO25 (PIN 22)
-STEERING_PIN = 22                                       # GPIO22 (PIN 15)
-SWITCH_PIN = 26                                         # GPIO26 (PIN 16)
-KNOB_PIN = 27                                           # GPIO27 (PIN 13)
+BUTTON_PIN = 15                                         # GPIO22 (PIN 15)
+TROTTLE_PIN = 16                                        # GPIO23 (PIN 16)
+STEERING_PIN = 18                                       # GPIO24 (PIN 18)
+SWITCH_PIN = 22                                         # GPIO25 (PIN 22)
+KNOBL_PIN = 37                                          # GPIO26 (PIN 37)
+KNOBR_PIN = 13                                          # GPIO27 (PIN 13)
 PWM_MIN_PULSE_WIDTH = 1050                              # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500                          # in µs
 PWM_MAX_PULSE_WIDTH = 1950                              # in µs
