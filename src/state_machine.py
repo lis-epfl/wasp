@@ -42,7 +42,7 @@ def update(last_state, remote_command, in_calibration_mode):
             state = config.STATE["STOP"]
         elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"] or remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
             state = config.STATE["STOP"]
-        elif remote_command == config.REMOTE_COMMAND["TAKE_OFF"]:
+        elif remote_command == config.REMOTE_COMMAND["GO_TAKE_OFF"]:
             state = config.STATE["TAKE_OFF"]
         else:
             state = config.STATE["TRACKING"]

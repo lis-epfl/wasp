@@ -94,14 +94,14 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     had_event = ch.line.event_wait(sec=1)
                     _update_channel_from_event(ch, had_event)
 
-                # Optional debug prints that existed in your code
-                print("throttle_pulse:", channels["throttle"].pulse)
-                print("steering_pulse:", channels["steering"].pulse)
-                print("button_pulse:",   channels["button"].pulse)
-                print("switch_pulse:", channels["switch"].pulse)
-                print("knobl_pulse:",  channels["knobl"].pulse)
-                print("knobr_pulse:",  channels["knobr"].pulse)
-                print("---")
+                # Optional debug prints
+                # print("throttle_pulse:", channels["throttle"].pulse)
+                # print("steering_pulse:", channels["steering"].pulse)
+                # print("button_pulse:",   channels["button"].pulse)
+                # print("switch_pulse:", channels["switch"].pulse)
+                # print("knobl_pulse:",  channels["knobl"].pulse)
+                # print("knobr_pulse:",  channels["knobr"].pulse)
+                # print("---")
 
                 # Shorthand variables
                 th = channels["throttle"]
@@ -352,6 +352,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 # Check if there is an error on the ODrive
                 if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
+                    print("Error 64: Missing input")
+                    print("Error 512: DC bus undervoltage")
+                    print("Error 256: DC bus overvoltage")
+                    print("Error 1024: DC overcurrent")
+
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate # stay in the same position
                 else:

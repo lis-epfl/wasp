@@ -5,7 +5,8 @@ STATE = {
     'STOP': 0,
     'FORWARD': 1,
     'BACKWARD': 2,
-    'TRACKING': 3
+    'TRACKING': 3,
+    'TAKE_OFF': 4
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT_MAIN = 0.1   # execution period in seconds (0.04 without the wind sensor, 0.12 with it) (set to 0.1 for save_images = 0, 0.2 for save_images = 1 or 2)
@@ -14,7 +15,7 @@ DT_RC = 0.01
 ENABLE_WIND_SENSING = False
 
 # Battery
-NB_CELLS = 4                                            # Number of cells in the battery
+NB_CELLS = 8                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
 
@@ -74,13 +75,13 @@ PWM_DEFAULT_PULSE_WIDTH = 1500                          # in µs
 PWM_MAX_PULSE_WIDTH = 1950                              # in µs
 GO_STOP_THRESHOLD = 200                                 # in µs
 BUTTON_TOGGLE_THRESHOLD = 200                           # in µs
-CALIB_SETPOINTS_THRESHOLD = 100                         # in µs
+CALIB_SETPOINTS_THRESHOLD = 300                         # in µs
 REMOTE_COMMAND = {
     'GO_STOP': 0,
     'GO_BACKWARD': 1,
     'GO_FORWARD': 2,
     'GO_TRACKING': 3,
-    'TAKE_OFF': 4
+    'GO_TAKE_OFF': 4
 }
 COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 
