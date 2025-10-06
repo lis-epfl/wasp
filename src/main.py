@@ -83,6 +83,8 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             button_initialized = False
             button_in_default_position = True
 
+            take_off_armed = False
+
             while True:
                 t0 = time.time()
 
@@ -94,20 +96,28 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
 
                 # Optional debug prints that existed in your code
                 print("throttle_pulse:", channels["throttle"].pulse)
+                print("steering_pulse:", channels["steering"].pulse)
                 print("button_pulse:",   channels["button"].pulse)
                 print("switch_pulse:", channels["switch"].pulse)
                 print("knobl_pulse:",  channels["knobl"].pulse)
                 print("knobr_pulse:",  channels["knobr"].pulse)
+                print("---")
 
                 # Shorthand variables
                 th = channels["throttle"]
                 bt = channels["button"]
                 st = channels["steering"]
+                sw = channels["switch"]
+                kl = channels["knobl"]
+                kr = channels["knobr"]
 
-                # Disconnection / timeout handling (same rule-set as before)
+                # Disconnection / timeout handling
                 if (th.timeout or th.pulse == 0.0 or
                     bt.timeout or bt.pulse == 0.0 or
-                    st.timeout or st.pulse == 0.0):
+                    st.timeout or st.pulse == 0.0 or
+                    sw.timeout or sw.pulse == 0.0 or
+                    kl.timeout or kl.pulse == 0.0 or
+                    kr.timeout or kr.pulse == 0.0):
                     if last_remote_command == 3:
                         # stay in tracking but stop
                         remote_command = 3
@@ -132,12 +142,24 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
 
                     # Remote command / speed logic
                     if remote_command == 3:
-                        # Tracking mode
+                        # Take off mode
+                        if sw.pulse < config.PWM_MIN_PULSE_WIDTH:
+                            take_off_armed = True
+
+                        if sw.pulse > config.PWM_MAX_PULSE_WIDTH and take_off_armed:
+                            take_off_armed = False
+                            remote_command = 4
+                            target_speed = 0.0
+                            print("TAKE OFF command issued for time: " + str(kl.pulse) + " µs")
+
+                        # Safety: stop if button is toggled or not in default position
                         if button_in_default_position or abs(th.pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.GO_STOP_THRESHOLD:
                             remote_command = 0
                             target_speed = 0.0
                             # require a toggle to resume tracking
                             initial_button_pulse = bt.pulse
+                        
+                        # Tracking mode
                         else:
                             remote_command = 3
                             target_speed = 0.0
