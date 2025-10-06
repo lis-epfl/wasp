@@ -24,12 +24,16 @@ import calibration_file_handling
 
 
 class PwmChannel:
-    name: str
-    pin: int
-    line: gpiod.Line = None
-    last_rising: float | None = None
-    pulse: float = 0.0
-    timeout: bool = False
+    def __init__(self, name, pin):
+        self.name = name
+        self.pin = pin
+        self.line = None
+        self.last_rising = None
+        self.pulse = 0.0
+        self.timeout = False
+
+    def __repr__(self):
+        return f"<PwmChannel {self.name}: pulse={self.pulse:.1f}µs timeout={self.timeout}>"
 
 def _request_line(chip: gpiod.Chip, pin: int) -> gpiod.Line:
     line = chip.get_line(pin)
@@ -89,6 +93,8 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     _update_channel_from_event(ch, had_event)
 
                 # Optional debug prints that existed in your code
+                print("throttle_pulse:", channels["throttle"].pulse)
+                print("button_pulse:",   channels["button"].pulse)
                 print("switch_pulse:", channels["switch"].pulse)
                 print("knobl_pulse:",  channels["knobl"].pulse)
                 print("knobr_pulse:",  channels["knobr"].pulse)
