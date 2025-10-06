@@ -61,6 +61,7 @@ BLUE = (0, 0, 255)                                      # RGB colors for blue
 GREEN = (0, 255, 0)                                     # RGB colors for green
 YELLOW = (255, 255, 0)                                  # RGB colors for yellow
 PURPLE = (102, 51, 153)                                 # RGB colors for purple
+TURQUOISE = (0, 255, 255)                               # RGB colors for turquoise
 
 
 # RC communication

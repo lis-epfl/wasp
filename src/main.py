@@ -141,12 +141,17 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                         button_in_default_position = False
 
                     # Remote command / speed logic
-                    if remote_command == 3:
-                        # Take off mode
-                        if sw.pulse < config.PWM_MIN_PULSE_WIDTH:
-                            take_off_armed = True
+                    if remote_command == 3 or remote_command == 4:
+                        # Tracking mode
+                        remote_command = 3
+                        target_speed = 0.0
 
-                        if sw.pulse > config.PWM_MAX_PULSE_WIDTH and take_off_armed:
+                        # Take off mode
+                        if sw.pulse > config.PWM_MAX_PULSE_WIDTH:
+                            take_off_armed = True
+                            print("Take off armed.")
+
+                        if sw.pulse < config.PWM_MIN_PULSE_WIDTH and take_off_armed:
                             take_off_armed = False
                             remote_command = 4
                             target_speed = 0.0
@@ -158,11 +163,6 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                             target_speed = 0.0
                             # require a toggle to resume tracking
                             initial_button_pulse = bt.pulse
-                        
-                        # Tracking mode
-                        else:
-                            remote_command = 3
-                            target_speed = 0.0
                     else:
                         # Manual mode
                         if not button_in_default_position:
