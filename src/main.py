@@ -55,7 +55,7 @@ def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
         ch.pulse = 0.0
         ch.timeout = True
 
-def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints):
+def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     try:
         with gpiod.Chip('gpiochip0') as chip:
             # Set up all channels in one place
@@ -269,7 +269,7 @@ def wind_sensor_reading(save_path):
             print(f"Plotting failed: {e}")
 
 
-def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints):
+def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     # Initialize variable
     time_start_while = 0
     time_end_while = 0
@@ -461,6 +461,37 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         
                     # Normal operation
                     else:
+                        if state == config.STATE["TAKE_OFF"]:
+                            if take_off_start_time is None:
+                                take_off_start_time = time.time()
+                            
+                            # During the take-off, move forward at a constant speed for a fixed duration
+                            if (time.time() - take_off_start_time) < knobl_value * 2.0: # max 2 seconds
+                                if linear_position < zipline_length/4:
+                                    x_ref = zipline_length
+                                    vel_ref = config.MAX_SPEED
+                                if linear_position > zipline_length * (1 - 1/4):
+                                    x_ref = 0
+                                    vel_ref = config.MAX_SPEED
+                            else:
+                                # After the take-off duration, switch to tracking mode
+                                state = config.STATE["TRACKING"]
+                                last_state = state
+                                take_off_start_time = None
+                                x_ref = linear_position
+                                vel_ref = 0.0
+
+                            ArUco_pose = {
+                                'x ArUco [m]': None,
+                                'y ArUco [m]': None,
+                                'z ArUco [m]': None,
+                                'roll ArUco [deg]': None,
+                                'pitch ArUco [deg]': None,
+                                'yaw ArUco [deg]': None,
+                            }
+                            tracking_error = None
+                            last_tracking_error = None
+
                         if state == config.STATE["TRACKING"]:
                             take_off_start_time = None
                             
@@ -537,36 +568,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             
                             start_decelerating = True
 
-                        if state == config.STATE["TAKE_OFF"]:
-                            if take_off_start_time is None:
-                                take_off_start_time = time.time()
-                            
-                            # During the take-off, move forward at a constant speed for a fixed duration
-                            if (time.time() - take_off_start_time) < knobl_value * 2.0: # max 2 seconds
-                                if linear_position < zipline_length/4:
-                                    x_ref = zipline_length
-                                    vel_ref = config.MAX_SPEED
-                                if linear_position > zipline_length * (1 - 1/4):
-                                    x_ref = 0
-                                    vel_ref = config.MAX_SPEED
-                            else:
-                                # After the take-off duration, switch to tracking mode
-                                state = config.STATE["TRACKING"]
-                                last_state = state
-                                take_off_start_time = None
-                                x_ref = linear_position
-                                vel_ref = 0.0
-
-                            ArUco_pose = {
-                                'x ArUco [m]': None,
-                                'y ArUco [m]': None,
-                                'z ArUco [m]': None,
-                                'roll ArUco [deg]': None,
-                                'pitch ArUco [deg]': None,
-                                'yaw ArUco [deg]': None,
-                            }
-                            tracking_error = None
-                            last_tracking_error = None
                         else:
                             ArUco_pose = {
                                 'x ArUco [m]': None,
@@ -679,12 +680,16 @@ if __name__ == "__main__":
     shared_remote_command = Value('i', 0)
     shared_target_speed = Value('d', 0.0)
     shared_calibration_setpoints = Value('d', 0.0)
+    shared_knobl_value = Value('d', 0.0)
+    shared_knobr_value = Value('d', 0.0)
 
     p1 = Process(
         target=rc_receiver_reading,
         args=(shared_remote_command,
               shared_target_speed,
-              shared_calibration_setpoints),
+              shared_calibration_setpoints,
+              shared_knobl_value,
+              shared_knobr_value),
     )
     p3 = Process(
         target=main,
@@ -692,7 +697,9 @@ if __name__ == "__main__":
               time_start_ref,
               shared_remote_command,
               shared_target_speed,
-              shared_calibration_setpoints),
+              shared_calibration_setpoints,
+              shared_knobl_value,
+              shared_knobr_value),
     )
 
     procs = [p1, p3]
