@@ -342,6 +342,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     save_camera_path = Path(save_path) / "frames"
     save_camera_path.mkdir(parents=True, exist_ok=True)
 
+    take_off_start_time = None
+
     try:
         try:
             while True:
@@ -355,7 +357,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 else:
                     # Get remote control commands
                     with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
-                        remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking
+                        remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking, 4: take off
                         target_speed = shared_target_speed.value                    # in µs
                         calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
 
@@ -445,6 +447,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     # Normal operation
                     else:
                         if state == config.STATE["TRACKING"]:
+                            take_off_start_time = None
+                            
                             # Take frame 
                             frame_bgr = camera_ctrl.capture_bgr_frame(camera)
                             time_frame_captured = time.time()
@@ -518,6 +522,32 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             
                             start_decelerating = True
 
+                        if state == config.STATE["TAKE_OFF"]:
+                            if take_off_start_time is None:
+                                take_off_start_time = time.time()
+                            
+                            # During the take-off, move forward at a constant speed for a fixed duration
+                            if (time.time() - take_off_start_time) < config.TAKE_OFF_DURATION:
+                                x_ref = min(linear_position + config.TAKE_OFF_SPEED * config.DT_MAIN, zipline_length)
+                                vel_ref = config.TAKE_OFF_SPEED
+                            else:
+                                # After the take-off duration, switch to tracking mode
+                                state = config.STATE["TRACKING"]
+                                last_state = state
+                                take_off_start_time = None
+                                x_ref = linear_position
+                                vel_ref = 0.0
+
+                            ArUco_pose = {
+                                'x ArUco [m]': None,
+                                'y ArUco [m]': None,
+                                'z ArUco [m]': None,
+                                'roll ArUco [deg]': None,
+                                'pitch ArUco [deg]': None,
+                                'yaw ArUco [deg]': None,
+                            }
+                            tracking_error = None
+                            last_tracking_error = None
                         else:
                             ArUco_pose = {
                                 'x ArUco [m]': None,

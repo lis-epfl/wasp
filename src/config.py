@@ -79,7 +79,8 @@ REMOTE_COMMAND = {
     'GO_STOP': 0,
     'GO_BACKWARD': 1,
     'GO_FORWARD': 2,
-    'GO_TRACKING': 3
+    'GO_TRACKING': 3,
+    'TAKE_OFF': 4
 }
 COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 
