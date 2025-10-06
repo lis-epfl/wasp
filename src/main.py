@@ -23,219 +23,170 @@ import plot_li550_data
 import calibration_file_handling
 
 
+class PwmChannel:
+    name: str
+    pin: int
+    line: gpiod.Line = None
+    last_rising: float | None = None
+    pulse: float = 0.0
+    timeout: bool = False
+
+def _request_line(chip: gpiod.Chip, pin: int) -> gpiod.Line:
+    line = chip.get_line(pin)
+    line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+    return line
+
+def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
+    """Mutates channel in place based on whether an event occurred."""
+    if wait_ok:
+        ev = ch.line.event_read()
+        ts = ev.sec + ev.nsec / 1e9
+        if ev.type == gpiod.LineEvent.RISING_EDGE:
+            ch.last_rising = ts
+        elif ev.type == gpiod.LineEvent.FALLING_EDGE and ch.last_rising is not None:
+            ch.pulse = (ts - ch.last_rising) * 1_000_000  # µs
+            ch.last_rising = None
+        ch.timeout = False
+    else:
+        ch.pulse = 0.0
+        ch.timeout = True
+
 def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints):
     try:
         with gpiod.Chip('gpiochip0') as chip:
-            throttle_line = chip.get_line(config.TROTTLE_PIN)
-            button_line = chip.get_line(config.BUTTON_PIN)
-            steering_line = chip.get_line(config.STEERING_PIN)
-            switch_line = chip.get_line(config.SWITCH_PIN)
-            knobl_line = chip.get_line(config.KNOBL_PIN)
-            knobr_line = chip.get_line(config.KNOBR_PIN)
+            # Set up all channels in one place
+            channels: dict[str, PwmChannel] = {
+                "throttle": PwmChannel("throttle", config.TROTTLE_PIN),
+                "button":   PwmChannel("button",   config.BUTTON_PIN),
+                "steering": PwmChannel("steering", config.STEERING_PIN),
+                "switch":   PwmChannel("switch",   config.SWITCH_PIN),
+                "knobl":    PwmChannel("knobl",    config.KNOBL_PIN),
+                "knobr":    PwmChannel("knobr",    config.KNOBR_PIN),
+            }
 
-            throttle_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            button_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            steering_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            switch_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            knobl_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
-            knobr_line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
+            # Request all lines
+            for ch in channels.values():
+                ch.line = _request_line(chip, ch.pin)
 
-            # Initialize variables
-            last_rising_throttle = None
-            throttle_timeout = False
-            throttle_pulse = 0.0
-
-            last_rising_button = None
-            button_timeout = False
-            button_pulse = 0.0
-
-            last_rising_steering = None
-            steering_timeout = False
-            steering_pulse = 0.0
-            
+            # Locals for higher-level logic/state
             remote_command = 0
             last_remote_command = 0
             calibration_setpoints = 0
             target_speed = 0.0
+
+            # Button initialization to detect the toggled position relative to startup
             initial_button_pulse = 0.0
-            button_in_default_position = True
             button_initialized = False
+            button_in_default_position = True
 
             while True:
-                time_start_while = time.time()
+                t0 = time.time()
 
-                throttle_event = throttle_line.event_wait(sec=1)
-                button_event = button_line.event_wait(sec=1)
-                steering_event = steering_line.event_wait(sec=1)
+                # Wait for events (1s timeout each) and update all channels in a loop
+                for key in ("throttle", "button", "steering", "switch", "knobl", "knobr"):
+                    ch = channels[key]
+                    had_event = ch.line.event_wait(sec=1)
+                    _update_channel_from_event(ch, had_event)
 
-                # Reading throttle event
-                if throttle_event:
-                    ev_throttle = throttle_line.event_read()
-                    timestamp_throttle = ev_throttle.sec + ev_throttle.nsec / 1e9
-                    if ev_throttle.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_throttle = timestamp_throttle
-                    elif ev_throttle.type == gpiod.LineEvent.FALLING_EDGE and last_rising_throttle is not None:
-                        throttle_pulse = (timestamp_throttle - last_rising_throttle) * 1_000_000  # in µs
-                        last_rising_throttle = None
-                    throttle_timeout = False
-                else:
-                    throttle_pulse = 0.0
-                    throttle_timeout = True
+                # Optional debug prints that existed in your code
+                print("switch_pulse:", channels["switch"].pulse)
+                print("knobl_pulse:",  channels["knobl"].pulse)
+                print("knobr_pulse:",  channels["knobr"].pulse)
 
-                # Reading button event
-                if button_event:
-                    ev_button = button_line.event_read()
-                    timestamp_button = ev_button.sec + ev_button.nsec / 1e9
-                    if ev_button.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_button = timestamp_button
-                    elif ev_button.type == gpiod.LineEvent.FALLING_EDGE and last_rising_button is not None:
-                        button_pulse = (timestamp_button - last_rising_button) * 1_000_000  # in µs
-                        last_rising_button = None
-                    button_timeout = False
-                else:
-                    button_pulse = 0.0
-                    button_timeout = True
-                
-                # Reading steering event
-                if steering_event:
-                    ev_steering = steering_line.event_read()
-                    timestamp_steering = ev_steering.sec + ev_steering.nsec / 1e9
-                    if ev_steering.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_steering = timestamp_steering
-                    elif ev_steering.type == gpiod.LineEvent.FALLING_EDGE and last_rising_steering is not None:
-                        steering_pulse = (timestamp_steering - last_rising_steering) * 1_000_000  # in µs
-                        last_rising_steering = None
-                    steering_timeout = False
-                else:
-                    steering_pulse = 0.0
-                    steering_timeout = True
+                # Shorthand variables
+                th = channels["throttle"]
+                bt = channels["button"]
+                st = channels["steering"]
 
-                # Reading switch state
-                if switch_event:
-                    ev_switch = switch_line.event_read()
-                    timestamp_switch = ev_switch.sec + ev_switch.nsec / 1e9
-                    if ev_switch.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_switch = timestamp_switch
-                    elif ev_switch.type == gpiod.LineEvent.FALLING_EDGE and last_rising_switch is not None:
-                        switch_pulse = (timestamp_switch - last_rising_switch) * 1_000_000  # in µs
-                        last_rising_switch = None
-                    switch_timeout = False
-                else:
-                    switch_pulse = 0.0
-                    switch_timeout = True
-                print("switch_pulse:", switch_pulse)
-
-                # Reading knobl state
-                if knobl_event:
-                    ev_knobl = knobl_line.event_read()
-                    timestamp_knobl = ev_knobl.sec + ev_knobl.nsec / 1e9
-                    if ev_knobl.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_knobl = timestamp_knobl
-                    elif ev_knobl.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knobl is not None:
-                        knobl_pulse = (timestamp_knobl - last_rising_knobl) * 1_000_000  # in µs
-                        last_rising_knobl = None
-                    knobl_timeout = False
-                else:
-                    knobl_pulse = 0.0
-                    knobl_timeout = True
-                print("knobl_pulse:", knobl_pulse)
-
-                # Reading knobr state
-                if knobr_event:
-                    ev_knobr = knobr_line.event_read()
-                    timestamp_knobr = ev_knobr.sec + ev_knobr.nsec / 1e9
-                    if ev_knobr.type == gpiod.LineEvent.RISING_EDGE:
-                        last_rising_knobr = timestamp_knobr
-                    elif ev_knobr.type == gpiod.LineEvent.FALLING_EDGE and last_rising_knobr is not None:
-                        knobr_pulse = (timestamp_knobr - last_rising_knobr) * 1_000_000  # in µs
-                        last_rising_knobr = None
-                    knobr_timeout = False
-                else:
-                    knobr_pulse = 0.0
-                    knobr_timeout = True
-                print("knobr_pulse:", knobr_pulse)
-
-                # Logic to determine remote command, target speed, and calibration setpoints
-                if throttle_timeout or (throttle_pulse == 0.0) or button_timeout or (button_pulse == 0.0) or steering_timeout or (steering_pulse == 0.0):
+                # Disconnection / timeout handling (same rule-set as before)
+                if (th.timeout or th.pulse == 0.0 or
+                    bt.timeout or bt.pulse == 0.0 or
+                    st.timeout or st.pulse == 0.0):
                     if last_remote_command == 3:
-                        remote_command = 3          # stay in "GO_TRACKING" if deconnection and was in tracking mode
+                        # stay in tracking but stop
+                        remote_command = 3
                         target_speed = 0.0
-                        calibration_setpoints = 0   # no setpoint
+                        calibration_setpoints = 0
                     else:
-                        remote_command = 0          # change to "GO_STOP" if deconnection and was in manual mode
+                        # fall back to stop
+                        remote_command = 0
                         target_speed = 0.0
-                        calibration_setpoints = 0   # no setpoint
-                else:                                                      
-                    # If this is the first button pulse read, use it as the reference
+                        calibration_setpoints = 0
+                else:
+                    # Initialize button reference the first time we get a valid pulse
                     if not button_initialized:
-                        initial_button_pulse = button_pulse
+                        initial_button_pulse = bt.pulse
                         button_initialized = True
-                        
-                    # Determine if the button is in the same position as initial (GO_STOP) or toggled (GO_TRACKING)
-                    if (abs(button_pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD) and button_initialized:
-                        button_in_default_position = True   # button is in the same position as initial
-                    else:
-                        button_in_default_position = False  # button is in the opposite position as initial
 
-                    # Logic for remote command and target speed
+                    # Is the button still in its initial position?
+                    if button_initialized and abs(bt.pulse - initial_button_pulse) < config.BUTTON_TOGGLE_THRESHOLD:
+                        button_in_default_position = True
+                    else:
+                        button_in_default_position = False
+
+                    # Remote command / speed logic
                     if remote_command == 3:
                         # Tracking mode
-                        if (button_in_default_position) or abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.GO_STOP_THRESHOLD:
-                            # if the button or the trottle is touched, stop tracking
-                            remote_command = 0 
+                        if button_in_default_position or abs(th.pulse - config.PWM_DEFAULT_PULSE_WIDTH) > config.GO_STOP_THRESHOLD:
+                            remote_command = 0
                             target_speed = 0.0
-                            initial_button_pulse = button_pulse  # so that it require a button toggle to resume tracking
+                            # require a toggle to resume tracking
+                            initial_button_pulse = bt.pulse
                         else:
-                            # if the button is not touched, keep tracking
                             remote_command = 3
                             target_speed = 0.0
                     else:
                         # Manual mode
                         if not button_in_default_position:
-                            # if the button is toggled, start tracking
                             remote_command = 3
                             target_speed = 0.0
                         else:
-                            if abs(throttle_pulse - config.PWM_DEFAULT_PULSE_WIDTH) < config.GO_STOP_THRESHOLD:
-                                remote_command = 0  # corresponding to "GO_STOP"
+                            delta = th.pulse - config.PWM_DEFAULT_PULSE_WIDTH
+                            if abs(delta) < config.GO_STOP_THRESHOLD:
+                                remote_command = 0   # GO_STOP
                                 target_speed = 0.0
-                            elif throttle_pulse < (config.PWM_DEFAULT_PULSE_WIDTH - config.GO_STOP_THRESHOLD):
-                                remote_command = 1  # corresponding to "GO_BACKWARD"
-                                target_speed = throttle_pulse
-                            elif throttle_pulse > (config.PWM_DEFAULT_PULSE_WIDTH + config.GO_STOP_THRESHOLD):
-                                remote_command = 2  # corresponding to "GO_FORWARD"
-                                target_speed = throttle_pulse
-                    
-                    # Logic for calibration setpoints
-                    if abs(steering_pulse - config.PWM_MIN_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
-                        calibration_setpoints = 1 # setpoints for zipline start
-                    elif abs(steering_pulse - config.PWM_MAX_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
-                        calibration_setpoints = 2 # setpoints for zipline length
+                            elif delta < -config.GO_STOP_THRESHOLD:
+                                remote_command = 1   # GO_BACKWARD
+                                target_speed = th.pulse
+                            else:  # delta > +threshold
+                                remote_command = 2   # GO_FORWARD
+                                target_speed = th.pulse
+
+                    # Calibration setpoints from steering
+                    if abs(st.pulse - config.PWM_MIN_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
+                        calibration_setpoints = 1  # zipline start
+                    elif abs(st.pulse - config.PWM_MAX_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
+                        calibration_setpoints = 2  # zipline length
                     else:
-                        calibration_setpoints = 0 # no setpoint
+                        calibration_setpoints = 0  # no setpoint
 
                 last_remote_command = remote_command
 
-                # Update shared values between processes
-                with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
+                # Share results atomically
+                with (shared_remote_command.get_lock(),
+                      shared_target_speed.get_lock(),
+                      shared_calibration_setpoints.get_lock()):
                     shared_remote_command.value = remote_command
                     shared_target_speed.value = target_speed
                     shared_calibration_setpoints.value = calibration_setpoints
 
-                # Sleep to respect the desired loop time
-                time_end_while = time.time()
-                # print("RC process:", time_end_while - time_start_while, "s")
-                if time_end_while - time_start_while < config.DT_RC:
-                    time.sleep(config.DT_RC - (time_end_while - time_start_while))
+                # Loop timing
+                dt = time.time() - t0
+                if dt < config.DT_RC:
+                    time.sleep(config.DT_RC - dt)
                 else:
-                    print(f"RC process execution time exceeded: {(time_end_while - time_start_while):.4f} / {config.DT_RC:.4f} s.")
+                    print(f"RC process execution time exceeded: {dt:.4f} / {config.DT_RC:.4f} s.")
 
     except KeyboardInterrupt:
         print("\nRC process stopped.")
     finally:
-        throttle_line.release()
-        button_line.release()
-        steering_line.release()
+        # Release lines if they were requested
+        try:
+            for ch in list(locals().get("channels", {}).values()):
+                if ch.line is not None:
+                    ch.line.release()
+        except Exception:
+            pass
 
 
 def wind_sensor_reading(save_path): 
