@@ -351,6 +351,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     save_camera_path.mkdir(parents=True, exist_ok=True)
 
     take_off_start_time = None
+    take_off_done = True
 
     try:
         try:
@@ -397,6 +398,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                     # Update state
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
+                    if take_off_done and state == config.STATE["TAKE_OFF"]:
+                        state = config.STATE["TRACKING"]
                     last_state = state
 
                     # Calibrating the zipline length
@@ -461,35 +464,59 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         
                     # Normal operation
                     else:
-                        if state == config.STATE["TAKE_OFF"]:
-                            if take_off_start_time is None:
-                                take_off_start_time = time.time()
-                            
-                            # During the take-off, move forward at a constant speed for a fixed duration
-                            if (time.time() - take_off_start_time) < knobl_value: # max 1 second
-                                if linear_position < zipline_length/4:
-                                    x_ref = zipline_length
-                                    vel_ref = config.MAX_SPEED
-                                if linear_position > zipline_length * (1 - 1/4):
-                                    x_ref = 0
-                                    vel_ref = config.MAX_SPEED
-                                
-                                ArUco_pose = {
+                        # MANUAL MODE
+                        if state == config.STATE["STOP"] or state == config.STATE["FORWARD"] or state == config.STATE["BACKWARD"]:
+                            take_off_start_time = None
+                            take_off_done = True
+
+                            ArUco_pose = {
                                 'x ArUco [m]': None,
                                 'y ArUco [m]': None,
                                 'z ArUco [m]': None,
                                 'roll ArUco [deg]': None,
                                 'pitch ArUco [deg]': None,
                                 'yaw ArUco [deg]': None,
-                                }
-                                tracking_error = None
-                                last_tracking_error = None
-                            else:
-                                # After the take-off duration, switch to tracking mode
-                                state = config.STATE["TRACKING"]
-                                last_state = config.STATE["TAKE_OFF"]
+                            }
+                            tracking_error = None
+                            last_tracking_error = None
 
-                        if state == config.STATE["TRACKING"]:                            
+                            # Desired velocity based on the remote command
+                            vel_ref = target_speed_m_s
+
+                            if state == config.STATE["STOP"]:
+                                # Define positon target to match desired deceleration with respect to current velocity
+                                if start_decelerating:
+                                    if linear_velocity > 0:
+                                        x_stop = linear_position + decel_dist
+                                    else:
+                                        x_stop = linear_position - decel_dist
+                                    start_decelerating = False
+
+                                # Stay on spot when position target for deceleration reached   
+                                decelerating = True
+                                if abs(linear_velocity) < config.STOP_SPEED_THRESHOLD: decelerating = False
+                                if decelerating:
+                                    x_ref = x_stop
+                                else:
+                                    x_ref = linear_position
+                                                            
+                            elif state == config.STATE["FORWARD"]:
+                                x_ref = zipline_length
+                                start_decelerating = True
+
+                            elif state == config.STATE["BACKWARD"]:
+                                x_ref = 0
+                                start_decelerating = True
+
+                            else:
+                                x_ref = linear_position
+                                start_decelerating = True
+
+                            # To switch from FORWARD to TRACKING smoothly
+                            last_estimated_UAV_vel = linear_velocity
+                        
+                        # TRACKING MODE
+                        elif state == config.STATE["TRACKING"]:                            
                             # Take frame 
                             frame_bgr = camera_ctrl.capture_bgr_frame(camera)
                             time_frame_captured = time.time()
@@ -563,53 +590,36 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             
                             start_decelerating = True
 
-                        elif state == config.STATE["STOP"] or state == config.STATE["FORWARD"] or state == config.STATE["BACKWARD"]:
-                            take_off_start_time = None
-                            ArUco_pose = {
+                        # TAKE OFF MODE
+                        elif state == config.STATE["TAKE_OFF"]:
+                            if take_off_start_time is None:
+                                take_off_start_time = time.time()
+                            
+                            # During the take-off, move forward at a constant speed for a fixed duration
+                            if (time.time() - take_off_start_time) < knobl_value: # max 1 second
+                                take_off_done = False
+                                if linear_position < zipline_length/4:
+                                    x_ref = zipline_length
+                                    vel_ref = config.MAX_SPEED
+                                if linear_position > zipline_length * (1 - 1/4):
+                                    x_ref = 0
+                                    vel_ref = config.MAX_SPEED
+                                
+                                ArUco_pose = {
                                 'x ArUco [m]': None,
                                 'y ArUco [m]': None,
                                 'z ArUco [m]': None,
                                 'roll ArUco [deg]': None,
                                 'pitch ArUco [deg]': None,
                                 'yaw ArUco [deg]': None,
-                            }
-                            tracking_error = None
-                            last_tracking_error = None
-
-                            # Desired velocity based on the remote command
-                            vel_ref = target_speed_m_s
-
-                            if state == config.STATE["STOP"]:
-                                # Define positon target to match desired deceleration with respect to current velocity
-                                if start_decelerating:
-                                    if linear_velocity > 0:
-                                        x_stop = linear_position + decel_dist
-                                    else:
-                                        x_stop = linear_position - decel_dist
-                                    start_decelerating = False
-
-                                # Stay on spot when position target for deceleration reached   
-                                decelerating = True
-                                if abs(linear_velocity) < config.STOP_SPEED_THRESHOLD: decelerating = False
-                                if decelerating:
-                                    x_ref = x_stop
-                                else:
-                                    x_ref = linear_position
-                                                            
-                            elif state == config.STATE["FORWARD"]:
-                                x_ref = zipline_length
-                                start_decelerating = True
-
-                            elif state == config.STATE["BACKWARD"]:
-                                x_ref = 0
-                                start_decelerating = True
-
+                                }
+                                tracking_error = None
+                                last_tracking_error = None
                             else:
-                                x_ref = linear_position
-                                start_decelerating = True
-
-                            # To switch from FORWARD to TRACKING smoothly
-                            last_estimated_UAV_vel = linear_velocity
+                                take_off_done = True
+                                # After the take-off duration, switch to tracking mode
+                                state = config.STATE["TRACKING"]
+                                last_state = config.STATE["TAKE_OFF"]
                         else:
                             print("ERROR: unknown state")
                         
