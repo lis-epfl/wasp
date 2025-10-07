@@ -350,8 +350,12 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     save_camera_path = Path(save_path) / "frames"
     save_camera_path.mkdir(parents=True, exist_ok=True)
 
+    # Variables for take off logic
     take_off_start_time = None
-    take_off_done = True
+    take_off_direction = None
+    take_off_start_position = None
+    take_off_i = None
+    take_off_trajectory = [0]*5 + [0.5]*5 - [0]*5 + [0.5]*5 - [0]*5
 
     try:
         try:
@@ -398,8 +402,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                     # Update state
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
-                    # if (take_off_start_time is not None) and take_off_done and state == config.STATE["TAKE_OFF"]: # because even after take off, the remote still sends TAKE_OFF command
-                    #     state = config.STATE["TRACKING"]
                     last_state = state
 
                     # Calibrating the zipline length
@@ -466,8 +468,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     else:
                         # MANUAL MODE
                         if state == config.STATE["STOP"] or state == config.STATE["FORWARD"] or state == config.STATE["BACKWARD"]:
-                            take_off_start_time = None
-                            take_off_done = True
+                            take_off_i = None
 
                             ArUco_pose = {
                                 'x ArUco [m]': None,
@@ -570,7 +571,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     x_ref = 0
                             else:
                                 # ArUco marker not detected: keep the last tracking_error for a while
-                                if (last_tracking_error is not None) and cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
+                                if cnt_moving_blindly < config.MAX_CNT_MOVING_BLINDLY:
 
                                     vel_ref = last_estimated_UAV_vel
 
@@ -589,55 +590,50 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     estimated_UAV_pos = x_ref
 
                             if state == config.STATE["TAKE_OFF"]:
-                                if (time.time() - take_off_start_time) < knobl_value: # max 1 second
-                                    take_off_done = False
+                                # first time
+                                if take_off_i is None:
+                                    take_off_i = 0
                                     if linear_position < zipline_length/4:
+                                        take_off_direction = "FORWARD"
+                                        take_off_start_position = linear_position
+                                    elif linear_position > zipline_length*3/4:
+                                        take_off_direction = "BACKWARD"
+                                        take_off_start_position = linear_position
+                                    else:
+                                        take_off_direction = None
+                                        take_off_start_position = None
+                                
+                                # trajectory that allows user to sync up
+                                if take_off_i < len(take_off_trajectory):
+                                    if take_off_direction == "FORWARD":
+                                        sign = 1
+                                    elif take_off_direction == "BACKWARD":
+                                        sign = -1
+                                    else:
+                                        sign = 0
+                                    x_ref = take_off_start_position + sign*take_off_trajectory[take_off_i]
+                                    vel_ref = config.MAX_SPEED
+                                    take_off_i += 1
+
+                                    take_off_start_time = time.time()
+                                
+                                # timed take off
+                                elif (time.time() - take_off_start_time) < knobl_value: # max 1 second
+                                    cnt_moving_blindly = 0
+                                    last_estimated_UAV_vel = linear_velocity
+                                    if take_off_direction == "FORWARD":
                                         x_ref = zipline_length
                                         vel_ref = config.MAX_SPEED
-                                    if linear_position > zipline_length * (1 - 1/4):
+                                    elif take_off_direction == "BACKWARD":
                                         x_ref = 0
                                         vel_ref = config.MAX_SPEED
+
                                 else:
                                     state = config.STATE["TRACKING"]
                                     last_state = config.STATE["TAKE_OFF"]
 
                             start_decelerating = True
 
-                        # # TAKE OFF MODE
-                        # elif state == config.STATE["TAKE_OFF"]:
-                        #     if take_off_start_time is None:
-                        #         take_off_start_time = time.time()
-                            
-                        #     # During the take-off, move forward at a constant speed for a fixed duration
-                        #     if (time.time() - take_off_start_time) < knobl_value: # max 1 second
-                        #         take_off_done = False
-                        #         if linear_position < zipline_length/4:
-                        #             x_ref = zipline_length
-                        #             vel_ref = config.MAX_SPEED
-                        #         if linear_position > zipline_length * (1 - 1/4):
-                        #             x_ref = 0
-                        #             vel_ref = config.MAX_SPEED
-                                
-                        #         ArUco_pose = {
-                        #         'x ArUco [m]': None,
-                        #         'y ArUco [m]': None,
-                        #         'z ArUco [m]': None,
-                        #         'roll ArUco [deg]': None,
-                        #         'pitch ArUco [deg]': None,
-                        #         'yaw ArUco [deg]': None,
-                        #         }
-                        #         tracking_error = None
-                        #         last_tracking_error = None
-                        #     else:
-                        #         take_off_done = True
-                        #         # After the take-off duration, switch to tracking mode
-                        #         state = config.STATE["TRACKING"]
-                        #         last_state = config.STATE["TAKE_OFF"]
-
-                        #         last_estimated_UAV_pos = linear_position
-                        #         last_estimated_UAV_vel = linear_velocity
-                        #         last_tracking_error = 0
-                        #         cnt_moving_blindly = 0
                         else:
                             print("ERROR: unknown state")
                         
