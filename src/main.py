@@ -602,9 +602,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 # first time
                                 if take_off_i is None:
                                     take_off_i = 0
-                                    if linear_position < zipline_length/4:
+                                    if linear_position < zipline_length/config.TAKE_OFF_POSITION_THRESHOLD:
                                         take_off_direction = "FORWARD"
-                                    elif linear_position > zipline_length*3/4:
+                                    elif linear_position > zipline_length*(1-config.TAKE_OFF_POSITION_THRESHOLD):
                                         take_off_direction = "BACKWARD"
                                     else:
                                         take_off_direction = None

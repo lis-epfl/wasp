@@ -118,6 +118,7 @@ CROP_Y = 0.0                                        # percentage of image to cro
 RES_DROP_PRE = 1.0                                  # resolution drop factor for pre-processing (used to be 1.0)
 UNDISTORT = True                                    # set False to work in distorted (raw) domain
 STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
+TAKE_OFF_POSITION_THRESHOLD = 0.2                   # percentage of the zipline length defining the take-off zones at each end of the zipline
 
 
 # Wind sensor
