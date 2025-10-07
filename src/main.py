@@ -602,7 +602,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 # first time
                                 if take_off_i is None:
                                     take_off_i = 0
-                                    if linear_position < zipline_length/config.TAKE_OFF_POSITION_THRESHOLD:
+                                    if linear_position < zipline_length*config.TAKE_OFF_POSITION_THRESHOLD:
                                         take_off_direction = "FORWARD"
                                     elif linear_position > zipline_length*(1-config.TAKE_OFF_POSITION_THRESHOLD):
                                         take_off_direction = "BACKWARD"
@@ -613,15 +613,12 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 # trajectory that allows user to sync up
                                 if take_off_i < len(take_off_poss):
                                     if take_off_direction == "FORWARD":
-                                        sign = 1
-                                        x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
+                                        x_ref = take_off_start_position + take_off_poss[take_off_i]
                                         vel_ref = take_off_vels[take_off_i]
                                     elif take_off_direction == "BACKWARD":
-                                        sign = -1
-                                        x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
+                                        x_ref = take_off_start_position - take_off_poss[take_off_i]
                                         vel_ref = take_off_vels[take_off_i]
                                     else:
-                                        sign = 0
                                         take_off_i = len(take_off_poss) # skip to the end
                                         x_ref = linear_position
                                         vel_ref = 0
