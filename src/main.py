@@ -274,8 +274,9 @@ def make_take_off_trajectory():
     N_init = int(5/dt)
     N = int(1/dt)  # number of steps for each phase
     p = 0.75 # [m]
-    v = config.MAX_SPEED_CALIB
-    return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [v]*N_init + [v]*N + [v/2]*N + [v]*N + [v/2]*N + [v]*N + [v/2]*N
+    v_f = config.MAX_SPEED_CALIB
+    v_s = 0.5
+    return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [0]*N_init + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     # Initialize variable
@@ -613,12 +614,17 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 if take_off_i < len(take_off_poss):
                                     if take_off_direction == "FORWARD":
                                         sign = 1
+                                        x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
+                                        vel_ref = take_off_vels[take_off_i]
                                     elif take_off_direction == "BACKWARD":
                                         sign = -1
+                                        x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
+                                        vel_ref = take_off_vels[take_off_i]
                                     else:
                                         sign = 0
-                                    x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
-                                    vel_ref = take_off_vels[take_off_i]
+                                        take_off_i = len(take_off_poss) # skip to the end
+                                        x_ref = linear_position
+                                        vel_ref = 0
                                     take_off_i += 1
 
                                     take_off_start_time = time.time()
@@ -633,6 +639,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     elif take_off_direction == "BACKWARD":
                                         x_ref = 0
                                         vel_ref = config.MAX_SPEED
+                                    else:
+                                        take_off_start_time -= knobl_value # skip to the end
 
                                 else:
                                     state = config.STATE["TRACKING"]
