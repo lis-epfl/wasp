@@ -272,7 +272,8 @@ def make_take_off_trajectory():
     # Create a take-off trajectory that allows user to sync up
     dt = config.DT_MAIN
     N = int(1/dt)  # number of steps for each phase
-    return [0]*N + [0.5]*N + [0]*N + [0.5]*N + [0]*N
+    v = config.MAX_SPEED_CALIB
+    return [0]*N + [0.5]*N + [0]*N + [0.5]*N + [0]*N, [v]*N + [v]*N + [v/2]*N + [v]*N + [v/2]*N
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     # Initialize variable
@@ -360,7 +361,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_direction = None
     take_off_start_position = None
     take_off_i = None
-    take_off_trajectory = make_take_off_trajectory()
+    take_off_poss, take_off_vels = make_take_off_trajectory()
 
     try:
         try:
@@ -607,15 +608,15 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     take_off_start_position = linear_position
                                 
                                 # trajectory that allows user to sync up
-                                if take_off_i < len(take_off_trajectory):
+                                if take_off_i < len(take_off_poss):
                                     if take_off_direction == "FORWARD":
                                         sign = 1
                                     elif take_off_direction == "BACKWARD":
                                         sign = -1
                                     else:
                                         sign = 0
-                                    x_ref = take_off_start_position + sign*take_off_trajectory[take_off_i]
-                                    vel_ref = config.MAX_SPEED_CALIB
+                                    x_ref = take_off_start_position + sign*take_off_poss[take_off_i]
+                                    vel_ref = take_off_vels[take_off_i]
                                     take_off_i += 1
 
                                     take_off_start_time = time.time()
