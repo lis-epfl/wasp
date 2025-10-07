@@ -466,35 +466,30 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 take_off_start_time = time.time()
                             
                             # During the take-off, move forward at a constant speed for a fixed duration
-                            if (time.time() - take_off_start_time) < knobl_value * 2.0: # max 2 seconds
+                            if (time.time() - take_off_start_time) < knobl_value: # max 1 second
                                 if linear_position < zipline_length/4:
                                     x_ref = zipline_length
                                     vel_ref = config.MAX_SPEED
                                 if linear_position > zipline_length * (1 - 1/4):
                                     x_ref = 0
                                     vel_ref = config.MAX_SPEED
-                            else:
-                                # After the take-off duration, switch to tracking mode
-                                state = config.STATE["TRACKING"]
-                                last_state = state
-                                take_off_start_time = None
-                                x_ref = linear_position
-                                vel_ref = 0.0
-
-                            ArUco_pose = {
+                                
+                                ArUco_pose = {
                                 'x ArUco [m]': None,
                                 'y ArUco [m]': None,
                                 'z ArUco [m]': None,
                                 'roll ArUco [deg]': None,
                                 'pitch ArUco [deg]': None,
                                 'yaw ArUco [deg]': None,
-                            }
-                            tracking_error = None
-                            last_tracking_error = None
+                                }
+                                tracking_error = None
+                                last_tracking_error = None
+                            else:
+                                # After the take-off duration, switch to tracking mode
+                                state = config.STATE["TRACKING"]
+                                last_state = config.STATE["TAKE_OFF"]
 
-                        if state == config.STATE["TRACKING"]:
-                            take_off_start_time = None
-                            
+                        if state == config.STATE["TRACKING"]:                            
                             # Take frame 
                             frame_bgr = camera_ctrl.capture_bgr_frame(camera)
                             time_frame_captured = time.time()
@@ -568,7 +563,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             
                             start_decelerating = True
 
-                        else:
+                        elif state == config.STATE["STOP"] or state == config.STATE["FORWARD"] or state == config.STATE["BACKWARD"]:
+                            take_off_start_time = None
                             ArUco_pose = {
                                 'x ArUco [m]': None,
                                 'y ArUco [m]': None,
@@ -614,6 +610,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                             # To switch from FORWARD to TRACKING smoothly
                             last_estimated_UAV_vel = linear_velocity
+                        else:
+                            print("ERROR: unknown state")
                         
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
