@@ -268,6 +268,11 @@ def wind_sensor_reading(save_path):
         except Exception as e:
             print(f"Plotting failed: {e}")
 
+def make_take_off_trajectory():
+    # Create a take-off trajectory that allows user to sync up
+    dt = config.DT_MAIN
+    N = int(1/dt)  # number of steps for each phase
+    return [0]*N + [0.5]*N + [0]*N + [0.5]*N + [0]*N
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     # Initialize variable
@@ -355,7 +360,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_direction = None
     take_off_start_position = None
     take_off_i = None
-    take_off_trajectory = [0]*5 + [0.5]*5 - [0]*5 + [0.5]*5 - [0]*5
+    take_off_trajectory = make_take_off_trajectory()
 
     try:
         try:
@@ -595,13 +600,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     take_off_i = 0
                                     if linear_position < zipline_length/4:
                                         take_off_direction = "FORWARD"
-                                        take_off_start_position = linear_position
                                     elif linear_position > zipline_length*3/4:
                                         take_off_direction = "BACKWARD"
-                                        take_off_start_position = linear_position
                                     else:
                                         take_off_direction = None
-                                        take_off_start_position = None
+                                    take_off_start_position = linear_position
                                 
                                 # trajectory that allows user to sync up
                                 if take_off_i < len(take_off_trajectory):
@@ -612,7 +615,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     else:
                                         sign = 0
                                     x_ref = take_off_start_position + sign*take_off_trajectory[take_off_i]
-                                    vel_ref = config.MAX_SPEED
+                                    vel_ref = config.MAX_SPEED_CALIB
                                     take_off_i += 1
 
                                     take_off_start_time = time.time()
