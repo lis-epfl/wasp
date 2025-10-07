@@ -271,9 +271,11 @@ def wind_sensor_reading(save_path):
 def make_take_off_trajectory():
     # Create a take-off trajectory that allows user to sync up
     dt = config.DT_MAIN
+    N_init = int(5/dt)
     N = int(1/dt)  # number of steps for each phase
+    p = 0.75 # [m]
     v = config.MAX_SPEED_CALIB
-    return [0]*N + [0.5]*N + [0]*N + [0.5]*N + [0]*N, [v]*N + [v]*N + [v/2]*N + [v]*N + [v/2]*N
+    return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [v]*N_init + [v]*N + [v/2]*N + [v]*N + [v/2]*N + [v]*N + [v/2]*N
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
     # Initialize variable
@@ -592,7 +594,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     # No ArUco marker detected and no previous offset: stop the motor
                                     x_ref = linear_position
-                                    # vel_ref = 0 # FIXME
+                                    vel_ref = 0
                                     estimated_UAV_pos = x_ref
 
                             if state == config.STATE["TAKE_OFF"]:
