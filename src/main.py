@@ -10,7 +10,6 @@ import numpy as np
 import os
 import serial
 import random
-from simple_pid import PID
 
 import config
 import state_machine
@@ -320,12 +319,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         new_size=getattr(config, "UNDISTORT_SIZE", None)
     )
 
-    # PID initialization
-    pid = PID(config.P_GAIN_VISION, config.I_GAIN_VISION, config.D_GAIN_VISION)
-    pid.output_limits = (-config.MAX_SPEED, config.MAX_SPEED)  # Limit output to max speed
-    pid.sample_time = config.DT_MAIN
-    pid.setpoint = 0.0 # since it's constant, this can also be set at initialization
-
     # Initialize peripherals
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
@@ -367,9 +360,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_poss, take_off_vels = make_take_off_trajectory()
 
     # Start video recording
-    encoder = H264Encoder(bitrate=None, repeat=True, framerate=1)
-    mp4_path = save_path / "run.mp4"
-    camera.start_recording(encoder, FfmpegOutput(str(mp4_path)))
+    if config.SAVE_IMAGES == 3:
+        encoder = H264Encoder(bitrate=None, repeat=True, framerate=1)
+        mp4_path = save_path / "run.mp4"
+        camera.start_recording(encoder, FfmpegOutput(str(mp4_path)))
 
     try:
         try:
@@ -564,6 +558,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                                     last_estimated_UAV_vel = estimated_UAV_vel
 
+                                # v_tracking_error = 0.0 if last_tracking_error is None else (tracking_error - last_tracking_error) / (time_frame_captured - last_time_frame_captured)
+                                v_tracking_error = motor_ctrl.low_pass(0.0 if last_tracking_error is None else (last_tracking_error - last_tracking_error) / (last_time_frame_captured - last_time_frame_captured), v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
+                                
                                 last_time_frame_captured = time_frame_captured
                                 last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
@@ -575,7 +572,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     offset = -config.STARTING_OFFSET*(linear_position - (zipline_length - start_length))/start_length
                                 else:
                                     offset = 0.0
-                                vel_ref = estimated_UAV_vel + config.P_GAIN_VISION*(tracking_error + offset)
+                                p_part = config.P_GAIN_VISION*(tracking_error + offset)
+                                d_part = np.clip(config.D_GAIN_VISION*v_tracking_error, -p_part, p_part) # avoid overshooting due to derivative part when UAV is very close
+                                vel_ref = estimated_UAV_vel + p_part - d_part
                                 
                                 if (vel_ref == 0):
                                     x_ref = linear_position
@@ -695,7 +694,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             leds.show()
 
     finally:
-        camera.stop_recording()
+        if config.SAVE_IMAGES == 3:
+            camera.stop_recording()
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:

@@ -47,7 +47,6 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 
 # Tracking
 P_GAIN_VISION = 0.5
-I_GAIN_VISION = 0.0
 D_GAIN_VISION = 0.0
 MAX_CNT_MOVING_BLINDLY = 7                              # number of iterations applying last detected position without any new detection
 CUT_OFF_FREQUENCY_TRACKING = 5                          # in Hz
@@ -104,7 +103,7 @@ ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, 
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
 EXPOSURE_TIME = 80                                   # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = 0                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images)
+SAVE_IMAGES = 0                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
 
 
 # Marker detection

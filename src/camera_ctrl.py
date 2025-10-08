@@ -267,7 +267,7 @@ class ArucoPipeline:
         # Save exactly what we drew on
         time_save = time.time()
         saved_path = None
-        if (save_path is not None) and (config.SAVE_IMAGES > 0):
+        if (save_path is not None) and (config.SAVE_IMAGES == 1 or config.SAVE_IMAGES == 2):
             os.makedirs(save_path, exist_ok=True)
             if found:
                 fname = f"{save_path}/frame_{frame_counter:04d}_found_{(t_cap - time_start_ref):.3f}.png"
