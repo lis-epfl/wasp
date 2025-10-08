@@ -48,8 +48,16 @@ def leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_
         leds.show()
     elif state == config.STATE["TAKE_OFF"]:
         if tracking_error is None:
+            # no finding the ArUco tag
+            if leds_off_before:
+                leds.fill(config.TURQUOISE)
+            else:
+                leds.fill((0, 0, 0))
+            leds_off_before = not leds_off_before  # Toggle the state for the next call
+        else:
+            # tracking the ArUco tag
             leds.fill(config.TURQUOISE)
-            leds.show()
+        leds.show()
 
     else:
         leds.fill((0, 0, 0)) # Off

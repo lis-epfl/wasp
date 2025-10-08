@@ -569,7 +569,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
 
-                                start_length = zipline_length/5
+                                start_length = zipline_length*config.TAKE_OFF_POSITION_THRESHOLD
                                 if linear_position <= start_length:
                                     offset = config.STARTING_OFFSET*linear_position/start_length
                                 elif linear_position >= zipline_length - start_length:
@@ -577,7 +577,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     offset = 0.0
                                 p_part = config.P_GAIN_VISION*(tracking_error + offset)
-                                d_part = np.clip(config.D_GAIN_VISION*v_tracking_error, -p_part, p_part) # avoid overshooting due to derivative part when UAV is very close
+                                d_part = np.clip(config.D_GAIN_VISION*v_tracking_error, -np.abs(d_part), np.abs(d_part)) # avoid overshooting due to derivative part when UAV is very close
                                 vel_ref = estimated_UAV_vel + p_part - d_part
                                 
                                 if (vel_ref == 0):
@@ -635,7 +635,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     take_off_start_time = time.time()
                                 
                                 # timed take off
-                                elif (time.time() - take_off_start_time) < 2*knobl_value: # max 2 second
+                                elif (time.time() - take_off_start_time) < knobl_value * config.TAKE_OFF_KNOB_MULTIPLIER: # max N second
                                     cnt_moving_blindly = 0
                                     last_estimated_UAV_vel = linear_velocity
                                     if take_off_direction == "FORWARD":
