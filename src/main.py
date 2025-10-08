@@ -225,7 +225,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             pass
 
 
-def wind_sensor_reading(save_path): 
+def wind_sensor_reading(save_path, time_start_ref): 
     # Data recording setings
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     csv_path = Path(save_path) / f"wind_data_{timestamp}.csv"
@@ -243,7 +243,7 @@ def wind_sensor_reading(save_path):
             li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
             
             # Save data to CSV
-            row = {**li550_data}
+            row = {'Timestamp [s]': np.round(time.time() - time_start_ref, 3), **li550_data}
             writer.writerow(row)   
             csv_file.flush()
 
@@ -262,7 +262,7 @@ def wind_sensor_reading(save_path):
         csv_file.close()
         print(f"\nRun complete. Wind data saved to {csv_path}")
         try:
-            # plot_li550_data.plot_data(csv_path)
+            plot_li550_data.plot_data(csv_path)
             # plot_li550_data.create_video_from_data(csv_path)
             print("Plotting wind data complete")
         except Exception as e:
@@ -365,6 +365,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_start_position = None
     take_off_i = None
     take_off_poss, take_off_vels = make_take_off_trajectory()
+
+    # Start video recording
+    encoder = H264Encoder(bitrate=None, repeat=True, framerate=1)
+    mp4_path = save_path / "run.mp4"
+    camera.start_recording(encoder, FfmpegOutput(str(mp4_path)))
 
     try:
         try:
@@ -627,7 +632,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     take_off_start_time = time.time()
                                 
                                 # timed take off
-                                elif (time.time() - take_off_start_time) < knobl_value: # max 1 second
+                                elif (time.time() - take_off_start_time) < 2*knobl_value: # max 2 second
                                     cnt_moving_blindly = 0
                                     last_estimated_UAV_vel = linear_velocity
                                     if take_off_direction == "FORWARD":
@@ -637,7 +642,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                         x_ref = 0
                                         vel_ref = config.MAX_SPEED
                                     else:
-                                        take_off_start_time -= knobl_value # skip to the end
+                                        take_off_start_time -= 2*knobl_value # skip to the end
 
                                 else:
                                     state = config.STATE["TRACKING"]
@@ -675,7 +680,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         # Display current state with LEDs
                         leds_off_before = leds_ctrl.leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_mode)
 
-
                 # Sleep to respect the desired loop time
                 time_end_while = time.time()
                 # print("Main process:", time_end_while - time_start_while, "s") # 0.011 s without camera on, 0.075 s with camera but no saving
@@ -691,6 +695,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             leds.show()
 
     finally:
+        camera.stop_recording()
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
@@ -738,7 +743,11 @@ if __name__ == "__main__":
     procs = [p1, p3]
 
     if config.ENABLE_WIND_SENSING:
-        p2 = Process(target=wind_sensor_reading, args=(save_path,))
+        p2 = Process(
+            target=wind_sensor_reading,
+             args=(save_path,
+                   time_start_ref),
+        )
         procs.append(p2)
 
     # start everything

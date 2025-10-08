@@ -79,7 +79,7 @@ def plot_data(csv_path):
         try:
             timestamps = [float(row['Timestamp [s]']) for row in valid_data]
             ticks = sorted(set(round(t, 1) for t in timestamps))
-            ticks = ticks[::int(5 / config.DT)] if config.DT > 0 else ticks  # Avoid division by 0
+            ticks = ticks[::int(5 / config.DT_WIND)] if config.DT_WIND > 0 else ticks  # Avoid division by 0
             axs[i].set_xticks(ticks)
             axs[i].tick_params(axis='x', labelrotation=0)
             axs[i].grid(axis='x')
@@ -193,8 +193,8 @@ def create_video_from_data(csv_path):
         return quivers
 
     # Create animation and save it
-    ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT * 1000, blit=False)
-    ani.save(csv_path.parent / f"wind_animation_better_{timestamp}.mp4", writer='ffmpeg', fps=1 / config.DT, dpi=200)
+    ani = animation.FuncAnimation(fig, update, frames=len(timestamps), interval=config.DT_WIND * 1000, blit=False)
+    ani.save(csv_path.parent / f"wind_animation_better_{timestamp}.mp4", writer='ffmpeg', fps=1 / config.DT_WIND, dpi=200)
 
     
 if __name__ == "__main__":
