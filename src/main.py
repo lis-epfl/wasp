@@ -488,6 +488,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             }
                             tracking_error = None
                             last_tracking_error = None
+                            v_tracking_error = None
 
                             # Desired velocity based on the remote command
                             vel_ref = target_speed_m_s
@@ -559,8 +560,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     last_estimated_UAV_vel = estimated_UAV_vel
 
                                 # v_tracking_error = 0.0 if last_tracking_error is None else (tracking_error - last_tracking_error) / (time_frame_captured - last_time_frame_captured)
-                                v_tracking_error = motor_ctrl.low_pass(0.0 if last_tracking_error is None else (last_tracking_error - last_tracking_error) / (last_time_frame_captured - last_time_frame_captured), v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
-                                
+                                v_tracking_error = motor_ctrl.low_pass(0.0 if last_tracking_error is None else (last_tracking_error - last_tracking_error) / (last_time_frame_captured - last_time_frame_captured), 0 if v_tracking_error is None else v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
+
                                 last_time_frame_captured = time_frame_captured
                                 last_estimated_UAV_pos = estimated_UAV_pos
                                 last_tracking_error = tracking_error
