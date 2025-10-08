@@ -577,7 +577,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     offset = 0.0
                                 p_part = config.P_GAIN_VISION*(tracking_error + offset)
-                                d_part = np.clip(config.D_GAIN_VISION*v_tracking_error, -np.abs(d_part), np.abs(d_part)) # avoid overshooting due to derivative part when UAV is very close
+                                d_part = np.clip(config.D_GAIN_VISION*v_tracking_error, -np.abs(p_part), np.abs(p_part)) # avoid overshooting due to derivative part when UAV is very close
                                 vel_ref = estimated_UAV_vel + p_part - d_part
                                 
                                 if (vel_ref == 0):

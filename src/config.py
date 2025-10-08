@@ -15,7 +15,7 @@ DT_RC = 0.01
 ENABLE_WIND_SENSING = True
 
 # Battery
-NB_CELLS = 6                                            # Number of cells in the battery
+NB_CELLS = 8                                            # Number of cells in the battery
 MIN_VOLTAGE = NB_CELLS*3.3                              # Minimum safe voltage (discharged), in V
 MAX_VOLTAGE = NB_CELLS*4.2                              # Maximum voltage (fully charged), in V
 
