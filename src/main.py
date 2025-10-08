@@ -373,10 +373,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 # Check if there is an error on the ODrive
                 if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
                     print(f"ODrive error: {odrv.axis0.active_errors}  Disarm reason: {odrv.axis0.disarm_reason}")
-                    print("Error 64: Missing input")
-                    print("Error 512: DC bus undervoltage")
-                    print("Error 256: DC bus overvoltage")
-                    print("Error 1024: DC overcurrent")
+                    print("- Error 64: Missing input")
+                    print("- Error 512: DC bus undervoltage")
+                    print("- Error 256: DC bus overvoltage")
+                    print("- Error 1024: DC overcurrent")
 
                     leds_off_before = leds_ctrl.leds_error_warning(leds, leds_off_before)
                     odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate # stay in the same position
@@ -560,7 +560,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     last_estimated_UAV_vel = estimated_UAV_vel
 
                                 # v_tracking_error = 0.0 if last_tracking_error is None else (tracking_error - last_tracking_error) / (time_frame_captured - last_time_frame_captured)
-                                v_tracking_error = motor_ctrl.low_pass(0.0 if last_tracking_error is None else (last_tracking_error - last_tracking_error) / (last_time_frame_captured - last_time_frame_captured), 0 if v_tracking_error is None else v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
+                                if (last_time_frame_captured is None) or (last_tracking_error is None) or (time_frame_captured == last_time_frame_captured):
+                                    v_tracking_error = 0.0
+                                else:
+                                    v_tracking_error = motor_ctrl.low_pass(0.0 if last_tracking_error is None else (last_tracking_error - last_tracking_error) / (last_time_frame_captured - last_time_frame_captured), 0 if v_tracking_error is None else v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
 
                                 last_time_frame_captured = time_frame_captured
                                 last_estimated_UAV_pos = estimated_UAV_pos
