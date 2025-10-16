@@ -13,6 +13,7 @@ DT_MAIN = 0.1   # execution period in seconds (0.04 without the wind sensor, 0.1
 DT_WIND = 0.1   # execution period for vision in seconds (7Hz) (can be set to 0.06666666 if save_images is False)
 DT_RC = 0.01
 ENABLE_WIND_SENSING = True
+RESTART_HOLD_TIME = 5.0  # time to hold the button to restart the program, in seconds
 
 # Battery
 NB_CELLS = 8                                            # Number of cells in the battery

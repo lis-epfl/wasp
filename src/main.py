@@ -310,7 +310,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     zipline_start = 0
     zipline_end = 0
 
-    restart_count = 0
+    restart_counter = 0
 
     # Camera settings
     cal = camera_ctrl.load_calibration()
@@ -413,14 +413,14 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     # Update state
                     if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
                         if wheel_position > 0:
-                            restart_count += config.DT_MAIN
-                            if restart_count >= 3.0:
+                            restart_counter += config.DT_MAIN
+                            if restart_counter >= config.RESTART_HOLD_TIME:
                                 print("Restart triggered")
                                 leds_ctrl.leds_restart(leds)
                                 restart_event.set()   # <— tell parent to re-exec
                                 break                 # <— drop to finally (cleanup & save)
-                            else:
-                                restart_count = 0
+                        else:
+                            restart_counter = 0
 
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
                     last_state = state
