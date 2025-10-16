@@ -59,6 +59,10 @@ def leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_
             leds.fill(config.TURQUOISE)
         leds.show()
 
+    elif state == config.STATE["SAVING"]:
+        leds.fill(config.YELLOW)
+        leds.show()
+
     else:
         leds.fill((0, 0, 0)) # Off
         leds.show()
