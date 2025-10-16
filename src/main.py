@@ -419,6 +419,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
                         if wheel_position > 0:
                             print("SAVING & RESTARTING")
+                            leds_ctrl.leds_saving(leds)
                             restart_event.set()   # <— tell parent to re-exec
                             break                 # <— drop to finally (cleanup & save)
 
@@ -738,6 +739,8 @@ if __name__ == "__main__":
     save_path = Path("data") / f"run_{timestamp_folder}"
     os.makedirs(save_path, exist_ok=True)
     time_start_ref = time.time()
+
+    restart_event = Event()
 
     # Shared variables from RC process to main process
     shared_remote_command = Value('i', 0)
