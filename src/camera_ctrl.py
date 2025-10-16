@@ -333,21 +333,27 @@ def camera_init():
     if getattr(config, "AUTO_EXPOSURE", True):
         picam2.set_controls({"AwbEnable": True, "AeEnable": True})
     else:
-        set_exposure(picam2, config.EXPOSURE_TIME, config.ANALOGUE_GAIN)
+        exposure_time = (config.EXPOSURE_TIME_MAX + config.EXPOSURE_TIME_MIN)/2
+        picam2.set_controls({
+        "AwbEnable": False,
+        "AeEnable": False,
+        "ExposureTime": int(exposure_time),
+        "AnalogueGain": config.ANALOGUE_GAIN
+        })
     picam2.start()
     meta = picam2.capture_metadata()
     print("Exposure time (µs):", meta.get("ExposureTime", "N/A"))
     return picam2
 
-def set_exposure(picam2, exposure_time, analogue_gain):
+def set_exposure_manually(picam2, exposure_time):
     picam2.set_controls({
         "AwbEnable": False,
         "AeEnable": False,
         "ExposureTime": int(exposure_time),
-        "AnalogueGain": float(analogue_gain)
+        "AnalogueGain": config.ANALOGUE_GAIN
     })
-    time.sleep(0.1)  # allow time to adjust
-    return True
+    meta = picam2.capture_metadata()
+    print("Exposure time manually (µs):", meta.get("ExposureTime", "N/A"))
 
 
 def _stream_camera(picam, stop_event, window_name="Camera"):

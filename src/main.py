@@ -302,6 +302,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     last_estimated_UAV_pos = 0.0
     cnt_moving_blindly = 0
 
+    knobr_prev = 0.0
+
     in_calibration_mode = True
     zipline_end_set = False
     zipline_length_loaded = False
@@ -529,7 +531,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             last_estimated_UAV_vel = linear_velocity
                         
                         # TRACKING MODE
-                        elif (state == config.STATE["TRACKING"]) or (state == config.STATE["TAKE_OFF"]):                            
+                        elif (state == config.STATE["TRACKING"]) or (state == config.STATE["TAKE_OFF"]):                     
                             # Take frame 
                             frame_bgr = camera_ctrl.capture_bgr_frame(camera)
                             time_frame_captured = time.time()
@@ -659,6 +661,12 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                         else:
                             print("ERROR: unknown state")
+
+                        # Update exposure time
+                        if abs(knobr_prev - knobr_value) > 0.1:
+                            knobr_prev = knobr_value
+                            exposure_time = config.EXPOSURE_TIME_MIN + knobr_value * (config.EXPOSURE_TIME_MAX - config.EXPOSURE_TIME_MIN)
+                            camera_ctrl.set_exposure_manually(camera, exposure_time)
                         
                         # Save data to CSV
                         motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)

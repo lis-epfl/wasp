@@ -101,7 +101,8 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 200                                   # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+EXPOSURE_TIME_MIN = 29                              # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+EXPOSURE_TIME_MAX = 250                             # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 1.0                                 # in dB
 SAVE_IMAGES = 1                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
 
