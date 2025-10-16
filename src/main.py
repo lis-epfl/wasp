@@ -1,4 +1,3 @@
-import time
 import csv
 from pathlib import Path
 from multiprocessing import Process, Value, Event
@@ -7,7 +6,7 @@ from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from datetime import datetime, date
 import numpy as np
-import os
+import os, sys, time
 import serial
 import random
 
@@ -280,12 +279,6 @@ def make_take_off_trajectory():
     v_s = 0.5
     return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [0]*N_init + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N
 
-def save_and_reset(plot_motor_data, save_path, csv_path):
-    plot_motor_data.plot_data(csv_path)
-    print("Plotting motor data complete")
-    image_path = save_path / "frames"
-    camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_MAIN)
-
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
     # Initialize variable
     time_start_while = 0
@@ -316,6 +309,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
+
+    restart_count = 0
 
     # Camera settings
     cal = camera_ctrl.load_calibration()
@@ -418,10 +413,14 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     # Update state
                     if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
                         if wheel_position > 0:
-                            print("SAVING & RESTARTING")
-                            leds_ctrl.leds_saving(leds)
-                            restart_event.set()   # <— tell parent to re-exec
-                            break                 # <— drop to finally (cleanup & save)
+                            restart_count += config.DT_MAIN
+                            if restart_count >= 3.0:
+                                print("Restart triggered")
+                                leds_ctrl.leds_restart(leds)
+                                restart_event.set()   # <— tell parent to re-exec
+                                break                 # <— drop to finally (cleanup & save)
+                            else:
+                                restart_count = 0
 
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
                     last_state = state
@@ -728,7 +727,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
-            save_and_reset(plot_motor_data, save_path, csv_path)
+            plot_motor_data.plot_data(csv_path)
+            print("Plotting motor data complete")
+            image_path = save_path / "frames"
+            camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_MAIN)
         except Exception as e:
             print(f"Plotting failed: {e}")
 

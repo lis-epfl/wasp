@@ -106,9 +106,9 @@ def leds_error_warning(leds, leds_off_before):
 
     return leds_off_before
 
-def leds_saving(leds):
+def leds_restart(leds):
     """
-    Set the color of the LEDs in saving mode
+    Set the color of the LEDs in restart mode
     :param leds: NeoPixel object
     """
     leds.fill(config.YELLOW)
