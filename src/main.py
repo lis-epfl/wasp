@@ -1,7 +1,7 @@
 import time
 import csv
 from pathlib import Path
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Event
 import gpiod
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
@@ -54,7 +54,7 @@ def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
         ch.pulse = 0.0
         ch.timeout = True
 
-def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value):
+def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
     try:
         with gpiod.Chip('gpiochip0') as chip:
             # Set up all channels in one place
@@ -86,7 +86,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
 
             take_off_armed = False
 
-            while True:
+            while not restart_event.is_set():
                 t0 = time.time()
 
                 # Wait for events (1s timeout each) and update all channels in a loop
@@ -227,7 +227,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
             pass
 
 
-def wind_sensor_reading(save_path, time_start_ref): 
+def wind_sensor_reading(save_path, time_start_ref, restart_event): 
     # Data recording setings
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     csv_path = Path(save_path) / f"wind_data_{timestamp}.csv"
@@ -238,7 +238,7 @@ def wind_sensor_reading(save_path, time_start_ref):
  
     try:
         ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
-        while True:
+        while not restart_event.is_set():
             time_start_while = time.time()
             
             # Read data from LI550
@@ -286,7 +286,7 @@ def save_and_reset(plot_motor_data, save_path, csv_path):
     image_path = save_path / "frames"
     camera_ctrl.images_to_mp4(image_path, output_path=save_path, fps=1/config.DT_MAIN)
 
-def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value):
+def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
     # Initialize variable
     time_start_while = 0
     time_end_while = 0
@@ -418,8 +418,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     # Update state
                     if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
                         if wheel_position > 0:
-                            print("SAVING")
-                            break
+                            print("SAVING & RESTARTING")
+                            restart_event.set()   # <— tell parent to re-exec
+                            break                 # <— drop to finally (cleanup & save)
 
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
                     last_state = state
@@ -751,7 +752,8 @@ if __name__ == "__main__":
               shared_target_speed,
               shared_wheel_position,
               shared_knobl_value,
-              shared_knobr_value),
+              shared_knobr_value,
+              restart_event),
     )
     p3 = Process(
         target=main,
@@ -761,7 +763,8 @@ if __name__ == "__main__":
               shared_target_speed,
               shared_wheel_position,
               shared_knobl_value,
-              shared_knobr_value),
+              shared_knobr_value,
+              restart_event),
     )
 
     procs = [p1, p3]
@@ -770,7 +773,8 @@ if __name__ == "__main__":
         p2 = Process(
             target=wind_sensor_reading,
              args=(save_path,
-                   time_start_ref),
+                   time_start_ref,
+                   restart_event),
         )
         procs.append(p2)
 
@@ -778,6 +782,30 @@ if __name__ == "__main__":
     for p in procs:
         p.start()
 
-    # wait for them (until Ctrl+C / stop condition)
-    for p in procs:
-        p.join()
+    # Parent supervisor loop: if restart requested, re-exec the script
+    try:
+        while any(p.is_alive() for p in procs):
+            if restart_event.is_set():
+                # Give children a moment to exit gracefully
+                time.sleep(0.5)
+                for p in procs:
+                    if p.is_alive():
+                        p.terminate()
+                for p in procs:
+                    p.join()
+
+                # Re-exec the current Python process (fresh run, new save_path, etc.)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+
+            time.sleep(0.2)
+
+        # normal exit if all children ended without restart
+        sys.exit(0)
+
+    except KeyboardInterrupt:
+        for p in procs:
+            if p.is_alive():
+                p.terminate()
+        for p in procs:
+            p.join()
+        sys.exit(0)

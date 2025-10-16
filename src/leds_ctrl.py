@@ -59,10 +59,6 @@ def leds_set_color(leds, state, tracking_error, leds_off_before, in_calibration_
             leds.fill(config.TURQUOISE)
         leds.show()
 
-    elif state == config.STATE["SAVING"]:
-        leds.fill(config.YELLOW)
-        leds.show()
-
     else:
         leds.fill((0, 0, 0)) # Off
         leds.show()
@@ -109,3 +105,11 @@ def leds_error_warning(leds, leds_off_before):
     leds_off_before = not leds_off_before  # Toggle the state for the next call
 
     return leds_off_before
+
+def leds_saving(leds):
+    """
+    Set the color of the LEDs in saving mode
+    :param leds: NeoPixel object
+    """
+    leds.fill(config.YELLOW)
+    leds.show()
