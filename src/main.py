@@ -190,6 +190,9 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                     knobl_value = (kl.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
                     knobr_value = (kr.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
 
+                    knobl_value = np.clip(knobl_value, 0.0, 1.0)
+                    knobr_value = np.clip(knobr_value, 0.0, 1.0)
+
                 last_remote_command = remote_command
 
                 # Share results atomically
@@ -353,7 +356,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     save_camera_path.mkdir(parents=True, exist_ok=True)
 
     # Variables for take off logic
-    take_off_start_time = None
+    take_off_done = True
     take_off_direction = None
     take_off_start_position = None
     take_off_i = None
@@ -632,10 +635,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                         vel_ref = 0
                                     take_off_i += 1
 
-                                    take_off_start_time = time.time()
+                                    take_off_done = False
                                 
                                 # timed take off
-                                elif (time.time() - take_off_start_time) < knobl_value * config.TAKE_OFF_KNOB_MULTIPLIER: # max N second
+                                elif (abs(linear_velocity) <= knobl_value * config.MAX_SPEED) & (not take_off_done):
                                     cnt_moving_blindly = 0
                                     last_estimated_UAV_vel = linear_velocity
                                     if take_off_direction == "FORWARD":
@@ -645,9 +648,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                         x_ref = 0
                                         vel_ref = config.MAX_SPEED
                                     else:
-                                        take_off_start_time -= 2*knobl_value # skip to the end
+                                        take_off_done = True # skip to the end
 
                                 else:
+                                    take_off_done = True
                                     state = config.STATE["TRACKING"]
                                     last_state = config.STATE["TAKE_OFF"]
 

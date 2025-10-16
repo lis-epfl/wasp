@@ -46,11 +46,11 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 
 
 # Tracking
-P_GAIN_VISION = 0.5
-D_GAIN_VISION = 0.0
-MAX_CNT_MOVING_BLINDLY = 7                              # number of iterations applying last detected position without any new detection
+P_GAIN_VISION = 1.0
+D_GAIN_VISION = 0.5
+MAX_CNT_MOVING_BLINDLY = 1/DT_MAIN                              # number of iterations applying last detected position without any new detection
 CUT_OFF_FREQUENCY_TRACKING = 5                          # in Hz
-CATCH_UP_GAIN = 1.2                                     # 3 working well with acc of 3 and max speed of 11
+CATCH_UP_GAIN = 1.0                                     # 3 working well with acc of 3 and max speed of 11
 
 
 # LEDs
@@ -101,13 +101,13 @@ ARUCO_DICT = cv.aruco.DICT_4X4_50                   # 5x5 dictionary with 250 un
 ARUCO_ID = 7                                        # exact marker ID to be detected between 0 and 249
 ARUCO_PIXEL_SIZE = 400                              # size of the ArUco marker, in pixels (for ArUo generation)
 ARUCO_REAL_SIZE = 0.136                             # size of the ArUco marker, in meters (to be measured in real life)
-EXPOSURE_TIME = 80                                   # in microseconds (set 29 µs for outside, and 3000 µs for inside)
-ANALOGUE_GAIN = 2.0                                 # in dB
-SAVE_IMAGES = 0                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
+EXPOSURE_TIME = 200                                   # in microseconds (set 29 µs for outside, and 3000 µs for inside)
+ANALOGUE_GAIN = 1.0                                 # in dB
+SAVE_IMAGES = 1                                     # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
 
 
 # Marker detection
-AUTO_EXPOSURE = True                                # Enable auto exposure (used to be False)
+AUTO_EXPOSURE = False                                # Enable auto exposure (used to be False)
 RECENTER_ORIGIN = False                             #  If we alter the center of the image (used to be True)
 ADVANCED_PARAMETERS = True                          # Enable advanced parameters for ArUco detection (used to be False)
 PRE_PROCESS = True                                  # Enable pre-processing of the image (used to be False)
@@ -118,7 +118,6 @@ RES_DROP_PRE = 1.0                                  # resolution drop factor for
 UNDISTORT = True                                    # set False to work in distorted (raw) domain
 STARTING_OFFSET = 0.0                               # starting offset applied at the beginning and end of the zipeline, in meters
 TAKE_OFF_POSITION_THRESHOLD = 0.2                   # percentage of the zipline length defining the take-off zones at each end of the zipline
-TAKE_OFF_KNOB_MULTIPLIER = 2.0                      # multiplier applied to the knob value to set the take-off duration
 
 
 # Wind sensor
