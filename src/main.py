@@ -280,7 +280,7 @@ def make_take_off_trajectory():
     v_s = 0.5
     return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [0]*N_init + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N
 
-def save_and_reset(plot_motor_data, image_path, save_path):
+def save_and_reset(plot_motor_data, save_path, csv_path):
     plot_motor_data.plot_data(csv_path)
     print("Plotting motor data complete")
     image_path = save_path / "frames"
@@ -311,7 +311,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     knobr_prev = 0.0
 
     in_calibration_mode = True
-    in_saving_mode = False
     zipline_end_set = False
     zipline_length_loaded = False
     zipline_length = 0
@@ -417,10 +416,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             target_speed_m_s = 0.0
 
                     # Update state
-                    if (remote_command == 3) and (not in_calibration_mode):
+                    if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
                         if wheel_position > 0:
-                            in_saving_mode = True
-                            remote_command = 5 # go saving
+                            print("SAVING")
+                            break
 
                     state = state_machine.update(last_state, remote_command, in_calibration_mode)
                     last_state = state
@@ -727,7 +726,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         csv_file.close()
         print(f"\nRun complete. Data saved to {csv_path}")
         try:
-            save_and_reset(plot_motor_data, image_path, save_path)
+            save_and_reset(plot_motor_data, save_path, csv_path)
         except Exception as e:
             print(f"Plotting failed: {e}")
 
