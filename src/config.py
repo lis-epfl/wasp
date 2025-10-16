@@ -6,7 +6,8 @@ STATE = {
     'FORWARD': 1,
     'BACKWARD': 2,
     'TRACKING': 3,
-    'TAKE_OFF': 4
+    'TAKE_OFF': 4,
+    'SAVE': 5
 }
 STATE_LOOKUP = {v: k for k, v in STATE.items()}
 DT_MAIN = 0.1   # execution period in seconds (0.04 without the wind sensor, 0.12 with it) (set to 0.1 for save_images = 0, 0.2 for save_images = 1 or 2)
@@ -81,7 +82,8 @@ REMOTE_COMMAND = {
     'GO_BACKWARD': 1,
     'GO_FORWARD': 2,
     'GO_TRACKING': 3,
-    'GO_TAKE_OFF': 4
+    'GO_TAKE_OFF': 4,
+    'GO_SAVE': 5
 }
 COMMAND_LOOKUP = {v: k for k, v in REMOTE_COMMAND.items()}
 

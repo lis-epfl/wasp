@@ -54,7 +54,7 @@ def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
         ch.pulse = 0.0
         ch.timeout = True
 
-def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
+def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value):
     try:
         with gpiod.Chip('gpiochip0') as chip:
             # Set up all channels in one place
@@ -74,7 +74,7 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
             # Locals for higher-level logic/state
             remote_command = 0
             last_remote_command = 0
-            calibration_setpoints = 0
+            wheel_position = 0
             target_speed = 0.0
             knobl_value = 0.0
             knobr_value = 0.0
@@ -123,12 +123,12 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                         # stay in tracking but stop
                         remote_command = 3
                         target_speed = 0.0
-                        calibration_setpoints = 0
+                        wheel_position = 0
                     else:
                         # fall back to stop
                         remote_command = 0
                         target_speed = 0.0
-                        calibration_setpoints = 0
+                        wheel_position = 0
                 else:
                     # Initialize button reference the first time we get a valid pulse
                     if not button_initialized:
@@ -180,11 +180,11 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
 
                     # Calibration setpoints from steering
                     if abs(st.pulse - config.PWM_MIN_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
-                        calibration_setpoints = 1  # zipline start
+                        wheel_position = 1  # zipline start
                     elif abs(st.pulse - config.PWM_MAX_PULSE_WIDTH) < config.CALIB_SETPOINTS_THRESHOLD:
-                        calibration_setpoints = 2  # zipline length
+                        wheel_position = 2  # zipline length
                     else:
-                        calibration_setpoints = 0  # no setpoint
+                        wheel_position = 0  # no setpoint
 
                     # Knob values (0.0 to 1.0)
                     knobl_value = (kl.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
@@ -198,13 +198,13 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_calib
                 # Share results atomically
                 with (  shared_remote_command.get_lock(),
                         shared_target_speed.get_lock(),
-                        shared_calibration_setpoints.get_lock(),
+                        shared_wheel_position.get_lock(),
                         shared_knobl_value.get_lock(),
                         shared_knobr_value.get_lock()):
 
                     shared_remote_command.value = remote_command
                     shared_target_speed.value = target_speed
-                    shared_calibration_setpoints.value = calibration_setpoints
+                    shared_wheel_position.value = wheel_position
                     shared_knobl_value.value = knobl_value
                     shared_knobr_value.value = knobr_value
 
@@ -280,7 +280,7 @@ def make_take_off_trajectory():
     v_s = 0.5
     return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [0]*N_init + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N
 
-def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_calibration_setpoints, shared_knobl_value, shared_knobr_value):
+def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value):
     # Initialize variable
     time_start_while = 0
     time_end_while = 0
@@ -387,10 +387,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                     odrv.axis0.controller.input_pos = odrv.axis0.pos_estimate # stay in the same position
                 else:
                     # Get remote control commands
-                    with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_calibration_setpoints.get_lock():
+                    with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_wheel_position.get_lock():
                         remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking, 4: take off
                         target_speed = shared_target_speed.value                    # in µs
-                        calibration_setpoints = shared_calibration_setpoints.value  # 0: no setpoint, 1: zipline start, 2: zipline length
+                        wheel_position = shared_wheel_position.value  # 0: no setpoint, 1: zipline start, 2: zipline length
                         knobl_value = shared_knobl_value.value                      # 0.0 to 1.0
                         knobr_value = shared_knobr_value.value                      # 0.0 to 1.0
 
@@ -425,7 +425,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
                         
                         # Setting the end of the zipline
-                        if (calibration_setpoints == 2) and not zipline_end_set:
+                        if (wheel_position == 2) and not zipline_end_set:
                             zipline_end = linear_position
                             zipline_end_set = True
                             print(f"Zipline end set: {zipline_end:.2f} m")
@@ -433,7 +433,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             time.sleep(3)  # Signal that we've set the end of the line
                         
                         # Setting the start of the zipline
-                        if (calibration_setpoints == 1) and zipline_end_set:
+                        if (wheel_position == 1) and zipline_end_set:
                             if (not zipline_length_loaded) and (zipline_start != zipline_end):
                                 # If there is no calibration data, compute the zipline length from the start and end positions
                                 zipline_start = linear_position
@@ -733,7 +733,7 @@ if __name__ == "__main__":
     # Shared variables from RC process to main process
     shared_remote_command = Value('i', 0)
     shared_target_speed = Value('d', 0.0)
-    shared_calibration_setpoints = Value('d', 0.0)
+    shared_wheel_position = Value('d', 0.0)
     shared_knobl_value = Value('d', 0.0)
     shared_knobr_value = Value('d', 0.0)
 
@@ -741,7 +741,7 @@ if __name__ == "__main__":
         target=rc_receiver_reading,
         args=(shared_remote_command,
               shared_target_speed,
-              shared_calibration_setpoints,
+              shared_wheel_position,
               shared_knobl_value,
               shared_knobr_value),
     )
@@ -751,7 +751,7 @@ if __name__ == "__main__":
               time_start_ref,
               shared_remote_command,
               shared_target_speed,
-              shared_calibration_setpoints,
+              shared_wheel_position,
               shared_knobl_value,
               shared_knobr_value),
     )

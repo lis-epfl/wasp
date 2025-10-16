@@ -14,6 +14,8 @@ def update(last_state, remote_command, in_calibration_mode):
             state = config.STATE["BACKWARD"]
         elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
             state = config.STATE["FORWARD"]
+        elif remote_command == config.REMOTE_COMMAND["GO_SAVE"] and not in_calibration_mode:
+            state = config.STATE["SAVE"]
         else:
             state = config.STATE["STOP"]
 
@@ -56,6 +58,16 @@ def update(last_state, remote_command, in_calibration_mode):
             state = config.STATE["TRACKING"]
         else:
             state = config.STATE["TAKE_OFF"]
+
+    elif last_state == config.STATE["SAVE"]:
+        if remote_command == config.REMOTE_COMMAND["GO_TRACKING"] and not in_calibration_mode:
+            state = config.STATE["TRACKING"]
+        elif remote_command == config.REMOTE_COMMAND["GO_BACKWARD"]:
+            state = config.STATE["BACKWARD"]
+        elif remote_command == config.REMOTE_COMMAND["GO_FORWARD"]:
+            state = config.STATE["FORWARD"]
+        else:
+            state = config.STATE["SAVE"]
     else:
         state = config.STATE["STOP"]
 
