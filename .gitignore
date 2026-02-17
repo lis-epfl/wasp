@@ -31,7 +31,6 @@ src/zipline_calib/
 src/camera_calib/*
 
 
-src/Figures/intro_figure/
 src/Figures/old_figures/
 src/Figures/result_figure/
 src/Figures/speed_figure/
