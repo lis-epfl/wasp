@@ -27,8 +27,13 @@ src/.DS_Store
 **/*.mp4
 
 src/data/
-src/Figures/
 src/zipline_calib/
-
 src/camera_calib/*
-src/Figures/frame*
+
+
+src/Figures/intro_figure/
+src/Figures/old_figures/
+src/Figures/result_figure/
+src/Figures/speed_figure/
+src/Figures/vision_figure/
+src/Figures/wind_figure/
