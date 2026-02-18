@@ -33,4 +33,5 @@ src/camera_calib/*
 
 src/Figures/old_figures/
 src/Figures/result_figure/
-src/Figures/speed_figure/
+src/Figures/speed_figure/tracker-main/
+src/Figures/speed_figure/figure_speed_with_images.svg
