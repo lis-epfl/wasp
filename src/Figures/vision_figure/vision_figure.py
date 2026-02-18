@@ -36,14 +36,14 @@ pos_1ms_1m, bool_1ms_1m, error_1ms_1m = [], [], []
 pos_1ms_2m, bool_1ms_2m, error_1ms_2m = [], [], []
 pos_1ms_3m, bool_1ms_3m, error_1ms_3m = [], [], []
 pos_1ms_4m, bool_1ms_4m, error_1ms_4m = [], [], []
-offsets_1ms = [27.0, 27.0, 30.0, 30.0]
+offsets_1ms = [0, 0, 0, 0]
 max_index_1ms = [350, 500, 350, 450] # indices to only consider one way (not the return trip)
 
 pos_14ms_1m, bool_14ms_1m, error_14ms_1m = [], [], []
 pos_14ms_2m, bool_14ms_2m, error_14ms_2m = [], [], []
 pos_14ms_3m, bool_14ms_3m, error_14ms_3m = [], [], []
 pos_14ms_4m, bool_14ms_4m, error_14ms_4m = [], [], []
-offsets_14ms = [28.0, 29.0, 29.0, 31.0]
+offsets_14ms = [0, 0, 0, 0]
 max_index_14ms = [75, 75, 75, 75] # indices to only consider one way (not the return trip)
 
 
@@ -67,13 +67,25 @@ def only_first_run(pos_list, bool_list, error_list, max_index):
     bool_list[:] = bool_list[0:max_index]
     error_list[:] = error_list[0:max_index]
 
-def compute_error(pos_list, error_list):
+def compute_error_and_align(pos_list, error_list):
     # Find minimum error and its index
     error = np.abs(np.array(error_list))
     mask = ~np.isnan(error)                
     min_val = np.min(error[mask])
-    idx = np.where(error == min_val)[0][0]   
+    idx = np.where(error == min_val)[0][0]
 
+    # Align positions so that the position with the minimum error is at zero
+    # Minnimum value signed to preserve the direction of the error (positive or negative)
+    error = np.abs(np.array(error_list))
+    mask = ~np.isnan(error)                
+    min_val_signed = np.min(error[mask]) # find the minimum value, absolute
+    idx = np.where(error == min_val_signed)[0][0]
+    min_val_signed = error_list[idx] # get the signed minimum value
+
+    offset = pos_list[idx]
+    for i in range(len(pos_list)):
+        pos_list[i] -= offset - min_val_signed # also shift by the minimum error to align the data, so that the pos point with the minimum error = signed minimum error
+    
     # Compute true tripod position
     true_tripod_pos = pos_list[idx] - error_list[idx]
 
@@ -83,8 +95,7 @@ def compute_error(pos_list, error_list):
             error_list[i] = np.abs((pos_list[i] - error_list[i]) - true_tripod_pos)
         else:
             error_list[i] = np.nan
-    print(error_list)
-
+    
 def plot_row(ax, xs, oks, errs, y, norm, cmap="viridis"):
     xs = np.asarray(xs)
     oks = np.asarray(oks, dtype=bool)
@@ -123,7 +134,7 @@ for i, (file_path, pos_list, bool_list, error_list) in enumerate([
     else:
         only_first_run(pos_list, bool_list, error_list, max_index_14ms[i - 4])
 
-    compute_error(pos_list, error_list)
+    compute_error_and_align(pos_list, error_list)
 
 # !!!!!
 # Taking the return trip for pos_14ms_3m becaues bad data in the first half of the run (probably due to a bad initial marker detection)
@@ -132,7 +143,7 @@ read_csv(file_path_14ms_3m, pos_14ms_3m, bool_14ms_3m, error_14ms_3m)
 pos_14ms_3m[:] = pos_14ms_3m[90:130] # only consider the return trip
 bool_14ms_3m[:] = bool_14ms_3m[90:130]
 error_14ms_3m[:] = error_14ms_3m[90:130]
-compute_error(pos_14ms_3m, error_14ms_3m)
+compute_error_and_align(pos_14ms_3m, error_14ms_3m)
 # !!!!!
 
 datasets_1ms = [
@@ -168,15 +179,15 @@ norm = mcolors.Normalize(vmin=0, vmax=np.nanmax(all_errs))
 # Left subplot: 1 m/s
 mappable = None
 error_1ms_1m = [error_1ms_1m] # transform to list of lists for zip
-for (xs, oks, errs), y, offset in zip(datasets_1ms, heights, offsets_1ms):
-    xs_offset = np.asarray(xs) - offset
+for (xs, oks, errs), y in zip(datasets_1ms, heights):
+    xs_offset = np.asarray(xs)
     mappable = plot_row(ax1, xs_offset, oks, errs, y, norm)
 
 # Left subplot: 14 m/s
 mappable = None
 error_14ms_1m = [error_14ms_1m] # transform to list of lists for zip
-for (xs, oks, errs), y, offset in zip(datasets_14ms, heights, offsets_14ms):
-    xs_offset = np.asarray(xs) - offset
+for (xs, oks, errs), y in zip(datasets_14ms, heights):
+    xs_offset = np.asarray(xs)
     mappable = plot_row(ax2, xs_offset, oks, errs, y, norm)
 
 for ax in (ax1, ax2):
