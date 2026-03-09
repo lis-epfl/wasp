@@ -1,37 +1,18 @@
+# Python cache
 src/__pycache__/
-src/calibration_data/*
-!src/calibration_data/
-src/calibration_images/*
-!src/calibration_images/
-src/csvs/*
-!src/csvs/
-src/draw/*
-!src/draw/
-src/groove.py/
-src/lib/
-src/notdetected/*
-!src/notdetected/
 
-src/test.png
-src/draw.jpg
-src/cam.jpg
-src/grove.py
-src/grovepy
-.venv/
-venv/
-mocap/
-
+# macOS system files
 .DS_Store
 src/.DS_Store
 
+# Virtual environments
+.venv/
+venv/
+venv_wasp/
+
+# Video files
 **/*.mp4
 
+# Local data / calibration files
 src/data/
 src/zipline_calib/
-src/camera_calib/*
-
-
-src/Figures/old_figures/
-src/Figures/result_figure/
-src/Figures/speed_figure/tracker-main/
-src/Figures/speed_figure/figure_speed_with_images.svg

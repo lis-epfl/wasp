@@ -1,10 +1,13 @@
-# Safe outdoor flight with air speed sensor
+# Winged Aircraft Safety Platform (WASP) Enables Safe Outdoor Flight Test
 
-Fixed-wing Uncrewed Aerial Vehicles (UAVs) cannot hover or return to a stationary state, making outdoor testing inherently risky. 
-Existing approaches often rely on indoor tethered setups in front of wind tunnels, which constrain manoeuvrability and fail to replicate realistic environmental conditions. 
-This paper presents the Winged Aircraft Safety Platform (WASP): a motorized, cable-guided system that enables safe, tethered outdoor flight of fixed-wing UAVs. 
-The WASP autonomously tracks the UAV using onboard vision and logs local wind conditions using a 3D wind sensor. In the event of a malfunction during
-testing, a safety tether prevents the UAV from crashing.
+Outdoor testing of fixed-wing uncrewed aerial vehicles (UAVs) remains inherently risky, as winged platforms cannot rapidly transition to a safe hover state following malfunction. 
+Existing safety approaches, including wind-tunnel confinement and onboard parachute systems, either restrict the flight envelope or are impractical for lightweight aircraft. 
+We present the Winged Aircraft Safety Platform (WASP), a motorized, cable-guided robotic system designed to enable safe, tethered outdoor flight testing of fixed-wing UAVs. 
+The WASP autonomously tracks a UAV using onboard vision and positions itself above the aircraft, maintaining a lightweight safety tether (< 5 g) capable of preventing ground impact in the event of failure.
+Beyond safety, the system functions as a mobile measurement platform. 
+By integrating encoder-based motion sensing, vision-based pose estimation, and real-time three-dimensional wind measurements from an ultrasonic anemometer, the WASP reconstructs the UAV’s full flight state, including position, velocity, attitude, airspeed, angle of attack, and sideslip angle. 
+Outdoor experiments conducted over a 70 m cable span demonstrate stable tracking at speeds up to 14 m/s with accelerations of 8 m/s², and close agreement between WASP-derived aerodynamic estimates and onboard sensor measurements.
+By combining safety and data collection, WASP accelerates the development of next-generation winged UAVs.
 
 
 <!-- # SSH onnection

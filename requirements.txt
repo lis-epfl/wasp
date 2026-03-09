@@ -1,5 +1,3 @@
-# External Libraries
-
 # General
 numpy==1.24.3
 opencv-python==4.11.0.86
