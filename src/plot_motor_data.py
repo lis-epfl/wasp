@@ -41,9 +41,6 @@ def plot_data(csv_path):
     x_aruco_vect = []
     y_aruco_vect = []
     z_aruco_vect = []
-    roll_aruco_vect = []
-    pitch_aruco_vect = []
-    yaw_aruco_vect = []
 
     with open(csv_path, "r", newline="") as f:
         reader = csv.DictReader(f)
@@ -62,12 +59,9 @@ def plot_data(csv_path):
                 fnum(row.get("Estimated plane velocity [m/s]"))
             )
             vel_ref_vect.append(fnum(row.get("Reference velocity [m/s]")))
-            x_aruco_vect.append(fnum(row.get("x ArUco [m]")))
-            y_aruco_vect.append(fnum(row.get("y ArUco [m]")))
-            z_aruco_vect.append(fnum(row.get("z ArUco [m]")))
-            roll_aruco_vect.append(fnum(row.get("roll ArUco [deg]")))
-            pitch_aruco_vect.append(fnum(row.get("pitch ArUco [deg]")))
-            yaw_aruco_vect.append(fnum(row.get("yaw ArUco [deg]")))
+            x_aruco_vect.append(fnum(row.get("tvec_x [m]")))
+            y_aruco_vect.append(fnum(row.get("tvec_y [m]")))
+            z_aruco_vect.append(fnum(row.get("tvec_z [m]")))
 
     t_max = max(time_vect)
 
@@ -197,16 +191,8 @@ def plot_data(csv_path):
     axs[2, 0].legend(loc='upper right')
 
 
-    # Plot 8: ArUco orientation over time
-    axs[2, 1].plot(time_vect, roll_aruco_vect, label="roll ArUco", color=colormap3(0.1))
-    axs[2, 1].plot(time_vect, pitch_aruco_vect, label="pitch ArUco", color=colormap3(0.4))
-    axs[2, 1].plot(time_vect, yaw_aruco_vect, label="yaw ArUco", color=colormap3(0.8))
-    axs[2, 1].set_ylabel("Angle [deg]")
-    axs[2, 1].set_xlim(t_start, t_max)
-    axs[2, 1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    axs[2, 1].grid(True)
-    axs[2, 1].legend(loc='upper right')
-
+    # Plot 8:
+    # Nothing
 
     # Plot 9: 
     axs[2, 2].set_xlabel("Time [s]")

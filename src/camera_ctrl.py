@@ -21,9 +21,116 @@ from pathlib import Path
 
 
 # =========================
+# Helpers
+# =========================
+def draw_on_frame(frame, projected_point, corners=None):
+    """
+    Draw visualization on the frame:
+    - Circle the detected ArUco tag with pink outline.
+    - Draw a hollow circle around the projected marker center.
+      The circle size adapts to the tag size.
+    """
+    if len(frame.shape) == 2:
+        img = cv.cvtColor(frame, cv.COLOR_GRAY2BGR)
+    else:
+        img = frame.copy()
+    
+    # --- Hollow circle for marker center ---
+    marker_radius = 50  # default
+    cv.circle(img, projected_point, marker_radius, (0, 255, 255), 2)  # yellow outline, adaptive size
+
+    return img
+
+
+def capture_bgr_frame(picam2):
+    """
+    Capture a frame from Picamera2 and return it as a BGR numpy array
+    (ready for OpenCV).
+    """
+    frame_rgb = picam2.capture_array("main")
+    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
+    return frame_bgr
+
+
+def rmat_to_quat_xyzw(R: np.ndarray) -> tuple[float, float, float, float]:
+    """
+    Convert rotation matrix to quaternion (x, y, z, w), normalized.
+
+    This is a common, numerically-stable branch implementation.
+    """
+    tr = float(np.trace(R))
+    if tr > 0.0:
+        S = np.sqrt(tr + 1.0) * 2.0
+        qw = 0.25 * S
+        qx = (R[2, 1] - R[1, 2]) / S
+        qy = (R[0, 2] - R[2, 0]) / S
+        qz = (R[1, 0] - R[0, 1]) / S
+    else:
+        if (R[0, 0] > R[1, 1]) and (R[0, 0] > R[2, 2]):
+            S = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2.0
+            qw = (R[2, 1] - R[1, 2]) / S
+            qx = 0.25 * S
+            qy = (R[0, 1] + R[1, 0]) / S
+            qz = (R[0, 2] + R[2, 0]) / S
+        elif R[1, 1] > R[2, 2]:
+            S = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2.0
+            qw = (R[0, 2] - R[2, 0]) / S
+            qx = (R[0, 1] + R[1, 0]) / S
+            qy = 0.25 * S
+            qz = (R[1, 2] + R[2, 1]) / S
+        else:
+            S = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2.0
+            qw = (R[1, 0] - R[0, 1]) / S
+            qx = (R[0, 2] + R[2, 0]) / S
+            qy = (R[1, 2] + R[2, 1]) / S
+            qz = 0.25 * S
+
+    qn = np.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+    if qn > 0.0:
+        qx, qy, qz, qw = qx / qn, qy / qn, qz / qn, qw / qn
+    return float(qx), float(qy), float(qz), float(qw)
+
+
+def quat_xyzw_to_euler_zyx_deg(qx: float, qy: float, qz: float, qw: float) -> tuple[float, float, float]:
+    """
+    Quaternion (x,y,z,w) -> Euler angles (roll, pitch, yaw) in degrees,
+    using the common aerospace convention: ZYX (yaw-pitch-roll).
+
+    Returns: roll (X), pitch (Y), yaw (Z) in degrees.
+    """
+    # Normalize to be safe
+    n = np.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+    if n == 0.0:
+        return float("nan"), float("nan"), float("nan")
+    qx, qy, qz, qw = qx / n, qy / n, qz / n, qw / n
+
+    # roll (x-axis)
+    sinr_cosp = 2.0 * (qw * qx + qy * qz)
+    cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy)
+    roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+    # pitch (y-axis)
+    sinp = 2.0 * (qw * qy - qz * qx)
+    if abs(sinp) >= 1:
+        pitch = np.sign(sinp) * (np.pi / 2.0)
+    else:
+        pitch = np.arcsin(sinp)
+
+    # yaw (z-axis)
+    siny_cosp = 2.0 * (qw * qz + qx * qy)
+    cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz)
+    yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+    return (
+        float(np.degrees(roll)),
+        float(np.degrees(pitch)),
+        float(np.degrees(yaw)),
+    )
+
+
+# =========================
 # Undistorted-domain helper
 # =========================
-
 class Undistorter:
     """
     Build once per (K, dist, raw_size[, new_size, alpha]).
@@ -53,7 +160,6 @@ class Undistorter:
 # =========================
 # ArUco pipeline (both modes)
 # =========================
-
 class ArucoPipeline:
     """
     One pipeline to process frames:
@@ -100,7 +206,7 @@ class ArucoPipeline:
 
         self.detector = cv.aruco.ArucoDetector(dictionary, parameters)
 
-    # ---------- shared helpers ----------
+    # ---------- Shared helpers ----------
 
     @staticmethod
     def _apply_user_ops(gray, K_work):
@@ -140,6 +246,7 @@ class ArucoPipeline:
             gray = clahe.apply(gray)
 
         return gray, K_work
+
 
     def _ensure_undistorter(self, frame_bgr):
         if not getattr(config, "UNDISTORT", True):
@@ -200,12 +307,16 @@ class ArucoPipeline:
         corners, ids, _ = self.detector.detectMarkers(gray)
 
         pose = {
-            'x ArUco [m]': None,
-            'y ArUco [m]': None,
-            'z ArUco [m]': None,
-            'roll ArUco [deg]': None,
-            'pitch ArUco [deg]': None,
-            'yaw ArUco [deg]': None,
+            'tvec_x [m]': None,
+            'tvec_y [m]': None,
+            'tvec_z [m]': None,
+            'rvec_x [rad]': None,
+            'rvec_y [rad]': None,
+            'rvec_z [rad]': None,
+            'qx': None,
+            'qy': None,
+            'qz': None,
+            'qw': None,
         }
 
         annotated = gray
@@ -223,36 +334,50 @@ class ArucoPipeline:
             )
 
             flag = cv.SOLVEPNP_IPPE_SQUARE if getattr(config, "SOLVER", 1) in (1, 2) else cv.SOLVEPNP_ITERATIVE
+
             if getattr(config, "SOLVER", 1) == 2 and self.prev_tvec is not None:
                 success, rvec, tvec = cv.solvePnP(
-                    object_points, image_points, K_work, dist_work,
-                    rvec=self.prev_rvec, tvec=self.prev_tvec, useExtrinsicGuess=True, flags=flag
+                    object_points, 
+                    image_points, 
+                    K_work, 
+                    dist_work,
+                    rvec=self.prev_rvec, 
+                    tvec=self.prev_tvec, 
+                    useExtrinsicGuess=True, 
+                    flags=flag
                 )
             else:
-                success, rvec, tvec = cv.solvePnP(object_points, image_points, K_work, dist_work, flags=flag)
+                success, rvec, tvec = cv.solvePnP(
+                    object_points, 
+                    image_points, 
+                    K_work, 
+                    dist_work, 
+                    flags=flag
+                )
 
             if success:
                 self.prev_rvec, self.prev_tvec = rvec, tvec
 
-                x, y, z = np.round(tvec.reshape(-1), 2)
-                R, _ = cv.Rodrigues(rvec)
-                sy = np.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
-                if sy > 1e-6:
-                    yaw = np.degrees(np.arctan2(R[1, 0], R[0, 0]))
-                    pitch = np.degrees(np.arctan2(-R[2, 0], sy))
-                    roll = np.degrees(np.arctan2(R[2, 1], R[2, 2]))
-                else:
-                    yaw = np.degrees(np.arctan2(-R[0, 1], R[1, 1])); pitch = np.degrees(np.arctan2(-R[2, 0], sy)); roll = 0.0
-                yaw, pitch, roll = np.round([yaw, pitch, roll], 1)
+                tv = tvec.reshape(-1).astype(float)
+                rv = rvec.reshape(-1).astype(float)
 
-                pose.update({
-                    'x ArUco [m]': x,
-                    'y ArUco [m]': y,
-                    'z ArUco [m]': z,
-                    'roll ArUco [deg]': roll,
-                    'pitch ArUco [deg]': pitch,
-                    'yaw ArUco [deg]': yaw,
-                })
+                R, _ = cv.Rodrigues(rvec)
+                qx, qy, qz, qw = rmat_to_quat_xyzw(R)
+
+                pose.update(
+                    {
+                        "tvec_x [m]": float(tv[0]),
+                        "tvec_y [m]": float(tv[1]),
+                        "tvec_z [m]": float(tv[2]),
+                        "rvec_x [rad]": float(rv[0]),
+                        "rvec_y [rad]": float(rv[1]),
+                        "rvec_z [rad]": float(rv[2]),
+                        "qx": qx,
+                        "qy": qy,
+                        "qz": qz,
+                        "qw": qw,
+                    }
+                )
 
                 # Project & draw in the same domain we detected in
                 center_3d = np.array([[0.0, 0.0, 0.0]], dtype=np.float32)
@@ -283,41 +408,8 @@ class ArucoPipeline:
 
 
 # =========================
-# Helpers
-# =========================
-
-def draw_on_frame(frame, projected_point, corners=None):
-    """
-    Draw visualization on the frame:
-    - Circle the detected ArUco tag with pink outline.
-    - Draw a hollow circle around the projected marker center.
-      The circle size adapts to the tag size.
-    """
-    if len(frame.shape) == 2:
-        img = cv.cvtColor(frame, cv.COLOR_GRAY2BGR)
-    else:
-        img = frame.copy()
-    
-    # --- Hollow circle for marker center ---
-    marker_radius = 50  # default
-    cv.circle(img, projected_point, marker_radius, (0, 255, 255), 2)  # yellow outline, adaptive size
-
-    return img
-
-def capture_bgr_frame(picam2):
-    """
-    Capture a frame from Picamera2 and return it as a BGR numpy array
-    (ready for OpenCV).
-    """
-    frame_rgb = picam2.capture_array("main")
-    frame_bgr = cv.cvtColor(frame_rgb, cv.COLOR_RGB2BGR)
-    return frame_bgr
-
-
-# =========================
 # Camera + workflows
 # =========================
-
 def camera_init():
     """
     Initialize the camera (Picamera2).
@@ -344,6 +436,7 @@ def camera_init():
     meta = picam2.capture_metadata()
     print("Exposure time (µs):", meta.get("ExposureTime", "N/A"))
     return picam2
+
 
 def set_exposure_manually(picam2, exposure_time):
     picam2.set_controls({
@@ -624,7 +717,7 @@ def annotate_aruco_in_folder(folder_path, mtx, dist):
         pose, _, _ = pipeline.process_bgr_frame(
             img, time.time(), save_path=out_dir, frame_counter=i, time_start_ref=t0
         )
-        if pose['x ArUco [m]'] is not None:
+        if pose['tvec_x [m]'] is not None:
             found_count += 1
 
     print(f"Detected {found_count} of {len(files)} images.")
@@ -711,9 +804,8 @@ def camera_live_detect():
             pose, _, _ = pipeline.process_bgr_frame(
                 frame_bgr, time.time(), save_path=save_dir, frame_counter=i, time_start_ref=t0
             )
-            if pose['x ArUco [m]'] is not None:
-                print(f"[{i}] Pose: x={pose['x ArUco [m]']}, y={pose['y ArUco [m]']}, z={pose['z ArUco [m]']}, "
-                      f"r={pose['roll ArUco [deg]']}, p={pose['pitch ArUco [deg]']}, y={pose['yaw ArUco [deg]']}")
+            if pose['tvec_x [m]'] is not None:
+                print(f"[{i}] Pose: x={pose['tvec_x [m]']}, y={pose['tvec_y [m]']}, z={pose['tvec_z [m]']}")
             else:
                 print(f"[{i}] Marker not found.")
     except KeyboardInterrupt:
@@ -731,7 +823,6 @@ def camera_live_detect():
 # =========================
 # CLI
 # =========================
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Choose: 'calibrate_camera', 'generate_markers', 'take_picture', 'annotate_aruco <folder>', or 'live_detect'")

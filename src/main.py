@@ -33,10 +33,12 @@ class PwmChannel:
     def __repr__(self):
         return f"<PwmChannel {self.name}: pulse={self.pulse:.1f}µs timeout={self.timeout}>"
 
+
 def _request_line(chip: gpiod.Chip, pin: int) -> gpiod.Line:
     line = chip.get_line(pin)
     line.request(consumer='pwm_reader', type=gpiod.LINE_REQ_EV_BOTH_EDGES)
     return line
+
 
 def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
     """Mutates channel in place based on whether an event occurred."""
@@ -52,6 +54,7 @@ def _update_channel_from_event(ch: PwmChannel, wait_ok: bool):
     else:
         ch.pulse = 0.0
         ch.timeout = True
+
 
 def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
     try:
@@ -269,6 +272,7 @@ def wind_sensor_reading(save_path, time_start_ref, restart_event):
         except Exception as e:
             print(f"Plotting failed: {e}")
 
+
 def make_take_off_trajectory():
     # Create a take-off trajectory that allows user to sync up
     dt = config.DT_MAIN
@@ -278,6 +282,7 @@ def make_take_off_trajectory():
     v_f = config.MAX_SPEED_CALIB
     v_s = 0.5
     return [0]*N_init + [p]*N + [0]*N + [p]*N + [0]*N + [p]*N + [0]*N, [0]*N_init + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N + [v_f]*N + [v_s]*N
+
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
     # Initialize variable
@@ -389,11 +394,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                 else:
                     # Get remote control commands
                     with shared_remote_command.get_lock(), shared_target_speed.get_lock(), shared_wheel_position.get_lock():
-                        remote_command = shared_remote_command.value                # 0: no command, 1: go backward, 2: go forward, 3: go tracking, 4: take off
-                        target_speed = shared_target_speed.value                    # in µs
-                        wheel_position = shared_wheel_position.value  # 0: no setpoint, 1: zipline start, 2: zipline length
-                        knobl_value = shared_knobl_value.value                      # 0.0 to 1.0
-                        knobr_value = shared_knobr_value.value                      # 0.0 to 1.0
+                        remote_command = shared_remote_command.value      # 0: no command, 1: go backward, 2: go forward, 3: go tracking, 4: take off
+                        target_speed = shared_target_speed.value          # in µs
+                        wheel_position = shared_wheel_position.value      # 0: no setpoint, 1: zipline start, 2: zipline length
+                        knobl_value = shared_knobl_value.value            # 0.0 to 1.0
+                        knobr_value = shared_knobr_value.value            # 0.0 to 1.0
 
                         # Map target_speed (µs) to target_speed_m_s (m/s)
                         speed_max = config.MAX_SPEED_CALIB if in_calibration_mode else config.MAX_SPEED
@@ -496,13 +501,18 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             take_off_i = None
 
                             ArUco_pose = {
-                                'x ArUco [m]': None,
-                                'y ArUco [m]': None,
-                                'z ArUco [m]': None,
-                                'roll ArUco [deg]': None,
-                                'pitch ArUco [deg]': None,
-                                'yaw ArUco [deg]': None,
+                                'tvec_x [m]': None,
+                                'tvec_y [m]': None,
+                                'tvec_z [m]': None,
+                                'rvec_x [rad]': None,
+                                'rvec_y [rad]': None,
+                                'rvec_z [rad]': None,
+                                'qx': None,
+                                'qy': None,
+                                'qz': None,
+                                'qw': None,
                             }
+
                             tracking_error = None
                             last_tracking_error = None
                             v_tracking_error = None
@@ -557,14 +567,14 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             )
                             frame_counter += 1
 
-                            if ArUco_pose['x ArUco [m]'] is not None:
-                                tracking_error = - ArUco_pose['x ArUco [m]']
+                            if ArUco_pose['tvec_x [m]'] is not None:
+                                tracking_error = - ArUco_pose['tvec_x [m]']
                             else:
                                 tracking_error = None
 
                             if tracking_error is not None:
                                 # ArUco marker detected
-                                tracking_error = - ArUco_pose['x ArUco [m]']
+                                tracking_error = - ArUco_pose['tvec_x [m]']
                                 estimated_UAV_pos = linear_position + tracking_error
                                 cnt_moving_blindly = 0
         
