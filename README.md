@@ -9,6 +9,48 @@ By integrating encoder-based motion sensing, vision-based pose estimation, and r
 Outdoor experiments conducted over a 70 m cable span demonstrate stable tracking at speeds up to 14 m/s with accelerations of 8 m/s², and close agreement between WASP-derived aerodynamic estimates and onboard sensor measurements.
 By combining safety and data collection, WASP accelerates the development of next-generation winged UAVs.
 
+![Demo](docs/success_flight.gif)
+
+
+Add Youtube video link?
+
+---
+
+
+
+## Hardware Setup
+
+---
+
+
+
+## Sofware Setup
+
+---
+
+
+
+## Use case
+
+---
+
+
+
+## Data analysis
+
+---
+
+
+
+## Acknowledgements
+- **Authors:** Simon Jeger & Cyril Goffin
+- **Affiliation:** [Laboratory of Intelligent Systems (LIS)](https://www.epfl.ch/labs/lis/), EPFL
+- **Publication:** [Winged Aircraft Safety Platform (WASP) Enables Safe Outdoor Flight Test](docs/Winged_Aircraft_Safety_Platform_(WASP)_Enables_Safe_Outdoor_Flight_Test.pdf)
+
+---
+
+
+
 
 <!-- # SSH onnection
 
