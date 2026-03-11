@@ -13,6 +13,7 @@ venv_wasp/
 # Video files
 **/*.mp4
 
-# Local data / calibration files
+# Local data/calibration/Figures files
 src/data/
 src/zipline_calib/
+Figures/
