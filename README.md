@@ -165,9 +165,9 @@ When the program starts, the system enters calibration mode.
 
 The WASP must first learn the limits of the cable on which it moves.
 
-<table style="border: none;">
+<table border="0">
 <tr>
-<td width="60%" valign="top" style="border: none;">
+<td width="60%" valign="top">
 
 1. Set the maximum position: move the WASP to the far end of the cable (maximum position you want it to reach) using the remote throttle. Then turn the calibration wheel clockwise to its maximum position. This registers the end setpoint of the cable.
 
@@ -178,7 +178,7 @@ Then turn the calibration wheel counter-clockwise to its minimum position. This 
 
 </td>
 
-<td width="40%" valign="middle" style="border: none;">
+<td width="40%" valign="middle">
 
 <img src="docs/image_remote_leds.png" width="100%">
 
