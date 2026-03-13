@@ -20,9 +20,9 @@ TAU_S          = 0.25  # time constant for quaternion smoothing (empirically cho
 WINDOW_LENGTH = 15 # length of the filter window
 ORDER_POLY    = 2  # order of the polynomial used to fit the samples
 
-# RUN INDEX FOR PLOTTING
-START_INDEX = 1340
-END_INDEX   = 1440
+# RUN INDECES FOR PLOTTING
+START_INDEX = 1340 # 0 for the full run 
+END_INDEX   = 1440 # np.min([len(pd.read_csv(CSV_DATA_PATH)), len(pd.read_csv(CSV_WIND_DATA_PATH))]) for the full run
 
 
 def read_all_data_and_interpolate() -> pd.DataFrame:
@@ -50,6 +50,8 @@ def read_all_data_and_interpolate() -> pd.DataFrame:
             ts_wind,
             df_wind[col].to_numpy(),
         )
+    
+    print(len(df_all), len(df_data), len(df_wind))
     return df_all
 
 
