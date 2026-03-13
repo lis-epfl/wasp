@@ -165,7 +165,7 @@ When the program starts, the system enters calibration mode.
 
 The WASP must first learn the limits of the cable on which it moves.
 
-<table border="0">
+<table>
 <tr>
 <td width="60%" valign="top">
 
