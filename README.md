@@ -167,7 +167,7 @@ The WASP must first learn the limits of the cable on which it moves.
 
 <table>
 <tr>
-<td width="65%" valign="top">
+<td width="60%" valign="top" style="border: none;">
 
 1. Set the maximum position: move the WASP to the far end of the cable (maximum position you want it to reach) using the remote throttle. Then turn the calibration wheel clockwise to its maximum position. This registers the end setpoint of the cable.
 
@@ -178,7 +178,7 @@ Then turn the calibration wheel counter-clockwise to its minimum position. This 
 
 </td>
 
-<td width="35%" valign="middle">
+<td width="40%" valign="middle" style="border: none;">
 
 <img src="docs/image_remote_leds.png" width="100%">
 
@@ -195,7 +195,7 @@ During hand launch, the UAV may accelerate faster than the perception pipeline c
 To address this, a dedicated takeoff sequence is implemented. In this mode:
 
 - the WASP first performs a short back-and-forth motion to allow the operator to synchronize the launch (3 times),
-- it then accelerates automatically to a user-defined velocity (4$^\text{th}$ back-and-forth motion),
+- it then accelerates automatically to a user-defined velocity (4th back-and-forth motion),
 - once this velocity is reached, the controller automatically transitions to normal tracking mode.
 
 This mode can be activated using the dedicated switch on the remote controller.
