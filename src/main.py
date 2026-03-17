@@ -417,7 +417,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                     # Update state
                     if (remote_command == config.REMOTE_COMMAND["GO_STOP"]) and (not in_calibration_mode):
-                        if wheel_position > 0:
+                        if wheel_position > 0: # full clockwise or counterclockwise to trigger the restart
                             restart_counter += config.DT_MAIN
                             if restart_counter >= config.RESTART_HOLD_TIME:
                                 print("Restart triggered")

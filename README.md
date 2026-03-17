@@ -217,7 +217,7 @@ If the assisted takeoff duration appears incorrect, or if the ArUco detection be
 
 ### *Optional: Logging multiple runs*
 
-When the program is terminated, all recorded data are automatically saved as `.csv` files. If multiple runs are required without stopping the program, the calibration/reset wheel can be used to start a new log file. Turning the wheel to its minimum position  (counter-clockwise ${\color{red} \text{or clockwise??}}$) will save the current dataset to `.csv` files and create new files for the upcoming run.
+When the program is terminated, all recorded data are automatically saved as `.csv` files. If multiple runs are required without stopping the program, the calibration/reset wheel can be used to start a new log file. When not in calibration mode, turning the wheel to its minimum or maximum position will save the current dataset to `.csv` files and create new files for the upcoming run.
 
 
 ## Data Analysis
