@@ -39,7 +39,16 @@ summarized below:
 
 Once fully assembled, the platform looks as follows:
 
-${\color{red} \text{Add front and back photos of WASP}}$
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/WASP_final_photos/front_closed.jpeg" width="350"/></td>
+    <td align="center"><img src="docs/WASP_final_photos/front_opened.jpeg" width="350"/></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/WASP_final_photos/back.jpeg" width="350"/></td>
+    <td align="center"><img src="docs/WASP_final_photos/top.jpeg" width="350"/></td>
+  </tr>
+</table>
 
 
 
