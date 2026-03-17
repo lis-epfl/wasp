@@ -16,4 +16,5 @@ venv_wasp/
 # Local data/calibration/Figures files
 src/data/
 src/zipline_calib/
+src/camera_calib/
 Figures/
