@@ -20,7 +20,7 @@ ${\color{red} \text{add link to youtube video}}$
 
 ## Hardware setup
 
-The full [CAD model](https://cad.onshape.com/documents/e720400fb6a2299e38239c2c/v/94bfd332e710a20f5be1e874/e/eed919d2f4453d865657b7de) of the WASP is available on
+The full [CAD model](https://cad.onshape.com/documents/e720400fb6a2299e38239c2c/w/06ed2a46215f6c75c633ae7b/e/eed919d2f4453d865657b7de?renderMode=0&uiState=69c156d5e8c5edb76eb85b28) of the WASP is available on
 Onshape. 
 The robot structure is primarily made from 2 mm folded aluminum sheets, while the custom functional parts are 3D-printed in [PLA](https://ultimaker.com/materials/s-series-tough-pla/). 
 The outer ring of the drive wheel is printed in [TPU](https://ultimaker.com/materials/s-series-tpu-95a/), which provides friction between the drivetrain and the 2 mm diameter
