@@ -4,25 +4,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.spatial.transform import Rotation as R
-from scipy.signal import savgol_filter
 
 
-# DATA PATHS
+# Data paths
 CSV_DATA_PATH      = Path("data/run_2025-10-09_16-02-26/data_2025-10-09_16-02-32.csv")
 CSV_WIND_DATA_PATH = Path("data/run_2025-10-09_16-02-26/wind_data_2025-10-09_16-02-26.csv")
 
-# PAREMETERS FOR QUATERNION CLEANING
-MAX_RATE_DEG_S = 200.0 # maximum allowed angular rate in degrees per second (empirically chosen)
-SLACK_DEG      = 10.0  # additional slack in degrees to allow for temporary spikes in angular rate without classifying them as outliers (empirically chosen)
-TAU_S          = 0.25  # time constant for quaternion smoothing (empirically chosen)
-
-# PARAMETERS FOR WIND FILTERING
-WINDOW_LENGTH = 15 # length of the filter window
-ORDER_POLY    = 2  # order of the polynomial used to fit the samples
-
-# RUN INDECES FOR PLOTTING
-START_INDEX = 1340 # 0 for the full run 
-END_INDEX   = 1440 # np.min([len(pd.read_csv(CSV_DATA_PATH)), len(pd.read_csv(CSV_WIND_DATA_PATH))]) for the full run
+# Parameters
+MAX_RATE_DEG_S = 200.0              # maximum allowed angular rate in degrees per second (empirically chosen)
+SLACK_DEG      = 10.0               # additional slack in degrees to allow for temporary spikes in angular rate without classifying them as outliers (empirically chosen)
+TAU_S          = 0.25               # time constant for quaternion smoothing (empirically chosen)
+FILTERING_CUTOFF_FREQUENCY = 0.25   # cutoff frequency for low-pass filtering the estimated ambient wind
+START_INDEX = 1340                  # 0 for the full run 
+END_INDEX   = 1440                  # np.min([len(pd.read_csv(CSV_DATA_PATH)), len(pd.read_csv(CSV_WIND_DATA_PATH))]) for the full run
 
 
 def read_all_data_and_interpolate() -> pd.DataFrame:
@@ -51,7 +45,6 @@ def read_all_data_and_interpolate() -> pd.DataFrame:
             df_wind[col].to_numpy(),
         )
     
-    print(len(df_all), len(df_data), len(df_wind))
     return df_all
 
 
@@ -244,7 +237,7 @@ def clean_quaternion_series(df_all: pd.DataFrame, max_rate_deg_s: float, slack_d
 def _interp_1d_over_time(t: np.ndarray, x: np.ndarray,) -> np.ndarray:
     """
     Linearly interpolate missing values of a 1D signal over time.
-    Missing values at the beginning or end are extended with the nearestvalid sample.
+    Missing values at the beginning or end are extended with the nearest valid sample.
     """
     valid = np.isfinite(x) & np.isfinite(t)
 
@@ -257,6 +250,23 @@ def _interp_1d_over_time(t: np.ndarray, x: np.ndarray,) -> np.ndarray:
         return out
 
     return np.interp(t, t[valid], x[valid])
+
+
+def _lowpass_1st_order_fc(x, t, fc):
+    """
+    First-order low-pass filter.
+    """
+    y = np.zeros_like(x)
+    y[0] = x[0]
+
+    tau = 1.0 / (2.0 * np.pi * fc)
+
+    for i in range(1, len(x)):
+        dt = t[i] - t[i-1]
+        alpha = dt / (tau + dt)
+        y[i] = alpha * x[i] + (1 - alpha) * y[i-1]
+
+    return y
 
 
 def compute_uav_velocity_in_wasp_frame(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -295,6 +305,7 @@ def compute_wind_at_uav(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, n
     vel_uav_x = df_all["aruco_x_vel [m/s]"].to_numpy()
     vel_uav_y = df_all["aruco_y_vel [m/s]"].to_numpy()
     vel_uav_z = df_all["aruco_z_vel [m/s]"].to_numpy()
+    time = df_all["Timestamp [s]"].to_numpy()
     
     wind_at_wasp = np.empty((len(df_all), 3), dtype=float)
     wind_at_wasp[:, 0] = wind_u
@@ -311,9 +322,9 @@ def compute_wind_at_uav(df_all: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, n
         wind_at_uav[i] = rot.apply(wind_at_wasp[i] - uav_motion)
     
     # Apply filter to smooth signals
-    wind_at_uav[:, 0] = savgol_filter(wind_at_uav[:, 0], WINDOW_LENGTH, ORDER_POLY, mode="interp")
-    wind_at_uav[:, 1] = savgol_filter(wind_at_uav[:, 1], WINDOW_LENGTH, ORDER_POLY, mode="interp")
-    wind_at_uav[:, 2] = savgol_filter(wind_at_uav[:, 2], WINDOW_LENGTH, ORDER_POLY, mode="interp")
+    wind_at_uav[:, 0] = _lowpass_1st_order_fc(wind_at_uav[:, 0], time, FILTERING_CUTOFF_FREQUENCY)
+    wind_at_uav[:, 1] = _lowpass_1st_order_fc(wind_at_uav[:, 1], time, FILTERING_CUTOFF_FREQUENCY)
+    wind_at_uav[:, 2] = _lowpass_1st_order_fc(wind_at_uav[:, 2], time, FILTERING_CUTOFF_FREQUENCY)
 
     # Flipping the x-wind because of the convention of the WASP frame where the wind is measured in the opposite direction of the UAV motion
     wind_at_uav[:, 0] = - wind_at_uav[:, 0]
