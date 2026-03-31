@@ -1,13 +1,7 @@
-# Winged Aircraft Safety Platform (WASP) Enables Safe Outdoor Flight Test
+# Winged Aircraft Safety Platform for Outdoor Flight
 
-Outdoor testing of fixed-wing uncrewed aerial vehicles (UAVs) remains inherently risky, as winged platforms cannot rapidly transition to a safe hover state following malfunction. 
-Existing safety approaches, including wind-tunnel confinement and onboard parachute systems, either restrict the flight envelope or are impractical for lightweight aircraft. 
-We present the Winged Aircraft Safety Platform (WASP), a motorized, cable-guided robotic system designed to enable safe, tethered outdoor flight testing of fixed-wing UAVs. 
-The WASP autonomously tracks a UAV using onboard vision and positions itself above the aircraft, maintaining a lightweight safety tether (< 5 g) capable of preventing ground impact in the event of failure.
-Beyond safety, the system functions as a mobile measurement platform. 
-By integrating encoder-based motion sensing, vision-based pose estimation, and real-time three-dimensional wind measurements from an ultrasonic anemometer, the WASP reconstructs the UAV’s full flight state, including position, velocity, attitude, airspeed, angle of attack, and sideslip angle. 
-Outdoor experiments conducted over a 70 m cable span demonstrate stable tracking at speeds up to 14 m/s with accelerations of 8 m/s², and close agreement between WASP-derived aerodynamic estimates and onboard sensor measurements.
-By combining safety and data collection, WASP accelerates the development of next-generation winged UAVs.
+Outdoor flight tests of experimental winged drones can be risky because, contrary to rotorcraft, winged drones cannot rapidly transition to a safe hover state after a malfunction, during early learning stages, or external disturbances. Existing safety approaches, including wind-tunnel confinement and onboard parachute systems restrict the flight envelope and can be impractical for lightweight drones. We present the Winged Aircraft Safety Platform (WASP), a motorized, cable-guided robotic system designed to enable safe, tethered outdoor flight tests of winged drones. WASP consists of an motorized support system with a safety tether and onboard camera to track and follow the drone along a suspended horizontal line in order to prevent ground impacts.
+WASP also serves as a data-collecting device that integrates encoder-based motion sensing, vision-based pose estimation, and real-time three-dimensional wind measurements to provide full drone state information, including position, velocity, attitude, airspeed, angle of attack, and sideslip angle. Outdoor experiments conducted over a 70 m cable show stable tracking at speeds up to 14 m/s with accelerations of 8 m/s². WASP can be used for outdoor experiments with new control methods, drone designs, and data collection campaigns for machine learning methods.
 
 <p align="center">
   <img src="docs/success_flight.gif" width="800">
@@ -30,12 +24,16 @@ Without listing all standard hardware components such as screws, nuts,
 bearings, hooks, and magnets, the main elements of the system are
 summarized below:
 
+<div align="center">
+
 | | | |
 |---|---|---|
 | [ODrive S1](https://eu.odriverobotics.com/shop/odrive-s1) | [Raspberry Pi 5](https://www.raspberrypi.com/products/raspberry-pi-5/) | [GT6 EVO Radio Controller](https://www.conrad.ch/fr/p/reely-gt6-evo-radiocommande-a-poignee-pistolet-2-4-ghz-nombre-de-canaux-6-avec-recepteur-1780646.html) |
 | [ODrive Encoder OA1](https://eu.odriverobotics.com/shop/odrive-encoder-oa1-on-axis-magnetic-encoder-with-rs485) | [Raspberry Pi Global Shutter Camera](https://www.raspberrypi.com/products/raspberry-pi-global-shutter-camera/) | [NeoPixel LEDs](https://www.adafruit.com/product/1312) |
 | [ODrive Motor D5312s 330KV](https://eu.odriverobotics.com/shop/dual-shaft-motor-d5212s-300kv) | [TriSonica LI-550](https://www.licor.com/products/trisonica/LI-550-mini?category=Meteorology) | [4S LiPo Battery](https://www.galaxus.ch/en/s5/product/nvision-lipo-battery-148v-2500mah-35c-1480-v-2500-mah-rc-batteries-7946624) |
 | [ODrive USB Isolator](https://eu.odriverobotics.com/shop/usb-isolator) | [TriSonica USB Adapter](https://www.licor.com/products/trisonica/accessories) | [MTTEC Keto HV BEC](https://www.mttec.de/MTTEC-KETO-HV-BEC-12s-10A-20A-Peak-V2) |
+
+</div>
 
 Once fully assembled, the platform looks as follows:
 
