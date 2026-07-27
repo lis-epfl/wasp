@@ -819,7 +819,10 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         for p in procs:
+            p.join(timeout=20)
+        for p in procs:
             if p.is_alive():
+                print(f"{p.name} did not exit in time, terminating.")
                 p.terminate()
         for p in procs:
             p.join()

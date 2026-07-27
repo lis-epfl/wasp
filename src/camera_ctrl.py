@@ -495,11 +495,17 @@ def calibrate_camera():
     os.makedirs(after_dir, exist_ok=True)
 
     picam = camera_init()
-    # Preview in background
-    print("Starting live preview (press 'q' to close the preview window)...")
+
+    # Preview in background (only if a display is actually available)
+    headless = not os.environ.get('DISPLAY')
+    th = None
     stop_event = threading.Event()
-    th = threading.Thread(target=_stream_camera, args=(picam, stop_event), daemon=True)
-    th.start()
+    if headless:
+        print("No display detected, running headless (no live preview)...")
+    else:
+        print("Starting live preview (press 'q' to close the preview window)...")
+        th = threading.Thread(target=_stream_camera, args=(picam, stop_event), daemon=True)
+        th.start()
 
     # Capture stills
     print('Capturing calibration images...')
@@ -517,7 +523,8 @@ def calibrate_camera():
         print("Capture interrupted by user.")
     finally:
         stop_event.set()
-        th.join(timeout=2)
+        if th is not None:
+            th.join(timeout=2)
 
     # -------------------------
     # Pick 5 random "before" images
