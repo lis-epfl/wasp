@@ -45,7 +45,7 @@ def plot_data(csv_path):
     with open(csv_path, "r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            time_vect.append(fnum(row.get("Timestamp [s]")))
+            time_vect.append(fnum(row.get("Unix Timestamp [s]")))
             velocity_vect.append(fnum(row.get("Linear speed [m/s]")))
             position_vect.append(fnum(row.get("Linear position [m]")))
             torque_vect.append(fnum(row.get("Torque [Nm]")))
@@ -138,7 +138,7 @@ def plot_data(csv_path):
     # Plot 3: Reference over time
     axs[0, 2].plot(time_vect, position_vect, label="WASP position", color="crimson", linestyle=(0, (5, 1)))
     axs[0, 2].plot(time_vect, x_ref_vect, label="Reference", color="green")
-    axs[0, 2].set_xlabel("Time [s]")
+    axs[0, 2].set_xlabel("Unix Timestamp [s]")
     axs[0, 2].set_ylabel("Position [m]")
     axs[0, 2].set_xlim(t_start, t_max)
     axs[0, 2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
@@ -162,21 +162,21 @@ def plot_data(csv_path):
     axs[1, 1].grid(True)
     axs[1, 1].set_ylim(config.MIN_VOLTAGE-5, config.MAX_VOLTAGE+5)
     axs[1, 1].set_xlim(t_start, t_max)
-    axs[1, 1].hlines(config.MIN_VOLTAGE, xmin=0, xmax=t_max, color=colormap(0.3), linestyle='--', label='Upper/lower battery voltage limits')
-    axs[1, 1].hlines(config.MAX_VOLTAGE, xmin=0, xmax=t_max, color=colormap(0.3), linestyle='--')
+    axs[1, 1].hlines(config.MIN_VOLTAGE, xmin=t_start, xmax=t_max, color=colormap(0.3), linestyle='--', label='Upper/lower battery voltage limits')
+    axs[1, 1].hlines(config.MAX_VOLTAGE, xmin=t_start, xmax=t_max, color=colormap(0.3), linestyle='--')
     axs[1, 1].legend(loc='upper left', fontsize=9)
 
 
     # Plot 6: Current over time
     axs[1, 2].plot(time_vect, current_vect, color=colormap(0.7))
-    axs[1, 2].set_xlabel("Time [s]")
+    axs[1, 2].set_xlabel("Unix Timestamp [s]")
     axs[1, 2].set_ylabel("Current [A]", fontsize=11)
     axs[1, 2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[1, 2].grid(True)
     axs[1, 2].set_ylim(-config.HARD_MAX_CURRENT-40, config.HARD_MAX_CURRENT+40)
     axs[1, 2].set_xlim(t_start, t_max)
-    axs[1, 2].hlines(-config.HARD_MAX_CURRENT, xmin=0, xmax=t_max, color=colormap(0.3), linestyle='--', label='Upper/lower motor current limits')
-    axs[1, 2].hlines(config.HARD_MAX_CURRENT, xmin=0, xmax=t_max, color=colormap(0.3), linestyle='--')
+    axs[1, 2].hlines(-config.HARD_MAX_CURRENT, xmin=t_start, xmax=t_max, color=colormap(0.3), linestyle='--', label='Upper/lower motor current limits')
+    axs[1, 2].hlines(config.HARD_MAX_CURRENT, xmin=t_start, xmax=t_max, color=colormap(0.3), linestyle='--')
     axs[1, 2].legend(loc='upper left', fontsize=9)
 
 
@@ -195,7 +195,7 @@ def plot_data(csv_path):
     # Nothing
 
     # Plot 9: 
-    axs[2, 2].set_xlabel("Time [s]")
+    axs[2, 2].set_xlabel("Unix Timestamp [s]")
     axs[2, 2].set_xlim(t_start, t_max)
 
 

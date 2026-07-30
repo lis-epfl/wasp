@@ -366,16 +366,16 @@ class ArucoPipeline:
 
                 pose.update(
                     {
-                        "tvec_x [m]": float(tv[0]),
-                        "tvec_y [m]": float(tv[1]),
-                        "tvec_z [m]": float(tv[2]),
-                        "rvec_x [rad]": float(rv[0]),
-                        "rvec_y [rad]": float(rv[1]),
-                        "rvec_z [rad]": float(rv[2]),
-                        "qx": qx,
-                        "qy": qy,
-                        "qz": qz,
-                        "qw": qw,
+                        "tvec_x [m]": round(float(tv[0]), 3),
+                        "tvec_y [m]": round(float(tv[1]), 3),
+                        "tvec_z [m]": round(float(tv[2]), 3),
+                        "rvec_x [rad]": round(float(rv[0]), 3),
+                        "rvec_y [rad]": round(float(rv[1]), 3),
+                        "rvec_z [rad]": round(float(rv[2]), 3),
+                        "qx": round(qx, 3),
+                        "qy": round(qy, 3),
+                        "qz": round(qz, 3),
+                        "qw": round(qw, 3),
                     }
                 )
 

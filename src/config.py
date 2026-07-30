@@ -105,7 +105,7 @@ ARUCO_REAL_SIZE = 0.136                                 # size of the ArUco mark
 EXPOSURE_TIME_MIN = 29                                  # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 EXPOSURE_TIME_MAX = 250                                 # in microseconds (set 29 µs for outside, and 3000 µs for inside)
 ANALOGUE_GAIN = 1.0                                     # in dB
-SAVE_IMAGES = 1                                         # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
+SAVE_IMAGES = 0                                         # save images during operation (0, no images saved, 1 save raw images, 2 save process images, 3 save video stream)
 
 
 # Marker detection
@@ -151,7 +151,7 @@ LI550_MAPPING = {
 
 # Data logging
 CSV_COLUMNS = [
-    'Timestamp [s]',
+    'Unix Timestamp [s]',
     'Angular position [turns]',
     'Angular velocity [turns/s]',
     'Torque [Nm]',
@@ -176,5 +176,5 @@ CSV_COLUMNS = [
 ]
 
 CSV_WIND_COLUMNS = [
-    'Timestamp [s]',
+    'Unix Timestamp [s]',
 ] + list(LI550_MAPPING.values())

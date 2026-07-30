@@ -118,7 +118,7 @@ def log_motor_data(timestamp, angular_position, angular_velocity, torque, linear
     :returns: Dictionary containing motor data
     """
     return {
-        "Timestamp [s]": np.round(timestamp, 3),
+        "Unix Timestamp [s]": np.round(timestamp, 3),
         "Angular position [turns]": np.round(angular_position, 3),
         "Angular velocity [turns/s]": np.round(angular_velocity, 3),
         "Torque [Nm]": np.round(torque, 3),

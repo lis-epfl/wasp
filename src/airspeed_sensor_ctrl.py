@@ -20,7 +20,7 @@ def log_li550_data(ser):
         value = parts[i + 1]
         if tag in config.LI550_MAPPING:
             try:
-                li550_data[config.LI550_MAPPING[tag]] = float(value)
+                li550_data[config.LI550_MAPPING[tag]] = round(float(value), 3)
             except ValueError:
                 li550_data[config.LI550_MAPPING[tag]] = value
     return li550_data

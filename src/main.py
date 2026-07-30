@@ -247,7 +247,7 @@ def wind_sensor_reading(save_path, time_start_ref, restart_event):
             li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
             
             # Save data to CSV
-            row = {'Timestamp [s]': np.round(time.time() - time_start_ref, 3), **li550_data}
+            row = {'Unix Timestamp [s]': np.round(time.time(), 3), **li550_data}
             writer.writerow(row)   
             csv_file.flush()
 
@@ -691,7 +691,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                             camera_ctrl.set_exposure_manually(camera, exposure_time)
                         
                         # Save data to CSV
-                        motor_data = motor_ctrl.log_motor_data(time.time() - time_start_ref, angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
+                        motor_data = motor_ctrl.log_motor_data(time.time(), angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
                         row = {**motor_data, **ArUco_pose}
                         writer.writerow(row)   
                         csv_file.flush()

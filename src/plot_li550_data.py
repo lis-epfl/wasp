@@ -29,7 +29,7 @@ def plot_data(csv_path):
         for row in reader:
             try:
                 # Check that at least the timestamp can be parsed
-                float(row['Timestamp [s]'])  # raises ValueError if invalid
+                float(row['Unix Timestamp [s]'])  # raises ValueError if invalid
                 valid_data.append(row)
             except (ValueError, KeyError):
                 continue
@@ -56,7 +56,7 @@ def plot_data(csv_path):
             values = []
             for row in valid_data:
                 try:
-                    t = float(row['Timestamp [s]'])
+                    t = float(row['Unix Timestamp [s]'])
                     val = float(row[full_name])
                     timestamps.append(t)
                     values.append(val)
@@ -75,9 +75,9 @@ def plot_data(csv_path):
 
     # Set the x-axis labels only for the bottom row (indices 12 to 16)
     for i in range(12, 17):  # Avoid the last subplot
-        axs[i].set_xlabel("Time [s]")
+        axs[i].set_xlabel("Unix Timestamp [s]")
         try:
-            timestamps = [float(row['Timestamp [s]']) for row in valid_data]
+            timestamps = [float(row['Unix Timestamp [s]']) for row in valid_data]
             ticks = sorted(set(round(t, 1) for t in timestamps))
             ticks = ticks[::int(5 / config.DT_WIND)] if config.DT_WIND > 0 else ticks  # Avoid division by 0
             axs[i].set_xticks(ticks)
@@ -102,7 +102,7 @@ def create_video_from_data(csv_path):
         for row in reader:
             try:
                 # Ensure all required values exist and are valid floats
-                timestamp = float(row['Timestamp [s]'])
+                timestamp = float(row['Unix Timestamp [s]'])
                 u = float(row['U Vector [m/s]'])
                 v = float(row['V Vector [m/s]'])
                 w = float(row['W Vector [m/s]'])
