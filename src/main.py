@@ -14,6 +14,7 @@ import config
 import state_machine
 import leds_ctrl
 import motor_ctrl
+import servo_ctrl
 import camera_ctrl
 import airspeed_sensor_ctrl
 import plot_motor_data
@@ -334,6 +335,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     leds = leds_ctrl.leds_init()
     odrv = motor_ctrl.motor_init()
     camera = camera_ctrl.camera_init()
+    servo = servo_ctrl.servo_init()
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
@@ -369,6 +371,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_start_position = None
     take_off_i = None
     take_off_poss, take_off_vels = make_take_off_trajectory()
+    servo_release_time = None
 
     # Start video recording
     if config.SAVE_IMAGES == 3:
@@ -380,6 +383,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         try:
             while True:
                 time_start_while = time.time()
+
+                # Move the servo back to its start position (timed, as blocking would freeze the loop)
+                if (servo_release_time is not None) and (time_start_while - servo_release_time >= config.SERVO_HOLD_TIME):
+                    servo_ctrl.set_position(servo, config.SERVO_START_POSITION)
+                    servo_release_time = None
 
                 # Check if there is an error on the ODrive
                 if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
@@ -578,19 +586,25 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 estimated_UAV_pos = linear_position + tracking_error
                                 cnt_moving_blindly = 0
         
-                                if last_time_frame_captured is not None:
-                                    time_diff = time_frame_captured - last_time_frame_captured
+                                time_diff = None if last_time_frame_captured is None else time_frame_captured - last_time_frame_captured
 
-                                    estimated_UAV_vel = (estimated_UAV_pos - last_estimated_UAV_pos) / time_diff if time_diff > 0 else 0
-                                    estimated_UAV_vel = motor_ctrl.low_pass(estimated_UAV_vel, last_estimated_UAV_vel, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
+                                # A longer gap means we are re-acquiring the tag: differentiating across it
+                                # would average out everything that happened in between
+                                fresh_detection = (time_diff is not None) and (0 < time_diff <= config.MAX_TRACKING_TIME_GAP)
 
-                                    last_estimated_UAV_vel = estimated_UAV_vel
+                                if fresh_detection:
+                                    estimated_UAV_vel = (estimated_UAV_pos - last_estimated_UAV_pos) / time_diff
+                                    estimated_UAV_vel = motor_ctrl.low_pass(estimated_UAV_vel, last_estimated_UAV_vel, config.CUT_OFF_FREQUENCY_TRACKING, time_diff)
+                                else:
+                                    estimated_UAV_vel = last_estimated_UAV_vel
+
+                                last_estimated_UAV_vel = estimated_UAV_vel
 
                                 # v_tracking_error = 0.0 if last_tracking_error is None else (tracking_error - last_tracking_error) / (time_frame_captured - last_time_frame_captured)
-                                if (last_time_frame_captured is None) or (last_tracking_error is None) or (v_tracking_error is None) or (time_frame_captured == last_time_frame_captured):
-                                    v_tracking_error = 0.0
+                                if fresh_detection and (last_tracking_error is not None) and (v_tracking_error is not None):
+                                    v_tracking_error = motor_ctrl.low_pass((tracking_error - last_tracking_error) / time_diff, v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, time_diff)
                                 else:
-                                    v_tracking_error = motor_ctrl.low_pass((tracking_error - last_tracking_error) / (time_frame_captured - last_time_frame_captured), v_tracking_error, config.CUT_OFF_FREQUENCY_TRACKING, config.DT_MAIN)
+                                    v_tracking_error = 0.0
 
                                 last_time_frame_captured = time_frame_captured
                                 last_estimated_UAV_pos = estimated_UAV_pos
@@ -675,6 +689,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                         take_off_done = True # skip to the end
 
                                 else:
+                                    # Release the UAV at the end of the take-off maneuver
+                                    if not take_off_done:
+                                        servo_ctrl.set_position(servo, config.SERVO_END_POSITION)
+                                        servo_release_time = time.time()
+
                                     take_off_done = True
                                     state = config.STATE["TRACKING"]
                                     last_state = config.STATE["TAKE_OFF"]
@@ -732,6 +751,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
             leds.show()
 
     finally:
+        servo_ctrl.set_position(servo, config.SERVO_START_POSITION)
+        time.sleep(0.5)  # let the servo travel back before it stops being driven
+        servo_ctrl.servo_deinit(servo)
+
         if config.SAVE_IMAGES == 3:
             camera.stop_recording()
         csv_file.close()

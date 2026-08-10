@@ -50,8 +50,16 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 P_GAIN_VISION = 1.0
 D_GAIN_VISION = 0.5
 MAX_CNT_MOVING_BLINDLY = 1/DT_MAIN                      # number of iterations applying last detected position without any new detection
+MAX_TRACKING_TIME_GAP = 3*DT_MAIN                       # maximum time between two detections to still differentiate them, in seconds
 CUT_OFF_FREQUENCY_TRACKING = 5                          # in Hz
 CATCH_UP_GAIN = 1.0                                     # 3 working well with acc of 3 and max speed of 11
+
+
+# Servo
+SERVO_PIN = 16                                          # GPIO16
+SERVO_START_POSITION = -1.0                             # position held before and after the take-off release (-1.0 to 1.0)
+SERVO_END_POSITION = 1.0                                # position held during the take-off release (-1.0 to 1.0)
+SERVO_HOLD_TIME = 1.0                                   # time spent in the end position before moving back, in seconds
 
 
 # LEDs

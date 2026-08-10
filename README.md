@@ -62,7 +62,7 @@ Once fully assembled, the platform looks as follows:
    via SSH:
 
     ```bash
-    ssh lis@raspberrypi.local
+    ssh lis25@raspberrypi.local
     ```
 
     (Once the Raspberry Pi reconnects automatically to the same hotspot,
@@ -216,6 +216,15 @@ If the assisted takeoff duration appears incorrect, or if the ArUco detection be
 ### *Optional: Logging multiple runs*
 
 When the program is terminated, all recorded data are automatically saved as `.csv` files. If multiple runs are required without stopping the program, the calibration/reset wheel can be used to start a new log file. When not in calibration mode, turning the wheel to its minimum or maximum position will save the current dataset to `.csv` files and create new files for the upcoming run.
+
+
+### *Optional: Launching a drone*
+
+The WASP can also be used to launch a drone at a defined speed. To do so, print the launcher module (${\color{red} \text{add link to launcher module}}$) and use it to clip the drone into the WASP. The servo will then detach the drone at the end of the takeoff maneuver.
+
+<p align="center">
+  <img src="docs/launcher.gif" width="800">
+</p>
 
 
 ## Data Analysis

@@ -18,6 +18,7 @@ RPi.GPIO==0.7.1
 pigpio==1.78
 gpiozero==2.0.1
 rpi-lgpio==0.6
+lgpio==0.2.2.0
 
 # LEDs
 adafruit-circuitpython-neopixel==6.3.17
