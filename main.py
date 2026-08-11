@@ -10,6 +10,8 @@ import os, sys, time
 import serial
 import random
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+
 import config
 import state_machine
 import motor_ctrl

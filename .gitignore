@@ -1,5 +1,5 @@
 # Python cache
-src/__pycache__/
+__pycache__/
 
 # macOS system files
 .DS_Store
@@ -9,12 +9,15 @@ src/.DS_Store
 .venv/
 venv/
 venv_wasp/
+myenv/
 
 # Video files
 **/*.mp4
 
 # Local data/calibration/Figures files
 src/data/
+data/run_*/
+zipline_calib/
 src/zipline_calib/
 src/camera_calib/
 Figures/

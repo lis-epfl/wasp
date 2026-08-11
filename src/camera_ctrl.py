@@ -19,6 +19,8 @@ import cv2
 import re
 from pathlib import Path
 
+CALIB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'camera_calib')
+
 
 # =========================
 # Helpers
@@ -481,10 +483,10 @@ def calibrate_camera():
     print('Starting camera calibration...')
 
     # Base folders
-    unann_dir = 'camera_calib/calib_images/unannotated'
-    ann_dir = 'camera_calib/calib_images/annotated'
-    data_dir = 'camera_calib/calib_data'
-    result_dir = 'camera_calib/result'
+    unann_dir = os.path.join(CALIB_DIR, 'calib_images/unannotated')
+    ann_dir = os.path.join(CALIB_DIR, 'calib_images/annotated')
+    data_dir = os.path.join(CALIB_DIR, 'calib_data')
+    result_dir = os.path.join(CALIB_DIR, 'result')
     before_dir = os.path.join(result_dir, 'before')
     after_dir = os.path.join(result_dir, 'after')
 
@@ -637,7 +639,7 @@ def calibrate_camera():
 
 def generate_markers():
     """Generate and save an ArUco marker image."""
-    os.makedirs("camera_calib", exist_ok=True)
+    os.makedirs(CALIB_DIR, exist_ok=True)
     aruco_dict = cv.aruco.getPredefinedDictionary(config.ARUCO_DICT)
     marker = cv.aruco.generateImageMarker(aruco_dict, config.ARUCO_ID, config.ARUCO_PIXEL_SIZE)
 
@@ -646,13 +648,13 @@ def generate_markers():
     dict_str = dict_name[0] if dict_name else "UNKNOWN_DICT"
 
     filename = f"{dict_str}_ID_{config.ARUCO_ID}_SIZE_{config.ARUCO_PIXEL_SIZE}px.png"
-    cv.imwrite(os.path.join("camera_calib", filename), marker)
+    cv.imwrite(os.path.join(CALIB_DIR, filename), marker)
     print(f"Marker saved to camera_calib/{filename}")
 
 
 def load_calibration():
     """Load calibration (mtx, dist, image_size)."""
-    data = np.load('camera_calib/calib_data/calib_data.npz')
+    data = np.load(os.path.join(CALIB_DIR, 'calib_data/calib_data.npz'))
     return data['mtx'], data['dist'], tuple(data['image_size'])
 
 

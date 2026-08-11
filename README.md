@@ -79,12 +79,12 @@ extension for easier access to the Raspberry Pi files and code.
 the desired location. For the installation steps below, a wired
 internet connection is recommended if available. 
     ```
-    git clone https://github.com/your-username/safe-outdoor-flight.git
+    git clone https://github.com/your-username/wasp.git
     ```
 
 2. Navigate to the project directory, create a virtual environment, and activate it.
     ```
-    cd Documents/safe-outdoor-flight
+    cd Documents/wasp
     python -m venv venv
     source venv/bin/activate 
     ```
@@ -165,6 +165,35 @@ Place the WASP on the cable and run:
 python3 main.py
 ```
 When the program starts, the system enters calibration mode.
+
+
+### Optional: launch automatically at boot
+
+To have the WASP start on power-up (no laptop or SSH connection required), install the provided
+[`systemd`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) service. It opens a `tmux` session named `wasp`, activates the virtual environment and runs `main.py`, exactly as in the manual steps above:
+```bash
+sudo cp utils/wasp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now wasp
+```
+The service file assumes the user `lis25` and the repository at `/home/lis25/Documents/wasp`; adjust `User=`, `WorkingDirectory=`, `Environment=HOME=` and the `ExecStart` path if your setup differs.
+
+After SSH-ing into the WASP, attach to the running session to see the output and interact with it:
+```bash
+tmux -L wasp attach -t wasp
+```
+The `-L wasp` is required: the service runs its own `tmux` server on a separate socket, so that it stays independent of any `tmux` session you start by hand.
+Detach again with `Ctrl+b` then `d`, which leaves the program running. Pressing `Ctrl+c` inside the session stops the program but keeps the shell (with the virtual environment activated), so the final output remains readable.
+
+Useful commands:
+```bash
+sudo systemctl status wasp     # check whether it started
+sudo systemctl stop wasp       # stop the program and close the session
+sudo systemctl disable wasp    # do not start at boot anymore
+journalctl -u wasp -b          # startup log of the service itself
+```
+
+*If the ODrive, camera or airspeed sensor are not ready yet when the service starts, add a short delay by inserting `ExecStartPre=/bin/sleep 15` in the `[Service]` section.*
 
 
 
