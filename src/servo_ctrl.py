@@ -3,6 +3,8 @@ import numpy as np
 
 import config
 
+TRAVEL_TIME = 1.0   # time given to the servo to reach a position before the pulses are cut, in seconds
+
 
 def servo_init():
     """
@@ -45,6 +47,17 @@ def set_position(servo, position):
         return
 
     lgpio.tx_servo(servo, config.SERVO_PIN, position_to_pulse_width(position))
+
+
+def stop(servo):
+    """
+    Stop sending pulses without releasing the pin (the servo holds no torque but cannot jitter)
+    :param servo: GPIO chip handle
+    """
+    if servo is None:
+        return
+
+    lgpio.tx_servo(servo, config.SERVO_PIN, 0)
 
 
 def servo_deinit(servo):

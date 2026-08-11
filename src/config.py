@@ -56,9 +56,9 @@ CATCH_UP_GAIN = 1.0                                     # 3 working well with ac
 
 
 # Servo
-SERVO_PIN = 16                                          # GPIO16
+SERVO_PIN = 17                                          # GPIO
 SERVO_START_POSITION = -1.0                             # position held before and after the take-off release (-1.0 to 1.0)
-SERVO_END_POSITION = 1.0                                # position held during the take-off release (-1.0 to 1.0)
+SERVO_END_POSITION = -0.45                                # position held during the take-off release (-1.0 to 1.0)
 SERVO_HOLD_TIME = 1.0                                   # time spent in the end position before moving back, in seconds
 
 

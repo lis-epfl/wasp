@@ -85,8 +85,8 @@ internet connection is recommended if available.
 2. Navigate to the project directory, create a virtual environment, and activate it.
     ```
     cd Documents/safe-outdoor-flight
-    python -m venv myenv
-    source myenv/bin/activate 
+    python -m venv venv
+    source venv/bin/activate 
     ```
 
 3.	Install the project dependencies:

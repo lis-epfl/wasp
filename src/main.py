@@ -12,7 +12,6 @@ import random
 
 import config
 import state_machine
-import leds_ctrl
 import motor_ctrl
 import servo_ctrl
 import camera_ctrl
@@ -286,6 +285,10 @@ def make_take_off_trajectory():
 
 
 def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, shared_wheel_position, shared_knobl_value, shared_knobr_value, restart_event):
+    # Imported here and not at module level: it pulls in lgpio through blinka, and lgpio only
+    # generates servo pulses in the process that initialized it (the parent would break the servo)
+    import leds_ctrl
+
     # Initialize variable
     time_start_while = 0
     time_end_while = 0
@@ -336,6 +339,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     odrv = motor_ctrl.motor_init()
     camera = camera_ctrl.camera_init()
     servo = servo_ctrl.servo_init()
+    if servo is None:
+        print("WARNING: servo not available, the launcher will not release")
 
     # Try to load calibration data from today's file
     calibration_data = calibration_file_handling.load_calibration_data()
@@ -372,6 +377,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_i = None
     take_off_poss, take_off_vels = make_take_off_trajectory()
     servo_release_time = None
+    servo_position = config.SERVO_START_POSITION
+    servo_stop_time = time.time() + servo_ctrl.TRAVEL_TIME
 
     # Start video recording
     if config.SAVE_IMAGES == 3:
@@ -386,8 +393,16 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
 
                 # Move the servo back to its start position (timed, as blocking would freeze the loop)
                 if (servo_release_time is not None) and (time_start_while - servo_release_time >= config.SERVO_HOLD_TIME):
-                    servo_ctrl.set_position(servo, config.SERVO_START_POSITION)
+                    servo_position = config.SERVO_START_POSITION
+                    servo_ctrl.set_position(servo, servo_position)
                     servo_release_time = None
+                    servo_stop_time = time_start_while + servo_ctrl.TRAVEL_TIME
+                    print(f"Servo back to start position ({servo_position})")
+
+                # Stop the pulses once the servo has travelled, a servo that is not driven cannot jitter
+                if (servo_stop_time is not None) and (time_start_while >= servo_stop_time):
+                    servo_ctrl.stop(servo)
+                    servo_stop_time = None
 
                 # Check if there is an error on the ODrive
                 if (odrv.axis0.active_errors != 0 or (odrv.axis0.disarm_reason != 0)):
@@ -677,6 +692,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 
                                 # timed take off
                                 elif (abs(linear_velocity) <= knobl_value * config.MAX_SPEED) & (not take_off_done):
+                                    print(f"TAKE_OFF accelerating: {abs(linear_velocity):.2f} / {knobl_value * config.MAX_SPEED:.2f} m/s")
                                     cnt_moving_blindly = 0
                                     last_estimated_UAV_vel = linear_velocity
                                     if take_off_direction == "FORWARD":
@@ -691,8 +707,11 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     # Release the UAV at the end of the take-off maneuver
                                     if not take_off_done:
-                                        servo_ctrl.set_position(servo, config.SERVO_END_POSITION)
+                                        servo_position = config.SERVO_END_POSITION
+                                        servo_ctrl.set_position(servo, servo_position)
                                         servo_release_time = time.time()
+                                        servo_stop_time = None
+                                        print(f"Servo release ({servo_position}) at {abs(linear_velocity):.2f} m/s")
 
                                     take_off_done = True
                                     state = config.STATE["TRACKING"]
