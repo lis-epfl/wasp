@@ -14,6 +14,7 @@ DT_WIND = 0.1                                           # execution period for v
 DT_RC = 0.01
 ENABLE_WIND_SENSING = True
 RESTART_HOLD_TIME = 5.0                                 # time to hold the button to restart the program, in seconds
+SHUTDOWN_TIMEOUT = 60.0                                 # time given to the processes to close their files and plot their data before they get terminated, in seconds
 
 # Battery
 NB_CELLS = 8                                            # number of cells in the battery
@@ -49,8 +50,8 @@ ZIPLINE_LENGTH_CALIB = 1500                             # in meters
 # Tracking
 P_GAIN_VISION = 1.0
 D_GAIN_VISION = 0.5
-MAX_CNT_MOVING_BLINDLY = 1/DT_MAIN                      # number of iterations applying last detected position without any new detection
-MAX_TRACKING_TIME_GAP = 3*DT_MAIN                       # maximum time between two detections to still differentiate them, in seconds
+MAX_CNT_MOVING_BLINDLY = 2/DT_MAIN                      # number of iterations applying last detected position without any new detection
+MAX_TRACKING_TIME_GAP = 5*DT_MAIN                       # maximum time between two detections to still differentiate them, in seconds
 CUT_OFF_FREQUENCY_TRACKING = 5                          # in Hz
 CATCH_UP_GAIN = 1.0                                     # 3 working well with acc of 3 and max speed of 11
 
@@ -60,6 +61,7 @@ SERVO_PIN = 17                                          # GPIO
 SERVO_START_POSITION = -1.0                             # position held before and after the take-off release (-1.0 to 1.0)
 SERVO_END_POSITION = -0.45                                # position held during the take-off release (-1.0 to 1.0)
 SERVO_HOLD_TIME = 1.0                                   # time spent in the end position before moving back, in seconds
+SERVO_RELEASE_DELAY = 0.05                              # time between the release command and the latch actually opening, in seconds (MEASURE THIS, it is compensated for at take-off)
 
 
 # LEDs
@@ -82,6 +84,8 @@ KNOBR_PIN = 27                                          # GPIO27
 PWM_MIN_PULSE_WIDTH = 1050                              # in µs
 PWM_DEFAULT_PULSE_WIDTH = 1500                          # in µs
 PWM_MAX_PULSE_WIDTH = 1950                              # in µs
+KNOB_MEDIAN_WINDOW = 5                                  # samples of the running median rejecting outliers on the knob readings (at DT_RC, so 50 ms)
+CUT_OFF_FREQUENCY_KNOB = 4.0                            # in Hz, low pass on the knob readings after the median (0.75 s to follow a knob being turned, 6x quieter than needed)
 GO_STOP_THRESHOLD = 200                                 # in µs
 BUTTON_TOGGLE_THRESHOLD = 200                           # in µs
 CALIB_SETPOINTS_THRESHOLD = 300                         # in µs
@@ -128,6 +132,11 @@ RES_DROP_PRE = 1.0                                      # resolution drop factor
 UNDISTORT = True                                        # set False to work in distorted (raw) domain
 STARTING_OFFSET = 0.0                                   # starting offset applied at the beginning and end of the zipeline, in meters
 TAKE_OFF_POSITION_THRESHOLD = 0.2                       # percentage of the zipline length defining the take-off zones at each end of the zipline
+TAKE_OFF_ACCELERATION = 7.0                             # in m/s^2, fallback acceleration used to predict the release moment before the run provides a live estimate
+TAKE_OFF_MAX_ACCELERATION = 1.5*ACCELERATION            # in m/s^2, clamp on the live acceleration estimate (the ODrive cannot exceed its own trajectory limit by much)
+TAKE_OFF_ACC_MEDIAN_WINDOW = 3                          # samples of the running median on the acceleration estimate, so one bad sample cannot trigger an early release
+CUT_OFF_FREQUENCY_TAKE_OFF = 10                         # in Hz, low pass on the acceleration estimate after the median
+TAKE_OFF_PRECISE_RELEASE = True                         # sleep the remainder of the loop period to hit the release speed exactly (blocks the main loop for at most DT_MAIN, once per take-off)
 
 
 # Wind sensor

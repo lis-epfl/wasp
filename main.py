@@ -1,4 +1,5 @@
 import csv
+from collections import deque
 from pathlib import Path
 from multiprocessing import Process, Value, Event
 import gpiod
@@ -82,16 +83,20 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
             target_speed = 0.0
             knobl_value = 0.0
             knobr_value = 0.0
+            knobs_initialized = False
+            knobl_history = deque(maxlen=config.KNOB_MEDIAN_WINDOW)
+            knobr_history = deque(maxlen=config.KNOB_MEDIAN_WINDOW)
+            last_t0 = None
 
             # Button initialization to detect the toggled position relative to startup
             initial_button_pulse = 0.0
             button_initialized = False
             button_in_default_position = True
 
-            take_off_armed = False
-
             while not restart_event.is_set():
                 t0 = time.time()
+                dt_rc = config.DT_RC if last_t0 is None else t0 - last_t0
+                last_t0 = t0
 
                 # Wait for events (1s timeout each) and update all channels in a loop
                 for key in ("throttle", "button", "steering", "switch", "knobl", "knobr"):
@@ -151,11 +156,9 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
                         remote_command = 3
                         target_speed = 0.0
 
-                        # Take off mode
-                        if sw.pulse > config.PWM_MAX_PULSE_WIDTH:
-                            take_off_armed = True
-
-                        if sw.pulse < config.PWM_MIN_PULSE_WIDTH and take_off_armed:
+                        # Take off mode: the switch on its low end, tracking having been entered
+                        # by toggling the button (either order works)
+                        if sw.pulse < config.PWM_MIN_PULSE_WIDTH:
                             remote_command = 4
 
                         # Safety: stop if button is toggled or not in default position
@@ -165,7 +168,6 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
                             # require a toggle to resume tracking
                             initial_button_pulse = bt.pulse
                     else:
-                        take_off_armed = False
                         # Manual mode
                         if not button_in_default_position:
                             remote_command = 3
@@ -191,11 +193,29 @@ def rc_receiver_reading(shared_remote_command, shared_target_speed, shared_wheel
                         wheel_position = 0  # no setpoint
 
                     # Knob values (0.0 to 1.0)
-                    knobl_value = (kl.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
-                    knobr_value = (kr.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
+                    knobl_raw = (kl.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
+                    knobr_raw = (kr.pulse - config.PWM_MIN_PULSE_WIDTH) / (config.PWM_MAX_PULSE_WIDTH - config.PWM_MIN_PULSE_WIDTH)
 
-                    knobl_value = np.clip(knobl_value, 0.0, 1.0)
-                    knobr_value = np.clip(knobr_value, 0.0, 1.0)
+                    knobl_raw = np.clip(knobl_raw, 0.0, 1.0)
+                    knobr_raw = np.clip(knobr_raw, 0.0, 1.0)
+
+                    # The knobs are static analog inputs, but the measured pulse widths carry a few µs
+                    # of jitter with the odd 40 µs outlier (~0.6 m/s on the take-off release threshold,
+                    # which is knobl * MAX_SPEED). The median rejects the outliers, the low pass smooths
+                    # what is left; both are far quicker than a hand can turn a knob.
+                    knobl_history.append(knobl_raw)
+                    knobr_history.append(knobr_raw)
+                    knobl_median = float(np.median(knobl_history))
+                    knobr_median = float(np.median(knobr_history))
+
+                    if not knobs_initialized:
+                        # Start on the first reading, otherwise the filter ramps up from 0.0
+                        knobl_value = knobl_median
+                        knobr_value = knobr_median
+                        knobs_initialized = True
+                    else:
+                        knobl_value = motor_ctrl.low_pass(knobl_median, knobl_value, config.CUT_OFF_FREQUENCY_KNOB, dt_rc)
+                        knobr_value = motor_ctrl.low_pass(knobr_median, knobr_value, config.CUT_OFF_FREQUENCY_KNOB, dt_rc)
 
                 last_remote_command = remote_command
 
@@ -239,19 +259,18 @@ def wind_sensor_reading(save_path, time_start_ref, restart_event):
     csv_file = open(csv_path, 'w', newline='')
     writer = csv.DictWriter(csv_file, fieldnames=config.CSV_WIND_COLUMNS)
     writer.writeheader()
- 
+
     try:
-        ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=1)
+        ser = serial.Serial(config.SERIAL_PORT_LI550, config.BAUD_RATE_LI550, timeout=0.05)  # short: log_li550_data's read(4096) shouldn't block the loop for long
         while not restart_event.is_set():
             time_start_while = time.time()
-            
+
             # Read data from LI550
             li550_data = airspeed_sensor_ctrl.log_li550_data(ser)
-            
-            # Save data to CSV
+
+            # Save data to CSV (close() below flushes the buffer on exit, so nothing is lost on a clean stop)
             row = {'Unix Timestamp [s]': np.round(time.time(), 3), **li550_data}
-            writer.writerow(row)   
-            csv_file.flush()
+            writer.writerow(row)
 
             # Sleep to respect the desired loop time
             time_end_while = time.time()
@@ -320,6 +339,7 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     zipline_length = 0
     zipline_start = 0
     zipline_end = 0
+    last_wheel_position = 0
 
     restart_counter = 0
 
@@ -351,8 +371,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
         zipline_end_set = True # Skip setting the end of the zipline in the calibration mode
         zipline_length_loaded = True
         print(f"Using saved calibration: length={zipline_length:.2f}m")
-        leds_ctrl.leds_show_setpoint_calibration(leds) 
-        time.sleep(5)  # Signal that we've loaded calibration
 
     # Motor settings for calibration
     odrv.axis0.pos_estimate = motor_ctrl.linear_to_angular(-config.INITIAL_MOTOR_POS_CALIB)
@@ -377,6 +395,10 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
     take_off_direction = None
     take_off_start_position = None
     take_off_i = None
+    take_off_acc = config.TAKE_OFF_ACCELERATION
+    take_off_acc_history = deque(maxlen=config.TAKE_OFF_ACC_MEDIAN_WINDOW)
+    take_off_last_vel = None
+    take_off_last_time = None
     take_off_poss, take_off_vels = make_take_off_trajectory()
     servo_release_time = None
     servo_position = config.SERVO_START_POSITION
@@ -466,18 +488,21 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         # Display the calibration mode with LEDs
                         leds_off_before = leds_ctrl.leds_set_color_calibration(leds, leds_off_before)
                         
-                        # Setting the end of the zipline
-                        if (wheel_position == 2) and not zipline_end_set:
+                        # Setting the end of the zipline (on the wheel moving into the end setpoint,
+                        # so that the end can be set again to trigger a new measurement)
+                        if (wheel_position == 2) and (last_wheel_position != 2):
                             zipline_end = linear_position
                             zipline_end_set = True
+                            zipline_length_loaded = False # A newly set end overrides the loaded length
                             print(f"Zipline end set: {zipline_end:.2f} m")
                             leds_ctrl.leds_show_setpoint_calibration(leds)
-                            time.sleep(3)  # Signal that we've set the end of the line
+                            time.sleep(1)  # Hold the purple light to confirm the end was registered
                         
                         # Setting the start of the zipline
-                        if (wheel_position == 1) and zipline_end_set:
-                            if (not zipline_length_loaded) and (zipline_start != zipline_end):
-                                # If there is no calibration data, compute the zipline length from the start and end positions
+                        if (wheel_position == 1) and (last_wheel_position != 1) and zipline_end_set:
+                            if not zipline_length_loaded:
+                                # If the end was set in this run, compute the zipline length from the start and end
+                                # positions. Otherwise keep the length loaded from the calibration file.
                                 zipline_start = linear_position
                                 zipline_length = zipline_end - zipline_start
 
@@ -502,7 +527,9 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 calibration_file_handling.save_calibration_data(zipline_length)
                                 print(f"Calibration done: zipline length: {zipline_length:.2f} m")
                                 leds_ctrl.leds_show_setpoint_calibration(leds)
-                                time.sleep(3)  # Reduced wait time 
+                                time.sleep(1)  # Hold the purple light to confirm the start was registered
+
+                        last_wheel_position = wheel_position
 
                         # Desired velocity based on the remote command
                         vel_ref = target_speed_m_s
@@ -675,7 +702,46 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     else:
                                         take_off_direction = None
                                     take_off_start_position = linear_position
-                                
+                                    take_off_acc = config.TAKE_OFF_ACCELERATION
+                                    take_off_acc_history.clear()
+                                    take_off_last_vel = None
+                                    take_off_last_time = None
+
+                                # Acceleration of this run, estimated live because the trapezoidal profile
+                                # does not hold a constant value. Clamped at 0 to ignore the reversal at the
+                                # start of the run (the cart is still rolling backwards out of the last
+                                # sync-up leg) and low passed to take the edge off differentiating at DT_MAIN.
+                                # The median matters more than it looks: the estimate sets how far ahead the
+                                # release fires, so one short dt or one bad velocity sample would otherwise
+                                # let a spuriously high value release the UAV a metre per second early.
+                                if (take_off_last_time is not None) and (time_position_measured > take_off_last_time):
+                                    dt_take_off = time_position_measured - take_off_last_time
+                                    take_off_acc_history.append(np.clip((abs(linear_velocity) - take_off_last_vel) / dt_take_off, 0.0, config.TAKE_OFF_MAX_ACCELERATION))
+                                    take_off_acc = motor_ctrl.low_pass(float(np.median(take_off_acc_history)), take_off_acc, config.CUT_OFF_FREQUENCY_TAKE_OFF, dt_take_off)
+                                take_off_last_vel = abs(linear_velocity)
+                                take_off_last_time = time_position_measured
+
+                                # When to command the servo so the latch opens at the requested speed.
+                                # linear_velocity was measured at the top of the loop and the camera capture
+                                # and ArUco pipeline ran in between, so extrapolate it to now, then work out
+                                # how long until the cart reaches the target and subtract the latch's own
+                                # opening time.
+                                take_off_speed_target = knobl_value * config.MAX_SPEED
+                                time_now = time.time()
+                                take_off_velocity = abs(linear_velocity) + take_off_acc*(time_now - time_position_measured)
+                                if take_off_acc > 0.1:
+                                    time_to_release = (take_off_speed_target - take_off_velocity)/take_off_acc - config.SERVO_RELEASE_DELAY
+                                else:
+                                    # Not accelerating (yet): fall back to a plain comparison so a stalled
+                                    # run cannot divide by ~0 and release on the spot.
+                                    time_to_release = 0.0 if take_off_velocity >= take_off_speed_target else np.inf
+
+                                # The cart gains ~0.7 m/s per loop, so the release moment almost never lands
+                                # on an iteration boundary. Fire on the last iteration before it passes:
+                                # with TAKE_OFF_PRECISE_RELEASE the remainder is slept off below, without it
+                                # the half period centres the error instead of always overshooting.
+                                take_off_release_due = time_to_release <= (config.DT_MAIN if config.TAKE_OFF_PRECISE_RELEASE else config.DT_MAIN/2)
+
                                 # trajectory that allows user to sync up
                                 if take_off_i < len(take_off_poss):
                                     if take_off_direction == "FORWARD":
@@ -693,8 +759,8 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                     take_off_done = False
                                 
                                 # timed take off
-                                elif (abs(linear_velocity) <= knobl_value * config.MAX_SPEED) & (not take_off_done):
-                                    print(f"TAKE_OFF accelerating: {abs(linear_velocity):.2f} / {knobl_value * config.MAX_SPEED:.2f} m/s")
+                                elif (not take_off_release_due) and (not take_off_done):
+                                    print(f"TAKE_OFF accelerating: {take_off_velocity:.2f} / {take_off_speed_target:.2f} m/s  (a={take_off_acc:.1f} m/s², release in {time_to_release:.3f} s)")
                                     cnt_moving_blindly = 0
                                     last_estimated_UAV_vel = linear_velocity
                                     if take_off_direction == "FORWARD":
@@ -709,11 +775,21 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                                 else:
                                     # Release the UAV at the end of the take-off maneuver
                                     if not take_off_done:
+                                        # Wait out the fraction of a loop period left before the cart is at
+                                        # the requested speed, so the latch opens on it rather than at the
+                                        # next iteration boundary. Bounded by one loop period and run once
+                                        # per take-off; the ODrive keeps executing its trajectory throughout.
+                                        if config.TAKE_OFF_PRECISE_RELEASE:
+                                            wait_before_release = np.clip(time_now + time_to_release - time.time(), 0.0, config.DT_MAIN)
+                                            if wait_before_release > 0:
+                                                time.sleep(wait_before_release)
+
                                         servo_position = config.SERVO_END_POSITION
                                         servo_ctrl.set_position(servo, servo_position)
                                         servo_release_time = time.time()
                                         servo_stop_time = None
-                                        print(f"Servo release ({servo_position}) at {abs(linear_velocity):.2f} m/s")
+                                        expected_release_velocity = take_off_velocity + take_off_acc*(servo_release_time + config.SERVO_RELEASE_DELAY - time_now)
+                                        print(f"Servo release ({servo_position}) commanded at {take_off_velocity:.2f} m/s, latch expected to open at {expected_release_velocity:.2f} / {take_off_speed_target:.2f} m/s")
 
                                     take_off_done = True
                                     state = config.STATE["TRACKING"]
@@ -734,7 +810,6 @@ def main(save_path, time_start_ref, shared_remote_command, shared_target_speed, 
                         motor_data = motor_ctrl.log_motor_data(time.time(), angular_position, angular_velocity, torque, linear_position, linear_velocity, tracking_error, voltage, current, x_ref, estimated_UAV_pos, estimated_UAV_vel, vel_ref)
                         row = {**motor_data, **ArUco_pose}
                         writer.writerow(row)   
-                        csv_file.flush()
 
                         # Print current state
                         offset_str = "N/A" if tracking_error is None else f"{tracking_error:.2f} m"
@@ -841,17 +916,27 @@ if __name__ == "__main__":
     for p in procs:
         p.start()
 
+    def shutdown_children():
+        """
+        Wait for the children to run their own shutdown (closing the CSVs, plotting the data),
+        which is why they are joined rather than terminated straight away. Terminating them
+        0.5 s into a restart is what used to skip the plots.
+        """
+        deadline = time.time() + config.SHUTDOWN_TIMEOUT
+        for p in procs:
+            p.join(timeout=max(0.0, deadline - time.time()))
+        for p in procs:
+            if p.is_alive():
+                print(f"{p.name} did not exit in time, terminating.")
+                p.terminate()
+        for p in procs:
+            p.join()
+
     # Parent supervisor loop: if restart requested, re-exec the script
     try:
         while any(p.is_alive() for p in procs):
             if restart_event.is_set():
-                # Give children a moment to exit gracefully
-                time.sleep(0.5)
-                for p in procs:
-                    if p.is_alive():
-                        p.terminate()
-                for p in procs:
-                    p.join()
+                shutdown_children()
 
                 # Re-exec the current Python process (fresh run, new save_path, etc.)
                 os.execv(sys.executable, [sys.executable] + sys.argv)
@@ -862,12 +947,5 @@ if __name__ == "__main__":
         sys.exit(0)
 
     except KeyboardInterrupt:
-        for p in procs:
-            p.join(timeout=20)
-        for p in procs:
-            if p.is_alive():
-                print(f"{p.name} did not exit in time, terminating.")
-                p.terminate()
-        for p in procs:
-            p.join()
+        shutdown_children()
         sys.exit(0)

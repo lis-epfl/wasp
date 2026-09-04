@@ -16,7 +16,7 @@ myenv/
 
 # Local data/calibration/Figures files
 src/data/
-data/run_*/
+data/
 zipline_calib/
 src/zipline_calib/
 src/camera_calib/

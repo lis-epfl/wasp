@@ -136,7 +136,7 @@ def quat_xyzw_to_euler_zyx_deg(qx: float, qy: float, qz: float, qw: float) -> tu
 class Undistorter:
     """
     Build once per (K, dist, raw_size[, new_size, alpha]).
-    - undistort(): returns an undistorted BGR image of size new_size
+    - undistort(): returns an undistorted image of size new_size (any channel count)
     - K_new: intrinsics in undistorted domain
     - dist_zero: zeros for undistorted geometry
     """
@@ -149,14 +149,17 @@ class Undistorter:
         self.K_new, self.roi = cv.getOptimalNewCameraMatrix(
             self.K, self.dist, self.raw_size, alpha, self.new_size
         )
-        self.map1, self.map2 = cv.initUndistortRectifyMap(
+        map1, map2 = cv.initUndistortRectifyMap(
             self.K, self.dist, np.eye(3, dtype=np.float32), self.K_new,
             self.new_size, cv.CV_32FC1
         )
+        # Fixed-point maps: remap's fast path, ~25 % quicker than the float ones. The sampling
+        # grid is quantised to 1/32 px, which is well below the corner accuracy ArUco gets anyway.
+        self.map1, self.map2 = cv.convertMaps(map1, map2, cv.CV_16SC2)
         self.dist_zero = np.zeros_like(self.dist, dtype=np.float32)
 
-    def undistort(self, frame_bgr):
-        return cv.remap(frame_bgr, self.map1, self.map2, interpolation=cv.INTER_LINEAR)
+    def undistort(self, frame):
+        return cv.remap(frame, self.map1, self.map2, interpolation=cv.INTER_LINEAR)
 
 
 # =========================
@@ -262,8 +265,7 @@ class ArucoPipeline:
 
     # ---------- UNDISTORTED path ----------
 
-    def _prep_undistorted_gray_and_K(self, undist_bgr):
-        gray = cv.cvtColor(undist_bgr, cv.COLOR_BGR2GRAY)
+    def _prep_undistorted_gray_and_K(self, gray):
         K_work = self.undistorter.K_new.copy()
         dist_work = self.undistorter.dist_zero
 
@@ -300,8 +302,11 @@ class ArucoPipeline:
 
         if getattr(config, "UNDISTORT", True):
             self._ensure_undistorter(frame_bgr)
-            undist_bgr = self.undistorter.undistort(frame_bgr)
-            gray, K_work, dist_work = self._prep_undistorted_gray_and_K(undist_bgr)
+            # Undistort in grayscale rather than in colour: remapping one channel instead of three
+            # is ~3x cheaper, and the result is the same either way because the BGR->gray weighted
+            # sum and the bilinear interpolation are both linear, so they commute (to a rounding LSB).
+            undist_gray = self.undistorter.undistort(cv.cvtColor(frame_bgr, cv.COLOR_BGR2GRAY))
+            gray, K_work, dist_work = self._prep_undistorted_gray_and_K(undist_gray)
         else:
             gray, K_work, dist_work = self._prep_distorted_gray_and_K(frame_bgr)
 
